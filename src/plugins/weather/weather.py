@@ -10,6 +10,21 @@ from io import BytesIO
 import math
 
 logger = logging.getLogger(__name__)
+
+# --- Lokalisierte (DE) Datums-/Wochentagsdarstellung ---
+WEEKDAYS_SHORT_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+WEEKDAYS_FULL_DE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+MONTHS_FULL_DE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]
+
+def format_date_de(dt: datetime) -> str:
+    """Format date as e.g. 'Samstag, 03. Januar' (German)."""
+    wd = WEEKDAYS_FULL_DE[dt.weekday()]
+    month = MONTHS_FULL_DE[dt.month - 1]
+    return f"{wd}, {dt.day:02d}. {month}"
+
+def format_weekday_short_de(dt: datetime) -> str:
+    """Format weekday as e.g. 'Di' (German)."""
+    return WEEKDAYS_SHORT_DE[dt.weekday()]
         
 def get_moon_phase_name(phase_age: float) -> str:
     """Determines the name of the lunar phase based on the age of the moon."""
@@ -146,7 +161,7 @@ class Weather(BasePlugin):
             if current_icon.endswith('n'):
                 current_icon = current_icon.replace("n", "d")
         data = {
-            "current_date": dt.strftime("%A, %B %d"),
+            "current_date": format_date_de(dt),
             "current_day_icon": self.get_plugin_dir(f'icons/{current_icon}.png'),
             "current_temperature": str(round(current.get("temp"))),
             "feels_like": str(round(current.get("feels_like"))),
@@ -168,7 +183,7 @@ class Weather(BasePlugin):
         current_icon = self.map_weather_code_to_icon(weather_code, is_day)
 
         data = {
-            "current_date": dt.strftime("%A, %B %d"),
+            "current_date": format_date_de(dt),
             "current_day_icon": self.get_plugin_dir(f'icons/{current_icon}.png'),
             "current_temperature": str(round(current.get("temperature", 0))),
             "feels_like": str(round(current.get("apparent_temperature", current.get("temperature", 0)))),
@@ -303,7 +318,7 @@ class Weather(BasePlugin):
 
             # --- date & temps ---
             dt = datetime.fromtimestamp(day["dt"], tz=timezone.utc).astimezone(tz)
-            day_label = dt.strftime("%a")
+            day_label = format_weekday_short_de(dt)
 
             forecast.append(
                 {
@@ -331,7 +346,7 @@ class Weather(BasePlugin):
 
         for i in range(0, len(times)): 
             dt = datetime.fromisoformat(times[i]).replace(tzinfo=timezone.utc).astimezone(tz)
-            day_label = dt.strftime("%a")
+            day_label = format_weekday_short_de(dt)
 
             code = weather_codes[i] if i < len(weather_codes) else 0
             weather_icon = self.map_weather_code_to_icon(code, is_day)
