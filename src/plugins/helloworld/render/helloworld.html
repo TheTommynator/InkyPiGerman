@@ -1,46 +1,68 @@
 {% extends "plugin.html" %}
 
 {% block content %}
-<div class="hw-root">
-
-  {% if title %}
+<div class="hw-root {% if layout == 'infoboard' %}hw-infoboard{% else %}hw-center{% endif %}">
   <div
-    id="hw-title"
+    class="hw-panel"
+    id="hw-panel"
     style="
-      color: {{ title_color }};
-      font-size: {{ title_size }}px;
-      text-align: center;
-      font-weight: 600;
-      margin-bottom: 16px;
+      {% if panel_bg != 'none' %}background: {{ panel_bg }};{% endif %}
+      {% if frame != 'none' %}
+        border: {% if frame == 'thick' %}10px{% else %}4px{% endif %} solid {{ frame_color }};
+      {% endif %}
     "
   >
-    {{ title }}
-  </div>
-  {% endif %}
+    {% if title %}
+    <div
+      id="hw-title"
+      style="
+        color: {{ title_color }};
+        font-size: {{ title_size }}px;
+        font-family: '{{ title_font }}';
+        text-align: {{ title_align }};
+        font-weight: 700;
+      "
+      class="hw-title"
+    >
+      {{ title }}
+    </div>
+    {% endif %}
 
-  <div
-    id="hw-text"
-    style="
-      color: {{ text_color }};
-      font-size: {{ font_size }}px;
-      text-align: center;
-      line-height: 1.2;
-    "
-  >
-    {{ text | safe }}
+    <div
+      id="hw-text"
+      style="
+        color: {{ text_color }};
+        font-size: {{ font_size }}px;
+        font-family: '{{ text_font }}';
+        text-align: {{ text_align }};
+      "
+      class="hw-text"
+    >
+      {{ text }}
+    </div>
   </div>
-
 </div>
 
 {% if auto_fit %}
 <script>
 (function () {
+  const panel = document.getElementById('hw-panel');
+  const titleEl = document.getElementById('hw-title');
   const textEl = document.getElementById('hw-text');
+
+  if (!textEl) return;
+
   let size = {{ font_size }};
-  while (
-    textEl.scrollHeight > textEl.parentElement.clientHeight &&
-    size > 16
-  ) {
+  const minSize = {{ min_font_size }};
+
+  function fits() {
+    // Wir prüfen, ob der Text in den Panel passt (mit Titel zusammen)
+    return panel.scrollHeight <= panel.clientHeight && panel.scrollWidth <= panel.clientWidth;
+  }
+
+  // Reduziere nur den Body-Text, Titel bleibt stabil
+  let guard = 600;
+  while (!fits() && size > minSize && guard-- > 0) {
     size -= 2;
     textEl.style.fontSize = size + 'px';
   }

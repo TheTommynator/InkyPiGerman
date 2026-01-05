@@ -1,12 +1,53 @@
 <div class="form-group">
+  <label class="form-label" for="preset">Preset:</label>
+  <select id="preset" name="preset" class="form-input">
+    <option value="custom" selected>Benutzerdefiniert</option>
+    <option value="hint">Hinweis</option>
+    <option value="alarm">Alarm</option>
+    <option value="info">Info</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="layout">Layout:</label>
+  <select id="layout" name="layout" class="form-input">
+    <option value="center" selected>Zentriert (Standard)</option>
+    <option value="infoboard">Infotafel-Look</option>
+  </select>
+</div>
+
+<hr />
+
+<div class="form-group">
   <label class="form-label" for="title">Überschrift:</label>
-  <input id="title" name="title" class="form-input" type="text" placeholder="Hallo 👋" />
+  <input id="title" name="title" class="form-input" type="text" placeholder="Hinweis" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="title_font">Überschrift-Schriftart:</label>
+  <select id="title_font" name="title_font" class="form-input">
+    <option value="Inter" selected>Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+    <option value="Times New Roman">Times New Roman</option>
+    <option value="Courier New">Courier New</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="title_align">Überschrift-Ausrichtung:</label>
+  <select id="title_align" name="title_align" class="form-input">
+    <option value="left">Links</option>
+    <option value="center" selected>Zentriert</option>
+    <option value="right">Rechts</option>
+  </select>
 </div>
 
 <div class="form-group">
   <label class="form-label" for="title_color">Überschrift-Farbe:</label>
   <select id="title_color" name="title_color" class="form-input">
-    <option value="#000000">Schwarz</option>
+    <option value="#000000" selected>Schwarz</option>
     <option value="#FFFFFF">Weiß</option>
     <option value="#FF0000">Rot</option>
     <option value="#FFFF00">Gelb</option>
@@ -18,26 +59,41 @@
 
 <div class="form-group">
   <label class="form-label" for="title_size">Überschrift-Größe (px):</label>
-  <input id="title_size" name="title_size" class="form-input" type="number" value="96" />
+  <input id="title_size" name="title_size" class="form-input" type="number" min="20" max="200" value="96" />
 </div>
 
 <hr />
 
 <div class="form-group">
   <label class="form-label" for="text">Text (mehrzeilig):</label>
-  <textarea
-    id="text"
-    name="text"
-    class="form-input"
-    rows="5"
-    placeholder="Mehrzeiliger Text&#10;Zeile 2&#10;Zeile 3"
-  ></textarea>
+  <textarea id="text" name="text" class="form-input" rows="6" placeholder="Mehrzeiliger Text&#10;Zeile 2"></textarea>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="text_font">Text-Schriftart:</label>
+  <select id="text_font" name="text_font" class="form-input">
+    <option value="Inter" selected>Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+    <option value="Times New Roman">Times New Roman</option>
+    <option value="Courier New">Courier New</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="text_align">Text-Ausrichtung:</label>
+  <select id="text_align" name="text_align" class="form-input">
+    <option value="left">Links</option>
+    <option value="center" selected>Zentriert</option>
+    <option value="right">Rechts</option>
+  </select>
 </div>
 
 <div class="form-group">
   <label class="form-label" for="text_color">Textfarbe:</label>
   <select id="text_color" name="text_color" class="form-input">
-    <option value="#000000">Schwarz</option>
+    <option value="#000000" selected>Schwarz</option>
     <option value="#FFFFFF">Weiß</option>
     <option value="#FF0000">Rot</option>
     <option value="#FFFF00">Gelb</option>
@@ -49,26 +105,86 @@
 
 <div class="form-group">
   <label class="form-label" for="font_size">Textgröße (Max, px):</label>
-  <input id="font_size" name="font_size" class="form-input" type="number" value="48" />
+  <input id="font_size" name="font_size" class="form-input" type="number" min="12" max="160" value="56" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="min_font_size">Textgröße (Min, px):</label>
+  <input id="min_font_size" name="min_font_size" class="form-input" type="number" min="10" max="120" value="18" />
 </div>
 
 <div class="form-group">
   <input type="checkbox" id="auto_fit" name="auto_fit" />
-  <label for="auto_fit">Text automatisch anpassen</label>
+  <label for="auto_fit">Auto-Fit (Text)</label>
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label class="form-label" for="panel_bg">Panel-Hintergrund:</label>
+  <select id="panel_bg" name="panel_bg" class="form-input">
+    <option value="none" selected>Keiner (transparent)</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#000000">Schwarz</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="frame">Rahmen:</label>
+  <select id="frame" name="frame" class="form-input">
+    <option value="none" selected>Kein Rahmen</option>
+    <option value="thin">Dünn</option>
+    <option value="thick">Dick</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="frame_color">Rahmenfarbe:</label>
+  <select id="frame_color" name="frame_color" class="form-input">
+    <option value="#000000" selected>Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  if (loadPluginSettings) {
-    title.value = pluginSettings.title || 'Hallo 👋';
-    title_color.value = pluginSettings.title_color || '#000000';
-    title_size.value = pluginSettings.title_size || 96;
+  // Prepopulate
+  if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
+    const s = pluginSettings;
 
-    text.value = pluginSettings.text || '';
-    text_color.value = pluginSettings.text_color || '#000000';
-    font_size.value = pluginSettings.font_size || 48;
+    preset.value = s.preset || "custom";
+    layout.value = s.layout || "center";
 
-    auto_fit.checked = pluginSettings.auto_fit === true || pluginSettings.auto_fit === 'true';
+    title.value = s.title || "";
+    title_font.value = s.title_font || "Inter";
+    title_align.value = s.title_align || "center";
+    title_color.value = s.title_color || "#000000";
+    title_size.value = s.title_size || 96;
+
+    text.value = s.text || "";
+    text_font.value = s.text_font || "Inter";
+    text_align.value = s.text_align || "center";
+    text_color.value = s.text_color || "#000000";
+    font_size.value = s.font_size || 56;
+    min_font_size.value = s.min_font_size || 18;
+
+    auto_fit.checked = (s.auto_fit === true || s.auto_fit === "true");
+
+    panel_bg.value = s.panel_bg || "none";
+    frame.value = s.frame || "none";
+    frame_color.value = s.frame_color || "#000000";
+  } else {
+    auto_fit.checked = true;
   }
 });
 </script>
