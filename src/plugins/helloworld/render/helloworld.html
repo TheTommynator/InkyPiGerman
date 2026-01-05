@@ -1,7 +1,37 @@
 {% extends "plugin.html" %}
 
 {% block content %}
-<div class="hw-container">
-    <div class=""hw-text">{{ text }}</div>
+<div class="hw-container" id="hw-container">
+  <div class="hw-text" id="hw-text">{{ text }}</div>
 </div>
+
+{% if auto_fit %}
+<script>
+(function () {
+  const container = document.getElementById('hw-container');
+  const textEl = document.getElementById('hw-text');
+
+  // Werte aus Template
+  let size = {{ font_size }};
+  const minSize = {{ min_font_size }};
+
+  // Quick helper: passt Text in Box?
+  function fits() {
+    // scrollWidth/scrollHeight > client... bedeutet Overflow
+    return textEl.scrollWidth <= container.clientWidth &&
+           textEl.scrollHeight <= container.clientHeight;
+  }
+
+  // initial setzen
+  textEl.style.fontSize = size + 'px';
+
+  // solange reduzieren, bis es passt oder Minimum erreicht
+  let guard = 500; // Sicherheitsbremse
+  while (!fits() && size > minSize && guard-- > 0) {
+    size -= 2;
+    textEl.style.fontSize = size + 'px';
+  }
+})();
+</script>
+{% endif %}
 {% endblock %}
