@@ -16,13 +16,34 @@
 </div>
 
 <div class="form-group">
-  <label class="form-label" for="font_size">Schriftgröße (px):</label>
-  <input id="font_size" name="font_size" class="form-input" type="number" min="10" max="200" value="48" />
+  <label class="form-label" for="font_size">Schriftgröße (Max, px):</label>
+  <input id="font_size" name="font_size" class="form-input" type="number" min="10" max="220" value="120" />
 </div>
 
 <div class="form-group">
-  <label class="form-label" for="text_color">Textfarbe:</label>
-  <input id="text_color" name="text_color" class="form-input" type="color" value="#000000" />
+  <label class="form-label" for="min_font_size">Schriftgröße (Min, px):</label>
+  <input id="min_font_size" name="min_font_size" class="form-input" type="number" min="8" max="200" value="18" />
+</div>
+
+<div class="form-group">
+  <label class="form-label">Auto-Fit:</label>
+  <div class="form-group">
+    <input type="checkbox" id="auto_fit" name="auto_fit" onclick="this.value=this.checked ? 'true' : 'false';" />
+    <span>Text automatisch anpassen</span>
+  </div>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="text_color">Textfarbe (7-Farb-Palette):</label>
+  <select id="text_color" name="text_color" class="form-input">
+    <option value="#000000">Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
 </div>
 
 <div class="form-group">
@@ -36,13 +57,24 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // Beim Editieren einer Plugin-Instanz vorbefüllen
   if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
     document.getElementById('text').value = pluginSettings.text || 'Hello World 👋';
     document.getElementById('font_family').value = pluginSettings.font_family || 'Inter';
-    document.getElementById('font_size').value = pluginSettings.font_size || 48;
+    document.getElementById('font_size').value = pluginSettings.font_size || 120;
+    document.getElementById('min_font_size').value = pluginSettings.min_font_size || 18;
+
+    const autoFit = (pluginSettings.auto_fit === true || pluginSettings.auto_fit === 'true');
+    const cb = document.getElementById('auto_fit');
+    cb.checked = autoFit;
+    cb.value = autoFit ? 'true' : 'false';
+
     document.getElementById('text_color').value = pluginSettings.text_color || '#000000';
     document.getElementById('align').value = pluginSettings.align || 'center';
+  } else {
+    // Default: Auto-Fit an (optional)
+    const cb = document.getElementById('auto_fit');
+    cb.checked = true;
+    cb.value = 'true';
   }
 });
 </script>
