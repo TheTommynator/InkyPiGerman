@@ -1,3 +1,63 @@
+<style>
+/* Kleine, lokale Preview-Styles nur für die Settings-Seite */
+.hw-preview-wrap{
+  margin-top: 18px;
+  border: 1px solid #d0d0d0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.hw-preview-title{
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.hw-preview-screen{
+  width: 100%;
+  max-width: 640px;         /* passt gut in die UI */
+  aspect-ratio: 800 / 480;  /* dein Display */
+  background: #f6f6f6;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
+
+.hw-preview-root{
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hw-preview-panel{
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 24px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: transparent;
+}
+
+.hw-preview-titletext{
+  line-height: 1.05;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+}
+
+.hw-preview-body{
+  line-height: 1.2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+</style>
+
 <div class="form-group">
   <label class="form-label" for="preset">Preset:</label>
   <select id="preset" name="preset" class="form-input">
@@ -156,9 +216,189 @@
   </select>
 </div>
 
+<!-- LIVE PREVIEW -->
+<div class="hw-preview-wrap">
+  <div class="hw-preview-title">Vorschau (800×480)</div>
+  <div class="hw-preview-screen">
+    <div class="hw-preview-root">
+      <div class="hw-preview-panel" id="pv-panel">
+        <div class="hw-preview-titletext" id="pv-title"></div>
+        <div class="hw-preview-body" id="pv-text"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // Prepopulate
+const PRESETS = {
+  hint: {
+    title_default: "Hinweis",
+    layout: "infoboard",
+    panel_bg: "#FFFF00",
+    frame: "thick",
+    frame_color: "#000000",
+
+    title_font: "Inter",
+    title_align: "center",
+    title_color: "#000000",
+    title_size: 96,
+
+    text_font: "Inter",
+    text_align: "center",
+    text_color: "#000000",
+    font_size: 56,
+    min_font_size: 18,
+    auto_fit: true,
+  },
+  alarm: {
+    title_default: "ALARM",
+    layout: "infoboard",
+    panel_bg: "#FF0000",
+    frame: "thick",
+    frame_color: "#000000",
+
+    title_font: "Inter",
+    title_align: "center",
+    title_color: "#FFFFFF",
+    title_size: 110,
+
+    text_font: "Inter",
+    text_align: "center",
+    text_color: "#FFFFFF",
+    font_size: 56,
+    min_font_size: 18,
+    auto_fit: true,
+  },
+  info: {
+    title_default: "Info",
+    layout: "infoboard",
+    panel_bg: "#0000FF",
+    frame: "thin",
+    frame_color: "#FFFFFF",
+
+    title_font: "Inter",
+    title_align: "center",
+    title_color: "#FFFFFF",
+    title_size: 92,
+
+    text_font: "Inter",
+    text_align: "center",
+    text_color: "#FFFFFF",
+    font_size: 52,
+    min_font_size: 18,
+    auto_fit: true,
+  }
+};
+
+function isPresetActive() {
+  return preset.value && preset.value !== "custom";
+}
+
+function currentStyleValue(key, fallback) {
+  // Wenn Preset aktiv: Preset erzwingt Styles
+  if (isPresetActive() && PRESETS[preset.value] && key in PRESETS[preset.value]) {
+    return PRESETS[preset.value][key];
+  }
+  // sonst: aktueller UI-Wert (falls vorhanden)
+  const el = document.getElementById(key);
+  if (el) {
+    if (el.type === "checkbox") return el.checked;
+    return el.value;
+  }
+  return fallback;
+}
+
+function currentTitleText() {
+  const t = (title.value || "").trim();
+  if (t) return t;
+  if (isPresetActive()) return PRESETS[preset.value].title_default || "";
+  return "";
+}
+
+function applyPresetToFormVisually() {
+  // Optional: beim Wechsel UI-Felder sichtbar "springen" lassen
+  if (!isPresetActive()) return;
+  const p = PRESETS[preset.value];
+  if (!p) return;
+
+  layout.value = p.layout;
+  panel_bg.value = p.panel_bg;
+  frame.value = p.frame;
+  frame_color.value = p.frame_color;
+
+  title_font.value = p.title_font;
+  title_align.value = p.title_align;
+  title_color.value = p.title_color;
+  title_size.value = p.title_size;
+
+  text_font.value = p.text_font;
+  text_align.value = p.text_align;
+  text_color.value = p.text_color;
+  font_size.value = p.font_size;
+  min_font_size.value = p.min_font_size;
+  auto_fit.checked = !!p.auto_fit;
+
+  if (!title.value.trim()) title.value = p.title_default || "";
+}
+
+function renderPreview() {
+  const pvPanel = document.getElementById("pv-panel");
+  const pvTitle = document.getElementById("pv-title");
+  const pvText = document.getElementById("pv-text");
+
+  // Styles (Preset erzwingt, wenn aktiv)
+  const bg = currentStyleValue("panel_bg", "none");
+  const fr = currentStyleValue("frame", "none");
+  const frc = currentStyleValue("frame_color", "#000000");
+
+  pvPanel.style.background = (bg && bg !== "none") ? bg : "transparent";
+  if (fr === "thin") {
+    pvPanel.style.border = `4px solid ${frc}`;
+  } else if (fr === "thick") {
+    pvPanel.style.border = `10px solid ${frc}`;
+  } else {
+    pvPanel.style.border = "none";
+  }
+
+  // Titel
+  const tText = currentTitleText();
+  pvTitle.textContent = tText;
+  pvTitle.style.display = tText ? "block" : "none";
+  pvTitle.style.color = currentStyleValue("title_color", "#000000");
+  pvTitle.style.fontFamily = currentStyleValue("title_font", "Inter");
+  pvTitle.style.textAlign = currentStyleValue("title_align", "center");
+  pvTitle.style.fontSize = (parseInt(currentStyleValue("title_size", 96), 10) || 96) + "px";
+
+  // Text
+  pvText.textContent = text.value || "";
+  pvText.style.color = currentStyleValue("text_color", "#000000");
+  pvText.style.fontFamily = currentStyleValue("text_font", "Inter");
+  pvText.style.textAlign = currentStyleValue("text_align", "center");
+  pvText.style.fontSize = (parseInt(currentStyleValue("font_size", 56), 10) || 56) + "px";
+
+  // Layout-Feeling (infoboard wirkt etwas "top-heavy")
+  const lay = currentStyleValue("layout", "center");
+  pvPanel.style.justifyContent = (lay === "infoboard") ? "flex-start" : "center";
+  pvPanel.style.paddingTop = (lay === "infoboard") ? "28px" : "24px";
+
+  // Optional: Auto-Fit in Preview (nur für Body)
+  const autoFit = !!currentStyleValue("auto_fit", true);
+  if (autoFit) {
+    const minSize = (parseInt(currentStyleValue("min_font_size", 18), 10) || 18);
+    let s = (parseInt(currentStyleValue("font_size", 56), 10) || 56);
+    pvText.style.fontSize = s + "px";
+
+    // Reduziere bis es passt
+    let guard = 600;
+    while ((pvPanel.scrollHeight > pvPanel.clientHeight || pvPanel.scrollWidth > pvPanel.clientWidth) && s > minSize && guard-- > 0) {
+      s -= 2;
+      pvText.style.fontSize = s + "px";
+    }
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Prepopulate beim Editieren
   if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
     const s = pluginSettings;
 
@@ -177,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
     text_color.value = s.text_color || "#000000";
     font_size.value = s.font_size || 56;
     min_font_size.value = s.min_font_size || 18;
-
     auto_fit.checked = (s.auto_fit === true || s.auto_fit === "true");
 
     panel_bg.value = s.panel_bg || "none";
@@ -186,5 +425,28 @@ document.addEventListener('DOMContentLoaded', () => {
   } else {
     auto_fit.checked = true;
   }
+
+  // Event wiring
+  const inputs = [
+    preset, layout, title, title_font, title_align, title_color, title_size,
+    text, text_font, text_align, text_color, font_size, min_font_size,
+    auto_fit, panel_bg, frame, frame_color
+  ];
+
+  inputs.forEach(el => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      if (el === preset) applyPresetToFormVisually();
+      renderPreview();
+    });
+    el.addEventListener("change", () => {
+      if (el === preset) applyPresetToFormVisually();
+      renderPreview();
+    });
+  });
+
+  // Initial render
+  if (isPresetActive()) applyPresetToFormVisually();
+  renderPreview();
 });
 </script>
