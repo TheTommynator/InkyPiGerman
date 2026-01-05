@@ -1,37 +1,46 @@
 {% extends "plugin.html" %}
 
 {% block content %}
-<div class="hw-container" id="hw-container">
+<div class="hw-root">
+
+  {% if title %}
   <div
-    class="hw-text"
+    id="hw-title"
+    style="
+      color: {{ title_color }};
+      font-size: {{ title_size }}px;
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 16px;
+    "
+  >
+    {{ title }}
+  </div>
+  {% endif %}
+
+  <div
     id="hw-text"
     style="
-      text-align: {{ align }};
       color: {{ text_color }};
       font-size: {{ font_size }}px;
-      font-family: '{{ font_family }}';
+      text-align: center;
+      line-height: 1.2;
     "
-  >{{ text }}</div>
+  >
+    {{ text | safe }}
+  </div>
+
 </div>
 
 {% if auto_fit %}
 <script>
 (function () {
-  const container = document.getElementById('hw-container');
   const textEl = document.getElementById('hw-text');
-
   let size = {{ font_size }};
-  const minSize = {{ min_font_size }};
-
-  function fits() {
-    return textEl.scrollWidth <= container.clientWidth &&
-           textEl.scrollHeight <= container.clientHeight;
-  }
-
-  textEl.style.fontSize = size + 'px';
-
-  let guard = 500;
-  while (!fits() && size > minSize && guard-- > 0) {
+  while (
+    textEl.scrollHeight > textEl.parentElement.clientHeight &&
+    size > 16
+  ) {
     size -= 2;
     textEl.style.fontSize = size + 'px';
   }
