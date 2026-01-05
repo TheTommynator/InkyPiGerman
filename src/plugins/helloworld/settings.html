@@ -1,0 +1,48 @@
+<div class="form-group">
+  <label class="form-label" for="text">Text:</label>
+  <input id="text" name="text" class="form-input" type="text" placeholder="Hello World 👋" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="font_family">Schriftart:</label>
+  <select id="font_family" name="font_family" class="form-input">
+    <option value="Inter">Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+    <option value="Times New Roman">Times New Roman</option>
+    <option value="Courier New">Courier New</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="font_size">Schriftgröße (px):</label>
+  <input id="font_size" name="font_size" class="form-input" type="number" min="10" max="200" value="48" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="text_color">Textfarbe:</label>
+  <input id="text_color" name="text_color" class="form-input" type="color" value="#000000" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="align">Ausrichtung:</label>
+  <select id="align" name="align" class="form-input">
+    <option value="left">Links</option>
+    <option value="center" selected>Zentriert</option>
+    <option value="right">Rechts</option>
+  </select>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Beim Editieren einer Plugin-Instanz vorbefüllen
+  if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
+    document.getElementById('text').value = pluginSettings.text || 'Hello World 👋';
+    document.getElementById('font_family').value = pluginSettings.font_family || 'Inter';
+    document.getElementById('font_size').value = pluginSettings.font_size || 48;
+    document.getElementById('text_color').value = pluginSettings.text_color || '#000000';
+    document.getElementById('align').value = pluginSettings.align || 'center';
+  }
+});
+</script>
