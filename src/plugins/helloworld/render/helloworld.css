@@ -8,10 +8,6 @@
 
 .hw-text{
   width: 100%;
-  text-align: {{ align }};
-  color: {{ text_color }};
-  font-size: {{ font_size }}px; /* Startgröße (Max) */
-  font-family: "{{ font_family }}";
   line-height: 1.08;
   word-wrap: break-word;
   overflow-wrap: anywhere;
