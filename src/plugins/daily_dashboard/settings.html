@@ -1,12 +1,58 @@
-<div class="form-group">
-  <label class="form-label" for="latitude">Breitengrad:</label>
-  <input id="latitude" name="latitude" class="form-input" type="text" placeholder="50.11" />
-</div>
+<!-- Leaflet (Map) -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<style>
+  #dd-map {
+    height: 280px;
+    border-radius: 12px;
+    border: 1px solid #d0d0d0;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .dd-map-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .dd-hint {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 6px;
+  }
+  .dd-locline {
+    margin-top: 8px;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+</style>
 
 <div class="form-group">
-  <label class="form-label" for="longitude">Längengrad:</label>
-  <input id="longitude" name="longitude" class="form-input" type="text" placeholder="8.68" />
+  <label class="form-label">Standort auswählen (Karte):</label>
+
+  <div class="dd-map-row">
+    <div>
+      <label class="form-label" for="latitude">Breitengrad:</label>
+      <input id="latitude" name="latitude" class="form-input" type="text" placeholder="50.1109" />
+    </div>
+    <div>
+      <label class="form-label" for="longitude">Längengrad:</label>
+      <input id="longitude" name="longitude" class="form-input" type="text" placeholder="8.6821" />
+    </div>
+  </div>
+
+  <div id="dd-map"></div>
+
+  <div class="dd-hint">
+    Tipp: Klick auf die Karte setzt den Marker. Du kannst auch Lat/Lon manuell eintippen.
+  </div>
+  <div id="dd-location" class="dd-locline"></div>
 </div>
+
+<hr />
 
 <div class="form-group">
   <label class="form-label" for="units">Einheiten:</label>
@@ -27,18 +73,6 @@
 <div class="form-group">
   <label class="form-label" for="rss_count">Anzahl News (1–5):</label>
   <input id="rss_count" name="rss_count" class="form-input" type="number" min="1" max="5" value="3" />
-</div>
-
-<hr />
-
-<div class="form-group">
-  <label class="form-label" for="weather_cache_minutes">Wetter-Cache (Minuten):</label>
-  <input id="weather_cache_minutes" name="weather_cache_minutes" class="form-input" type="number" min="1" max="120" value="15" />
-</div>
-
-<div class="form-group">
-  <label class="form-label" for="rss_cache_minutes">RSS-Cache (Minuten):</label>
-  <input id="rss_cache_minutes" name="rss_cache_minutes" class="form-input" type="number" min="1" max="240" value="30" />
 </div>
 
 <hr />
@@ -125,27 +159,101 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
-    const s = pluginSettings;
-    latitude.value = s.latitude || "";
-    longitude.value = s.longitude || "";
-    units.value = s.units || "metric";
-    rss_url.value = s.rss_url || "";
-    rss_count.value = s.rss_count || 3;
-
-    weather_cache_minutes.value = s.weather_cache_minutes || 15;
-    rss_cache_minutes.value = s.rss_cache_minutes || 30;
-
-    accent_color.value = s.accent_color || "#0000FF";
-    panel_bg.value = s.panel_bg || "none";
-    frame.value = s.frame || "none";
-    frame_color.value = s.frame_color || "#000000";
-
-    title_font.value = s.title_font || "Inter";
-    body_font.value = s.body_font || "Inter";
-    title_size.value = s.title_size || 56;
-    body_size.value = s.body_size || 28;
+  // ---------- Helpers ----------
+  function toNum(v) {
+    const n = parseFloat(String(v).replace(",", "."));
+    return Number.isFinite(n) ? n : null;
   }
-});
+
+  async function reverseGeocode(lat, lon) {
+    const outEl = document.getElementById("dd-location");
+    if (!outEl) return;
+
+    outEl.textContent = "Ort wird geladen…";
+
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`;
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error("Reverse-Geocoding fehlgeschlagen");
+      const data = await res.json();
+      outEl.textContent = data.display_name ? `📍 ${data.display_name}` : "";
+    } catch (e) {
+      // Wenn Nominatim blockt / offline ist: einfach still bleiben
+      outEl.textContent = "";
+    }
+  }
+
+  // ---------- Prepopulate ----------
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
+      const s = pluginSettings;
+
+      latitude.value = s.latitude || "";
+      longitude.value = s.longitude || "";
+      units.value = s.units || "metric";
+
+      rss_url.value = s.rss_url || "";
+      rss_count.value = s.rss_count || 3;
+
+      accent_color.value = s.accent_color || "#0000FF";
+      panel_bg.value = s.panel_bg || "none";
+      frame.value = s.frame || "none";
+      frame_color.value = s.frame_color || "#000000";
+
+      title_font.value = s.title_font || "Inter";
+      body_font.value = s.body_font || "Inter";
+      title_size.value = s.title_size || 56;
+      body_size.value = s.body_size || 28;
+    }
+
+    // ---------- Map init ----------
+    // Default: Frankfurt, falls leer
+    const lat0 = toNum(latitude.value) ?? 50.1109;
+    const lon0 = toNum(longitude.value) ?? 8.6821;
+
+    const map = L.map("dd-map", { zoomControl: true }).setView([lat0, lon0], 10);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(map);
+
+    let marker = L.marker([lat0, lon0], { draggable: true }).addTo(map);
+
+    function setLatLon(lat, lon, updateMap = true) {
+      latitude.value = String(lat.toFixed(6));
+      longitude.value = String(lon.toFixed(6));
+      if (updateMap) {
+        marker.setLatLng([lat, lon]);
+      }
+      reverseGeocode(lat, lon);
+    }
+
+    // Klick setzt Marker
+    map.on("click", (e) => {
+      setLatLon(e.latlng.lat, e.latlng.lng, true);
+    });
+
+    // Drag setzt Felder
+    marker.on("dragend", () => {
+      const pos = marker.getLatLng();
+      setLatLon(pos.lat, pos.lng, false);
+    });
+
+    // Manuelles Tippen -> Marker aktualisieren
+    function syncFromInputs() {
+      const la = toNum(latitude.value);
+      const lo = toNum(longitude.value);
+      if (la == null || lo == null) return;
+      marker.setLatLng([la, lo]);
+      map.setView([la, lo], map.getZoom());
+      reverseGeocode(la, lo);
+    }
+
+    latitude.addEventListener("change", syncFromInputs);
+    longitude.addEventListener("change", syncFromInputs);
+
+    // initial reverse lookup
+    reverseGeocode(lat0, lon0);
+  });
 </script>

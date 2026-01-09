@@ -84,3 +84,10 @@
 .dd-news-list li{
   margin-bottom: 8px;
 }
+
+.dd-footer{
+  margin-top: auto;
+  text-align: right;
+  font-size: 18px;
+  opacity: 0.8;
+}
