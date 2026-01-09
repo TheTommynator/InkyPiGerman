@@ -1,0 +1,151 @@
+<div class="form-group">
+  <label class="form-label" for="latitude">Breitengrad:</label>
+  <input id="latitude" name="latitude" class="form-input" type="text" placeholder="50.11" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="longitude">Längengrad:</label>
+  <input id="longitude" name="longitude" class="form-input" type="text" placeholder="8.68" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="units">Einheiten:</label>
+  <select id="units" name="units" class="form-input">
+    <option value="metric" selected>Metrisch (°C)</option>
+    <option value="imperial">Imperial (°F)</option>
+    <option value="standard">Standard (K)</option>
+  </select>
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label class="form-label" for="rss_url">RSS-URL:</label>
+  <input id="rss_url" name="rss_url" class="form-input" type="text" placeholder="https://…" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="rss_count">Anzahl News (1–5):</label>
+  <input id="rss_count" name="rss_count" class="form-input" type="number" min="1" max="5" value="3" />
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label class="form-label" for="weather_cache_minutes">Wetter-Cache (Minuten):</label>
+  <input id="weather_cache_minutes" name="weather_cache_minutes" class="form-input" type="number" min="1" max="120" value="15" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="rss_cache_minutes">RSS-Cache (Minuten):</label>
+  <input id="rss_cache_minutes" name="rss_cache_minutes" class="form-input" type="number" min="1" max="240" value="30" />
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label class="form-label" for="accent_color">Akzentfarbe:</label>
+  <select id="accent_color" name="accent_color" class="form-input">
+    <option value="#000000">Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF" selected>Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="panel_bg">Panel-Hintergrund:</label>
+  <select id="panel_bg" name="panel_bg" class="form-input">
+    <option value="none" selected>Keiner (transparent)</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#000000">Schwarz</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="frame">Rahmen:</label>
+  <select id="frame" name="frame" class="form-input">
+    <option value="none" selected>Kein Rahmen</option>
+    <option value="thin">Dünn</option>
+    <option value="thick">Dick</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="frame_color">Rahmenfarbe:</label>
+  <select id="frame_color" name="frame_color" class="form-input">
+    <option value="#000000" selected>Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label class="form-label" for="title_font">Titel-Schriftart:</label>
+  <select id="title_font" name="title_font" class="form-input">
+    <option value="Inter" selected>Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="body_font">Text-Schriftart:</label>
+  <select id="body_font" name="body_font" class="form-input">
+    <option value="Inter" selected>Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="title_size">Titel-Größe:</label>
+  <input id="title_size" name="title_size" class="form-input" type="number" min="20" max="120" value="56" />
+</div>
+
+<div class="form-group">
+  <label class="form-label" for="body_size">Text-Größe:</label>
+  <input id="body_size" name="body_size" class="form-input" type="number" min="14" max="60" value="28" />
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
+    const s = pluginSettings;
+    latitude.value = s.latitude || "";
+    longitude.value = s.longitude || "";
+    units.value = s.units || "metric";
+    rss_url.value = s.rss_url || "";
+    rss_count.value = s.rss_count || 3;
+
+    weather_cache_minutes.value = s.weather_cache_minutes || 15;
+    rss_cache_minutes.value = s.rss_cache_minutes || 30;
+
+    accent_color.value = s.accent_color || "#0000FF";
+    panel_bg.value = s.panel_bg || "none";
+    frame.value = s.frame || "none";
+    frame_color.value = s.frame_color || "#000000";
+
+    title_font.value = s.title_font || "Inter";
+    body_font.value = s.body_font || "Inter";
+    title_size.value = s.title_size || 56;
+    body_size.value = s.body_size || 28;
+  }
+});
+</script>
