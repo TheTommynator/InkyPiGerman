@@ -1,0 +1,58 @@
+{% extends "plugin.html" %}
+
+{% block content %}
+<div class="dd-root">
+  <div
+    class="dd-panel"
+    style="
+      {% if panel_bg != 'none' %}background: {{ panel_bg }};{% endif %}
+      {% if frame != 'none' %}
+        border: {% if frame == 'thick' %}10px{% else %}4px{% endif %} solid {{ frame_color }};
+      {% endif %}
+    "
+  >
+    <!-- Header -->
+    <div class="dd-header">
+      <div
+        class="dd-date"
+        style="
+          font-family: '{{ title_font }}';
+          font-size: {{ title_size }}px;
+        "
+      >
+        {{ date_de }}
+      </div>
+
+      <div class="dd-weather">
+        <div class="dd-weather-main" style="font-family: '{{ title_font }}';">
+          <span class="dd-temp" style="color: {{ accent }};">{{ temp }}{{ temp_unit }}</span>
+          <span class="dd-minmax">({{ tmin }} / {{ tmax }})</span>
+        </div>
+        <div class="dd-weather-desc" style="font-family: '{{ body_font }}';">
+          {{ desc }}
+        </div>
+      </div>
+    </div>
+
+    <div class="dd-divider" style="background: {{ accent }};"></div>
+
+    <!-- News -->
+    <div class="dd-news">
+      <div class="dd-news-title" style="font-family: '{{ title_font }}'; color: {{ accent }};">
+        News
+      </div>
+
+      <ol class="dd-news-list" style="font-family: '{{ body_font }}'; font-size: {{ body_size }}px;">
+        {% for item in news %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    <!-- Footer -->
+    <div class="dd-footer" style="font-family: '{{ body_font }}';">
+      Stand: {{ last_refresh_time }}
+    </div>
+  </div>
+</div>
+{% endblock %}

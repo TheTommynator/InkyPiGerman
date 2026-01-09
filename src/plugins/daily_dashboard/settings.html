@@ -1,0 +1,288 @@
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<div class="form-group">
+  <label class="form-label">Standort:</label>
+
+  <div class="form-group">
+    <span>Breitengrad </span>
+    <input readonly type="text" id="latitude" name="latitude" class="form-input" />
+  </div>
+
+  <div class="form-group">
+    <span>Längengrad </span>
+    <input readonly type="text" id="longitude" name="longitude" class="form-input" />
+  </div>
+
+  <button type="button" id="openMap" class="action-button compact">
+    Standort auswählen
+  </button>
+</div>
+
+<div class="form-group">
+  <label for="units" class="form-label">Einheiten:</label>
+  <select id="units" name="units" class="form-input">
+    <option value="metric">Metrisch (°C)</option>
+    <option value="imperial">Imperial (°F)</option>
+    <option value="standard">Standard (K)</option>
+  </select>
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label for="rss_preset" class="form-label">News-Quelle:</label>
+  <select id="rss_preset" name="rss_preset" class="form-input">
+    <option value="custom">Benutzerdefiniert</option>
+    <option value="tagesschau">Tagesschau</option>
+    <option value="heise">Heise</option>
+    <option value="welt">WELT</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="rss_url" class="form-label">RSS-URL:</label>
+  <input
+    type="text"
+    id="rss_url"
+    name="rss_url"
+    class="form-input"
+    placeholder="https://…"
+  />
+</div>
+
+<div class="form-group">
+  <label for="rss_count" class="form-label">Anzahl News (1–5):</label>
+  <input
+    type="number"
+    id="rss_count"
+    name="rss_count"
+    class="form-input"
+    min="1"
+    max="5"
+  />
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label for="accent_color" class="form-label">Akzentfarbe:</label>
+  <select id="accent_color" name="accent_color" class="form-input">
+    <option value="#000000">Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="panel_bg" class="form-label">Panel-Hintergrund:</label>
+  <select id="panel_bg" name="panel_bg" class="form-input">
+    <option value="none">Keiner (transparent)</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#000000">Schwarz</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="frame" class="form-label">Rahmen:</label>
+  <select id="frame" name="frame" class="form-input">
+    <option value="none">Kein Rahmen</option>
+    <option value="thin">Dünn</option>
+    <option value="thick">Dick</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="frame_color" class="form-label">Rahmenfarbe:</label>
+  <select id="frame_color" name="frame_color" class="form-input">
+    <option value="#000000">Schwarz</option>
+    <option value="#FFFFFF">Weiß</option>
+    <option value="#FF0000">Rot</option>
+    <option value="#FFFF00">Gelb</option>
+    <option value="#0000FF">Blau</option>
+    <option value="#00FF00">Grün</option>
+    <option value="#FFA500">Orange</option>
+  </select>
+</div>
+
+<hr />
+
+<div class="form-group">
+  <label for="title_font" class="form-label">Titel-Schriftart:</label>
+  <select id="title_font" name="title_font" class="form-input">
+    <option value="Inter">Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="body_font" class="form-label">Text-Schriftart:</label>
+  <select id="body_font" name="body_font" class="form-input">
+    <option value="Inter">Inter</option>
+    <option value="Roboto">Roboto</option>
+    <option value="Helvetica">Helvetica</option>
+    <option value="Arial">Arial</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label for="title_size" class="form-label">Titel-Größe:</label>
+  <input
+    type="number"
+    id="title_size"
+    name="title_size"
+    class="form-input"
+    min="20"
+    max="120"
+  />
+</div>
+
+<div class="form-group">
+  <label for="body_size" class="form-label">Text-Größe:</label>
+  <input
+    type="number"
+    id="body_size"
+    name="body_size"
+    class="form-input"
+    min="14"
+    max="60"
+  />
+</div>
+
+<!-- Map Modal -->
+<div id="mapModal" class="modal">
+  <div class="modal-content">
+    <span class="close-button" onclick="closeModal('mapModal')">×</span>
+    <h2 id="modalTitle">Standort auswählen</h2>
+    <div class="separator"></div>
+    <div id="map" style="width:100%; height:240px; margin:10px 0;"></div>
+    <button id="closeMap" class="action-button">Speichern</button>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const RSS_PRESETS = {
+    tagesschau: "https://www.tagesschau.de/xml/rss2/",
+    heise: "https://www.heise.de/rss/heise-atom.xml",
+    welt: "https://www.welt.de/feeds/latest.rss"
+  };
+
+  const OSM_TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+  const $lat = document.getElementById("latitude");
+  const $lon = document.getElementById("longitude");
+  const $openMap = document.getElementById("openMap");
+  const $closeMap = document.getElementById("closeMap");
+
+  const $rssPreset = document.getElementById("rss_preset");
+  const $rssUrl = document.getElementById("rss_url");
+
+  let latitude = 50.1109;
+  let longitude = 8.6821;
+  let map, marker;
+
+  function applyPreset(key) {
+    if (key === "custom") {
+      $rssUrl.readOnly = false;
+      return;
+    }
+    $rssUrl.value = RSS_PRESETS[key] || "";
+    $rssUrl.readOnly = true;
+  }
+
+  $rssPreset.addEventListener("change", () => applyPreset($rssPreset.value));
+
+  // Prepopulate
+  if (typeof loadPluginSettings !== "undefined" && loadPluginSettings) {
+    $lat.value = pluginSettings.latitude || "";
+    $lon.value = pluginSettings.longitude || "";
+    document.getElementById("units").value = pluginSettings.units || "metric";
+    $rssUrl.value = pluginSettings.rss_url || "";
+    document.getElementById("rss_count").value = pluginSettings.rss_count || 3;
+
+    document.getElementById("accent_color").value = pluginSettings.accent_color || "#0000FF";
+    document.getElementById("panel_bg").value = pluginSettings.panel_bg || "none";
+    document.getElementById("frame").value = pluginSettings.frame || "none";
+    document.getElementById("frame_color").value = pluginSettings.frame_color || "#000000";
+
+    document.getElementById("title_font").value = pluginSettings.title_font || "Inter";
+    document.getElementById("body_font").value = pluginSettings.body_font || "Inter";
+    document.getElementById("title_size").value = pluginSettings.title_size || 56;
+    document.getElementById("body_size").value = pluginSettings.body_size || 28;
+
+    latitude = +($lat.value || latitude);
+    longitude = +($lon.value || longitude);
+
+    // match preset
+    let matched = "custom";
+    for (const [k, v] of Object.entries(RSS_PRESETS)) {
+      if (v === $rssUrl.value) matched = k;
+    }
+    $rssPreset.value = matched;
+    applyPreset(matched);
+  } else {
+    $lat.value = latitude;
+    $lon.value = longitude;
+    document.getElementById("units").value = "metric";
+    document.getElementById("rss_count").value = 3;
+
+    $rssPreset.value = "tagesschau";
+    applyPreset("tagesschau");
+
+    document.getElementById("accent_color").value = "#0000FF";
+    document.getElementById("panel_bg").value = "none";
+    document.getElementById("frame").value = "none";
+    document.getElementById("frame_color").value = "#000000";
+    document.getElementById("title_font").value = "Inter";
+    document.getElementById("body_font").value = "Inter";
+    document.getElementById("title_size").value = 56;
+    document.getElementById("body_size").value = 28;
+  }
+
+  $openMap.addEventListener("click", () => {
+    openModal("mapModal");
+    setTimeout(() => {
+      if (!map) {
+        map = L.map("map").setView([latitude, longitude], 6);
+        L.tileLayer(OSM_TILE_URL).addTo(map);
+        marker = L.marker([latitude, longitude], { draggable: true }).addTo(map);
+        map.on("click", e => marker.setLatLng(e.latlng));
+      } else {
+        map.setView([latitude, longitude], map.getZoom());
+        marker.setLatLng([latitude, longitude]);
+      }
+    }, 100);
+  });
+
+  $closeMap.addEventListener("click", () => {
+    if (!marker) return closeModal("mapModal");
+    const pos = marker.getLatLng().wrap();
+    latitude = pos.lat;
+    longitude = pos.lng;
+    $lat.value = latitude;
+    $lon.value = longitude;
+    closeModal("mapModal");
+  });
+});
+</script>
