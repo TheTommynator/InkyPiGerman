@@ -1,9 +1,28 @@
 import os
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 logger = logging.getLogger(__name__)
+
+SECONDS_PER_DAY = 24 * 60 * 60
+
+def _get_latest_interval_slot(current_time, interval_seconds):
+    if interval_seconds <= 0:
+        return None
+    interval_seconds = min(interval_seconds, SECONDS_PER_DAY)
+    start_of_day = datetime.combine(current_time.date(), time.min)
+    seconds_since_midnight = int((current_time - start_of_day).total_seconds())
+    slot_seconds = (seconds_since_midnight // interval_seconds) * interval_seconds
+    return start_of_day + timedelta(seconds=slot_seconds)
+
+def _is_fixed_interval_due(latest_refresh, current_time, interval_seconds):
+    slot_time = _get_latest_interval_slot(current_time, interval_seconds)
+    if slot_time is None:
+        return False
+    if not latest_refresh:
+        return current_time >= slot_time
+    return latest_refresh < slot_time <= current_time
 
 class RefreshInfo:
     """Keeps track of refresh metadata.
@@ -159,10 +178,7 @@ class PlaylistManager:
     @staticmethod
     def should_refresh(latest_refresh, interval_seconds, current_time):
         """Determines whether a refresh should occur on the interval and latest refresh time."""
-        if not latest_refresh:
-            return True  # No previous refresh, so it's time to refresh
-
-        return (current_time - latest_refresh) >= timedelta(seconds=interval_seconds)
+        return _is_fixed_interval_due(latest_refresh, current_time, interval_seconds)
 
 class Playlist:
     """Represents a playlist with a time interval.
@@ -302,7 +318,7 @@ class PluginInstance:
         # Check for interval-based refresh
         if "interval" in self.refresh:
             interval = self.refresh.get("interval")
-            if interval and (current_time - latest_refresh_dt) >= timedelta(seconds=interval):
+            if interval and _is_fixed_interval_due(latest_refresh_dt, current_time, interval):
                 return True
 
         # Check for scheduled refresh (HH:MM format)
