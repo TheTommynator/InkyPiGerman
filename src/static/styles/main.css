@@ -119,6 +119,13 @@ body {
     transition: color 0.3s ease;
 }
 
+.next-refresh {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-top: -6px;
+    margin-bottom: 14px;
+}
+
 /* Current image styling */
 .image-container {
     position: relative;

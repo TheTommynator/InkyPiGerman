@@ -24,6 +24,15 @@ def _is_fixed_interval_due(latest_refresh, current_time, interval_seconds):
         return current_time >= slot_time
     return latest_refresh < slot_time <= current_time
 
+def get_next_interval_slot_time(current_time, interval_seconds):
+    slot_time = _get_latest_interval_slot(current_time, interval_seconds)
+    if slot_time is None:
+        return None
+    if current_time < slot_time:
+        return slot_time
+    interval_seconds = min(interval_seconds, SECONDS_PER_DAY)
+    return slot_time + timedelta(seconds=interval_seconds)
+
 class RefreshInfo:
     """Keeps track of refresh metadata.
 
