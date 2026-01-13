@@ -390,6 +390,16 @@
                 <div class="form-group">
                     <label>Refresh</label>
                     <span title="Determines how often the data and image should be refreshed.">ⓘ</span>
+                    <div class="helper-text">Choose a quick preset or set a custom schedule below.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quick presets</label>
+                    <div class="button-group" role="group" aria-label="Quick refresh presets">
+                        <button type="button" class="preset-button" data-preset="hourly">Every full hour</button>
+                        <button type="button" class="preset-button" data-preset="half-hour">Every half hour</button>
+                        <button type="button" class="preset-button" data-preset="daily">Daily at…</button>
+                    </div>
+                    <div class="helper-text">Presets set interval-based refreshes (hourly/half-hour) or a daily time.</div>
                 </div>
                 <div class="form-group nowrap" id="group-interval">
                   <input type="radio" name="refreshType" id="refresh-interval" value="interval" checked>
@@ -400,12 +410,14 @@
                     <option value="hour">Hour</option>
                     <option value="day">Day</option>
                   </select>
+                  <div class="helper-text">Interval refreshes run on fixed clock times (e.g. 10:00, 11:00).</div>
                 </div>
 
                 <div class="form-group nowrap" id="group-scheduled">
                   <input type="radio" name="refreshType" id="refresh-scheduled" value="scheduled">
                   <label for="refresh-scheduled">Daily at</label>
                   <input id="scheduled" class="time-input" type="time" name="refreshTime" step="900">
+                  <div class="helper-text">Scheduled refreshes run once per day at the selected time.</div>
                 </div>
 
                 <script>
@@ -414,17 +426,36 @@
                     const groupInterval = document.getElementById('group-interval');
                     const radioInterval = document.getElementById('refresh-interval');
                     const inputInterval = document.getElementById('interval');
+                    const selectUnit = document.getElementById('unit');
 
                     // Scheduled group
                     const groupScheduled = document.getElementById('group-scheduled');
                     const radioScheduled = document.getElementById('refresh-scheduled');
                     const inputScheduled = document.getElementById('scheduled');
 
+                    // Preset buttons
+                    const presetButtons = document.querySelectorAll('.preset-button');
+
                     // Helper to activate a group
                     const activateGroup = (radio, input) => {
                       radio.checked = true;
                       // Focus after a short delay to ensure radio updates visually
                       setTimeout(() => input.focus(), 0);
+                    };
+
+                    const activateIntervalPreset = (value, unit) => {
+                      radioInterval.checked = true;
+                      inputInterval.value = value;
+                      selectUnit.value = unit;
+                      inputInterval.focus();
+                    };
+
+                    const activateDailyPreset = () => {
+                      radioScheduled.checked = true;
+                      if (!inputScheduled.value) {
+                        inputScheduled.value = "08:00";
+                      }
+                      inputScheduled.focus();
                     };
 
                     // Click anywhere inside group → activate
@@ -445,6 +476,21 @@
                     // Focusing inputs → auto-select their radio
                     inputInterval.addEventListener('focus', () => (radioInterval.checked = true));
                     inputScheduled.addEventListener('focus', () => (radioScheduled.checked = true));
+
+                    presetButtons.forEach((button) => {
+                      button.addEventListener('click', () => {
+                        presetButtons.forEach((item) => item.classList.remove('active'));
+                        button.classList.add('active');
+                        const preset = button.dataset.preset;
+                        if (preset === 'hourly') {
+                          activateIntervalPreset(1, 'hour');
+                        } else if (preset === 'half-hour') {
+                          activateIntervalPreset(30, 'minute');
+                        } else if (preset === 'daily') {
+                          activateDailyPreset();
+                        }
+                      });
+                    });
                   });
                 </script>
 

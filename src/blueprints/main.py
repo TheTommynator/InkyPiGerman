@@ -1,13 +1,22 @@
 from flask import Blueprint, request, jsonify, current_app, render_template, send_file
 import os
 from datetime import datetime
+from model import get_next_interval_slot_time
 
 main_bp = Blueprint("main", __name__)
 
 @main_bp.route('/')
 def main_page():
     device_config = current_app.config['DEVICE_CONFIG']
-    return render_template('inky.html', config=device_config.get_config(), plugins=device_config.get_plugins())
+    interval_seconds = device_config.get_config("plugin_cycle_interval_seconds", default=60 * 60)
+    next_refresh = get_next_interval_slot_time(datetime.now(), interval_seconds)
+    next_refresh_label = next_refresh.strftime("%H:%M") if next_refresh else "—"
+    return render_template(
+        'inky.html',
+        config=device_config.get_config(),
+        plugins=device_config.get_plugins(),
+        next_refresh_time=next_refresh_label
+    )
 
 @main_bp.route('/api/current_image')
 def get_current_image():

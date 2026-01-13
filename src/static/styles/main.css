@@ -119,6 +119,13 @@ body {
     transition: color 0.3s ease;
 }
 
+.next-refresh {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin-top: -6px;
+    margin-bottom: 14px;
+}
+
 /* Current image styling */
 .image-container {
     position: relative;
@@ -1066,6 +1073,16 @@ html[data-theme="dark"] .settings-button.dark-mode-toggle::before {
     color: white;
     border-color: #007BFF;
     z-index: 2;
+}
+
+.preset-button {
+    min-width: 140px;
+}
+
+.helper-text {
+    margin-top: 6px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
 }
 
 .font-weight-normal {
