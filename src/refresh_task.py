@@ -73,7 +73,10 @@ class RefreshTask:
         while True:
             try:
                 with self.condition:
+                    playlist_manager = self.device_config.get_playlist_manager()
                     sleep_time = self.device_config.get_config("plugin_cycle_interval_seconds", default=60*60)
+                    if any(playlist.refresh_minutes for playlist in playlist_manager.playlists):
+                        sleep_time = min(sleep_time, 60)
 
                     # Wait for sleep_time or until notified
                     self.condition.wait(timeout=sleep_time)
@@ -84,7 +87,6 @@ class RefreshTask:
                     if not self.running:
                         break
 
-                    playlist_manager = self.device_config.get_playlist_manager()
                     latest_refresh = self.device_config.get_refresh_info()
                     current_dt = self._get_current_datetime()
 
@@ -174,12 +176,27 @@ class RefreshTask:
             return None, None
 
         latest_refresh_dt = latest_refresh_info.get_refresh_datetime()
-        plugin_cycle_interval = self.device_config.get_config("plugin_cycle_interval_seconds", default=3600)
-        should_refresh = PlaylistManager.should_refresh(latest_refresh_dt, plugin_cycle_interval, current_dt)
+        latest_refresh_for_playlist = None
+        if latest_refresh_info.playlist == playlist.name:
+            latest_refresh_for_playlist = latest_refresh_dt
+
+        should_refresh = playlist.should_refresh_on_schedule(current_dt, latest_refresh_for_playlist)
+        if should_refresh is None:
+            plugin_cycle_interval = self.device_config.get_config("plugin_cycle_interval_seconds", default=3600)
+            should_refresh = PlaylistManager.should_refresh(latest_refresh_dt, plugin_cycle_interval, current_dt)
 
         if not should_refresh:
             latest_refresh_str = latest_refresh_dt.strftime('%Y-%m-%d %H:%M:%S') if latest_refresh_dt else "None"
-            logger.info(f"Not time to update display. | latest_update: {latest_refresh_str} | plugin_cycle_interval: {plugin_cycle_interval}")
+            if playlist.refresh_minutes:
+                logger.info(
+                    "Not time to update display on schedule. "
+                    f"| latest_update: {latest_refresh_str} | refresh_minutes: {playlist.refresh_minutes}"
+                )
+            else:
+                logger.info(
+                    "Not time to update display. "
+                    f"| latest_update: {latest_refresh_str} | plugin_cycle_interval: {plugin_cycle_interval}"
+                )
             return None, None
 
         plugin = playlist.get_next_plugin()
