@@ -10,6 +10,27 @@ from utils.app_utils import resolve_path, handle_request_files, parse_form
 logger = logging.getLogger(__name__)
 playlist_bp = Blueprint("playlist", __name__)
 
+def _parse_refresh_minutes(value):
+    if value is None:
+        return None
+    if isinstance(value, list):
+        raw_values = value
+    else:
+        if not isinstance(value, str):
+            raise ValueError("Invalid refresh minutes format.")
+        if not value.strip():
+            return None
+        raw_values = [item.strip() for item in value.split(",") if item.strip()]
+
+    minutes = []
+    for item in raw_values:
+        minute = int(item)
+        if minute < 0 or minute > 59:
+            raise ValueError("Refresh minutes must be between 0 and 59.")
+        minutes.append(minute)
+
+    return sorted(set(minutes)) if minutes else None
+
 @playlist_bp.route('/add_plugin', methods=['POST'])
 def add_plugin():
     device_config = current_app.config['DEVICE_CONFIG']
@@ -88,6 +109,7 @@ def create_playlist():
     playlist_name = data.get("playlist_name")
     start_time = data.get("start_time")
     end_time = data.get("end_time")
+    refresh_minutes = data.get("refresh_minutes")
 
     if not playlist_name or not playlist_name.strip():
         return jsonify({"error": "Playlist name is required"}), 400
@@ -95,11 +117,12 @@ def create_playlist():
         return jsonify({"error": "Start time and End time are required"}), 400
 
     try:
+        refresh_minutes = _parse_refresh_minutes(refresh_minutes)
         playlist = playlist_manager.get_playlist(playlist_name)
         if playlist:
             return jsonify({"error": f"Playlist with name '{playlist_name}' already exists"}), 400
 
-        result = playlist_manager.add_playlist(playlist_name, start_time, end_time)
+        result = playlist_manager.add_playlist(playlist_name, start_time, end_time, refresh_minutes=refresh_minutes)
         if not result:
             return jsonify({"error": "Failed to create playlist"}), 500
 
@@ -107,6 +130,8 @@ def create_playlist():
         device_config.write_config()
 
     except Exception as e:
+        if isinstance(e, ValueError):
+            return jsonify({"error": str(e)}), 400
         logger.exception("EXCEPTION CAUGHT: " + str(e))
         return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
@@ -123,6 +148,7 @@ def update_playlist(playlist_name):
     new_name = data.get("new_name")
     start_time = data.get("start_time")
     end_time = data.get("end_time")
+    refresh_minutes = data.get("refresh_minutes")
     if not new_name or not start_time or not end_time:
         return jsonify({"success": False, "error": "Missing required fields"}), 400
 
@@ -130,7 +156,18 @@ def update_playlist(playlist_name):
     if not playlist:
         return jsonify({"error": f"Playlist '{playlist_name}' does not exist"}), 400
 
-    result = playlist_manager.update_playlist(playlist_name, new_name, start_time, end_time)
+    try:
+        refresh_minutes = _parse_refresh_minutes(refresh_minutes)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    result = playlist_manager.update_playlist(
+        playlist_name,
+        new_name,
+        start_time,
+        end_time,
+        refresh_minutes=refresh_minutes
+    )
     if not result:
         return jsonify({"error": "Failed to delete playlist"}), 500
     device_config.write_config()

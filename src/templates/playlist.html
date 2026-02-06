@@ -184,6 +184,7 @@
             document.getElementById("editingPlaylistName").value = ""; // Empty value means it's new
             document.getElementById("start_time").value = "00:00";
             document.getElementById("end_time").value = "24:00";
+            document.getElementById("refresh_minutes").value = "";
 
             document.getElementById("saveButton").setAttribute("onclick", "createPlaylist()");
             document.getElementById("deleteButton").classList.add("hidden"); // Hide delete button
@@ -192,12 +193,13 @@
         }
 
         // Open modal for **editing** an existing playlist
-        function openEditModal(playlistName, startTime, endTime) {
+        function openEditModal(playlistName, startTime, endTime, refreshMinutes) {
             document.getElementById("modalTitle").textContent = "Update Playlist";
             document.getElementById("playlist_name").value = playlistName;
             document.getElementById("editingPlaylistName").value = playlistName;
             document.getElementById("start_time").value = startTime;
             document.getElementById("end_time").value = endTime;
+            document.getElementById("refresh_minutes").value = refreshMinutes || "";
 
             document.getElementById("saveButton").setAttribute("onclick", "updatePlaylist()");
             document.getElementById("deleteButton").classList.remove("hidden"); // Show delete button
@@ -219,6 +221,7 @@
             let playlistName = document.getElementById("playlist_name").value.trim();
             let startTime = document.getElementById("start_time").value;
             let endTime = document.getElementById("end_time").value;
+            let refreshMinutes = document.getElementById("refresh_minutes").value.trim();
 
             try {
                 const response = await fetch("{{ url_for('playlist.create_playlist') }}", {
@@ -226,7 +229,12 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ playlist_name: playlistName, start_time: startTime, end_time: endTime })
+                    body: JSON.stringify({
+                        playlist_name: playlistName,
+                        start_time: startTime,
+                        end_time: endTime,
+                        refresh_minutes: refreshMinutes
+                    })
                 });
 
                 const result = await response.json();
@@ -248,6 +256,7 @@
             let newName = document.getElementById("playlist_name").value;
             let startTime = document.getElementById("start_time").value;
             let endTime = document.getElementById("end_time").value;
+            let refreshMinutes = document.getElementById("refresh_minutes").value.trim();
 
             try {
                 const response = await fetch("{{ url_for('playlist.update_playlist', playlist_name='') }}" + oldName, {
@@ -255,7 +264,12 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ new_name: newName, start_time: startTime, end_time: endTime })
+                    body: JSON.stringify({
+                        new_name: newName,
+                        start_time: startTime,
+                        end_time: endTime,
+                        refresh_minutes: refreshMinutes
+                    })
                 });
 
                 const result = await response.json();
@@ -345,7 +359,7 @@
             <div class="playlist-item {% if playlist.name == playlist_config.active_playlist %}active{% endif %}">
                     <div class="playlist-header">
                         <span class="playlist-title">{{ playlist.name }}</span>
-                        <button class="edit-button" onclick="openEditModal('{{ playlist.name }}', '{{ playlist.start_time }}','{{ playlist.end_time }}')"><img src="{{ url_for('static', filename='icons/settings.png') }}" alt="edit playlist" class="action-icon"></button>
+                        <button class="edit-button" onclick="openEditModal('{{ playlist.name }}', '{{ playlist.start_time }}','{{ playlist.end_time }}', '{{ playlist.refresh_minutes | join(',') if playlist.refresh_minutes else '' }}')"><img src="{{ url_for('static', filename='icons/settings.png') }}" alt="edit playlist" class="action-icon"></button>
                     </div>
                     <!-- Plugin List -->
                     <div class="plugin-list">
@@ -419,6 +433,10 @@
                     <select id="start_time" name="start_time" class="form-input"></select>
                     <span> - </span>
                     <select id="end_time" name="end_time" class="form-input"></select>
+                </div>
+                <div class="form-group">
+                    <label for="refresh_minutes" class="form-label">Refresh minutes (0-59, comma-separated)</label>
+                    <input type="text" id="refresh_minutes" name="refresh_minutes" placeholder="0,15,30,45" class="form-input">
                 </div>
             </form>
             <div class="buttons-container">
