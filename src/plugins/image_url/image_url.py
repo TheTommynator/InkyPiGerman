@@ -22,7 +22,7 @@ class ImageURL(BasePlugin):
     def generate_image(self, settings, device_config):
         url = settings.get('url')
         if not url:
-            raise RuntimeError("URL is required.")
+            raise RuntimeError("Bitte eine URL angeben.")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -33,6 +33,6 @@ class ImageURL(BasePlugin):
         image = grab_image(url, dimensions, timeout_ms=40000)
 
         if not image:
-            raise RuntimeError("Failed to load image, please check logs.")
+            raise RuntimeError("Bild konnte nicht geladen werden, bitte Logs prüfen.")
 
         return image

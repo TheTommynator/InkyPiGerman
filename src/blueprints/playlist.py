@@ -24,31 +24,31 @@ def add_plugin():
         playlist = refresh_settings.get('playlist')
         instance_name = refresh_settings.get('instance_name')
         if not playlist:
-            return jsonify({"error": "Playlist name is required"}), 400
+            return jsonify({"error": "Name der Playlist fehlt"}), 400
         if not instance_name or not instance_name.strip():
-            return jsonify({"error": "Instance name is required"}), 400
+            return jsonify({"error": "Name der Instanz fehlt"}), 400
         if not all(char.isalpha() or char.isspace() or char.isnumeric() for char in instance_name):
-            return jsonify({"error": "Instance name can only contain alphanumeric characters and spaces"}), 400
+            return jsonify({"error": "Der Name der Instanz darf nur Buchstaben, Ziffern und Leerzeichen enthalten"}), 400
         refresh_type = refresh_settings.get('refreshType')
         if not refresh_type or refresh_type not in ["interval", "scheduled"]:
-            return jsonify({"error": "Refresh type is required"}), 400
+            return jsonify({"error": "Art der Aktualisierung fehlt"}), 400
 
         existing = playlist_manager.find_plugin(plugin_id, instance_name)
         if existing:
-            return jsonify({"error": f"Plugin instance '{instance_name}' already exists"}), 400
+            return jsonify({"error": f"Plugin-Instanz '{instance_name}' existiert bereits"}), 400
 
         if refresh_type == "interval":
             unit, interval = refresh_settings.get('unit'), refresh_settings.get("interval")
             if not unit or unit not in ["minute", "hour", "day"]:
-                return jsonify({"error": "Refresh interval unit is required"}), 400
+                return jsonify({"error": "Einheit des Aktualisierungsintervalls fehlt"}), 400
             if not interval:
-                return jsonify({"error": "Refresh interval is required"}), 400
+                return jsonify({"error": "Aktualisierungsintervall fehlt"}), 400
             refresh_interval_seconds = calculate_seconds(int(interval), unit)
             refresh_config = {"interval": refresh_interval_seconds}
         else:
             refresh_time = refresh_settings.get('refreshTime')
             if not refresh_settings.get('refreshTime'):
-                return jsonify({"error": "Refresh time is required"}), 400
+                return jsonify({"error": "Uhrzeit der Aktualisierung fehlt"}), 400
             refresh_config = {"scheduled": refresh_time}
 
         plugin_settings.update(handle_request_files(request.files))
@@ -60,12 +60,12 @@ def add_plugin():
         }
         result = playlist_manager.add_plugin_to_playlist(playlist, plugin_dict)
         if not result:
-            return jsonify({"error": "Failed to add to playlist"}), 500
+            return jsonify({"error": "Hinzufügen zur Playlist fehlgeschlagen"}), 500
 
         device_config.write_config()
     except Exception as e:
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-    return jsonify({"success": True, "message": "Scheduled refresh configured."})
+        return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
+    return jsonify({"success": True, "message": "Zur Playlist hinzugefügt und Aktualisierung eingeplant."})
 
 @playlist_bp.route('/playlist')
 def playlists():
@@ -90,27 +90,27 @@ def create_playlist():
     end_time = data.get("end_time")
 
     if not playlist_name or not playlist_name.strip():
-        return jsonify({"error": "Playlist name is required"}), 400
+        return jsonify({"error": "Name der Playlist fehlt"}), 400
     if not start_time or not end_time:
-        return jsonify({"error": "Start time and End time are required"}), 400
+        return jsonify({"error": "Start- und Endzeit fehlen"}), 400
 
     try:
         playlist = playlist_manager.get_playlist(playlist_name)
         if playlist:
-            return jsonify({"error": f"Playlist with name '{playlist_name}' already exists"}), 400
+            return jsonify({"error": f"Eine Playlist mit dem Namen '{playlist_name}' existiert bereits"}), 400
 
         result = playlist_manager.add_playlist(playlist_name, start_time, end_time)
         if not result:
-            return jsonify({"error": "Failed to create playlist"}), 500
+            return jsonify({"error": "Playlist konnte nicht erstellt werden"}), 500
 
         # save changes to device config file
         device_config.write_config()
 
     except Exception as e:
         logger.exception("EXCEPTION CAUGHT: " + str(e))
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
 
-    return jsonify({"success": True, "message": "Created new Playlist!"})
+    return jsonify({"success": True, "message": "Neue Playlist erstellt!"})
 
 
 @playlist_bp.route('/update_playlist/<string:playlist_name>', methods=['PUT'])
@@ -124,18 +124,18 @@ def update_playlist(playlist_name):
     start_time = data.get("start_time")
     end_time = data.get("end_time")
     if not new_name or not start_time or not end_time:
-        return jsonify({"success": False, "error": "Missing required fields"}), 400
+        return jsonify({"success": False, "error": "Pflichtfelder fehlen"}), 400
 
     playlist = playlist_manager.get_playlist(playlist_name)
     if not playlist:
-        return jsonify({"error": f"Playlist '{playlist_name}' does not exist"}), 400
+        return jsonify({"error": f"Playlist '{playlist_name}' existiert nicht"}), 400
 
     result = playlist_manager.update_playlist(playlist_name, new_name, start_time, end_time)
     if not result:
-        return jsonify({"error": "Failed to delete playlist"}), 500
+        return jsonify({"error": "Playlist konnte nicht aktualisiert werden"}), 500
     device_config.write_config()
 
-    return jsonify({"success": True, "message": f"Updated playlist '{playlist_name}'!"})
+    return jsonify({"success": True, "message": f"Playlist '{playlist_name}' aktualisiert!"})
 
 @playlist_bp.route('/delete_playlist/<string:playlist_name>', methods=['DELETE'])
 def delete_playlist(playlist_name):
@@ -143,11 +143,11 @@ def delete_playlist(playlist_name):
     playlist_manager = device_config.get_playlist_manager()
 
     if not playlist_name:
-        return jsonify({"error": f"Playlist name is required"}), 400
+        return jsonify({"error": f"Name der Playlist fehlt"}), 400
 
     playlist = playlist_manager.get_playlist(playlist_name)
     if not playlist:
-        return jsonify({"error": f"Playlist '{playlist_name}' does not exist"}), 400
+        return jsonify({"error": f"Playlist '{playlist_name}' existiert nicht"}), 400
 
     # Delete all images associated with plugin instances in this playlist
     from blueprints.plugin import _delete_plugin_instance_images
@@ -157,7 +157,7 @@ def delete_playlist(playlist_name):
     playlist_manager.delete_playlist(playlist_name)
     device_config.write_config()
 
-    return jsonify({"success": True, "message": f"Deleted playlist '{playlist_name}'!"})
+    return jsonify({"success": True, "message": f"Playlist '{playlist_name}' gelöscht!"})
 
 @playlist_bp.app_template_filter('format_relative_time')
 def format_relative_time(iso_date_string):
@@ -177,17 +177,17 @@ def format_relative_time(iso_date_string):
     diff_minutes = diff_seconds / 60
 
     # Define formatting
-    time_format = "%I:%M %p"  # Example: 04:30 PM
-    month_day_format = "%b %d at " + time_format  # Example: Feb 12 at 04:30 PM
+    time_format = "%H:%M"  # Example: 16:30
+    month_day_format = "am %d.%m. um " + time_format  # Example: am 12.02. um 16:30
 
     # Determine relative time string
     if diff_seconds < 120:
-        return "just now"
+        return "gerade eben"
     elif diff_minutes < 60:
-        return f"{int(diff_minutes)} minutes ago"
+        return f"vor {int(diff_minutes)} Minuten"
     elif dt.date() == now.date():
-        return "today at " + dt.strftime(time_format).lstrip("0")
+        return "heute um " + dt.strftime(time_format)
     elif dt.date() == (now.date() - timedelta(days=1)):
-        return "yesterday at " + dt.strftime(time_format).lstrip("0")
+        return "gestern um " + dt.strftime(time_format)
     else:
-        return dt.strftime(month_day_format).replace(" 0", " ")  # Removes leading zero in day
+        return dt.strftime(month_day_format)

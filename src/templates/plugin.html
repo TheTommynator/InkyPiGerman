@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ plugin.display_name }} Settings</title>
+    <title>{{ plugin.display_name }} – Einstellungen</title>
     <script>
         (function() {
             const theme = localStorage.getItem('inkypi-theme') || 
@@ -73,9 +73,9 @@
                 const result = await response.json();
                 // Handle the response
                 if (response.ok) {
-                    showResponseModal('success', `Success! ${result.message}`);
+                    showResponseModal('success', `Erfolg! ${result.message}`);
                 } else {
-                    showResponseModal('failure', `Error!  ${result.error}`);
+                    showResponseModal('failure', `Fehler! ${result.error}`);
                 }
                 closeModal('scheduleModal');
 
@@ -95,7 +95,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('An error occurred while processing your request.');
+                alert('Bei der Verarbeitung deiner Anfrage ist ein Fehler aufgetreten.');
             } finally {
                 // Hide loading indicator after the action is complete
                 loadingIndicator.style.display = 'none';
@@ -249,13 +249,13 @@
 <body>
     <div class="frame">
         <!-- Back Button -->
-        <button onclick="history.back()" class="back-button">← Back</button>
+        <button onclick="history.back()" class="back-button">← Zurück</button>
 
         <!-- Plugin Title and Icon -->
         <div class="app-header">
-            <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="{{ plugin.display_name }} icon" class="app-icon">
+            <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="Symbol für {{ plugin.display_name }}" class="app-icon">
             <h1 class="app-title">{{ plugin.display_name }}</h1>
-            {% if api_key and api_key.required %}<span class="api-key-label" title="{{api_key.service}} (Set {{api_key.expected_key}} in .env)">Requires API Key</span>{% endif %}
+            {% if api_key and api_key.required %}<span class="api-key-label" title="{{api_key.service}} ({{api_key.expected_key}} in .env setzen)">API-Schlüssel erforderlich</span>{% endif %}
             <div id="loadingIndicator" class="loading-indicator"></div>
         </div>
         <div class="separator"></div>
@@ -269,13 +269,13 @@
                 {% if style_settings %}
                 <div class="collapsible">
                     <button type="button" class="collapsible-header" onclick="toggleCollapsible(this)">
-                        Style <span class="collapsible-icon">▼</span>
+                        Darstellung <span class="collapsible-icon">▼</span>
                     </button>
                     <div class="settings-container collapsible-content">
                         <div class="form-group">
                             
                             <div class="form-group nowrap">
-                                <label for="selected-frame" class="form-label">Frame:</label>
+                                <label for="selected-frame" class="form-label">Rahmen:</label>
                                 <div id="frame-selection" class="image-grid">
                                     {% for frame in frame_styles %}
                                     <div
@@ -294,21 +294,21 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="margin" class="form-label">Margins:</label>
+                                <label for="margin" class="form-label">Ränder:</label>
                                 <div class="form-group nowrap">
-                                    <label for="topMargin" class="form-label">Top</label>
+                                    <label for="topMargin" class="form-label">Oben</label>
                                     <input type="number" class="form-input" id="topMargin" name="topMargin" min="0" max="100" step="5"><span>px</span>
                                 </div>
                                 <div class="form-group nowrap">
-                                    <label for="bottomMargin" class="form-label">Bottom</label>
+                                    <label for="bottomMargin" class="form-label">Unten</label>
                                     <input type="number" class="form-input" id="bottomMargin" name="bottomMargin" min="0" max="100" step="5"><span>px</span>
                                 </div>
                                 <div class="form-group nowrap">
-                                    <label for="leftMargin" class="form-label">Left</label>
+                                    <label for="leftMargin" class="form-label">Links</label>
                                     <input type="number" class="form-input" id="leftMargin" name="leftMargin" min="0" max="100" step="5"><span>px</span>
                                 </div>
                                 <div class="form-group nowrap">
-                                    <label for="rightMargin" class="form-label">Right</label>
+                                    <label for="rightMargin" class="form-label">Rechts</label>
                                     <input type="number" class="form-input" id="rightMargin" name="rightMargin" min="0" max="100" step="5"><span>px</span>
                                 </div>
                             </div>
@@ -316,20 +316,20 @@
                         
                         <!-- Background Color Option -->
                         <div class="form-group">
-                            <label class="form-label">Background:</label>
+                            <label class="form-label">Hintergrund:</label>
                             <div class="form-group nowrap">
                                 <label>
                                     <input type="radio" name="backgroundOption" value="color" checked>
-                                    Color
+                                    Farbe
                                 </label>
                                 <input type="color" id="backgroundColor" name="backgroundColor" class="color-picker" value="#ffffff">
                             </div>
                             <div class="form-group nowrap">
                                 <label>
                                     <input type="radio" name="backgroundOption" value="image">
-                                    Image
+                                    Bild
                                 </label>
-                                <label for="imageUpload" class="form-input file-upload-label" id="uploadButtonLabel">Upload Image</label>
+                                <label for="imageUpload" class="form-input file-upload-label" id="uploadButtonLabel">Bild hochladen</label>
                                 <input type="file" clear-on-submit id="imageUpload" name="backgroundImageFile" accept="image/*" class="file-upload-input" onchange="showFileName()">
                                 <div id="fileName" class="file-name" style="display: none;">
                                     <span id="fileNameText"></span>
@@ -343,7 +343,7 @@
                         
                         <!-- Text Color Picker -->
                         <div class="form-group">
-                            <label for="textColor" class="form-label">Text Color:</label>
+                            <label for="textColor" class="form-label">Textfarbe:</label>
                             <input type="color" id="textColor" name="textColor" class="color-picker" value="#000000">
                         </div>
                     </div>
@@ -356,10 +356,10 @@
 
             <div class="buttons-container">
                 {% if plugin_instance %}
-                    <button type="button" onclick="handleAction('update_instance')" class="action-button">Save</button>
+                    <button type="button" onclick="handleAction('update_instance')" class="action-button">Speichern</button>
                 {% else %}
-                    <button type="button" onclick="handleAction()" class="action-button left">Update Now</button>
-                    <button type="button" onclick="openModal('scheduleModal')" class="action-button right">Add to Playlist</button>
+                    <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
+                    <button type="button" onclick="openModal('scheduleModal')" class="action-button right">Zur Playlist hinzufügen</button>
                 {% endif %}
             </div>
         </form>
@@ -372,7 +372,7 @@
     <div id="scheduleModal" class="modal">
         <div class="modal-content">
             <span class="close-button" onclick="closeModal('scheduleModal')">×</span>
-            <h2>Add to Playlist</h2>
+            <h2>Zur Playlist hinzufügen</h2>
             <div class="separator"></div>
             <form id="scheduleForm" class="settings-form">
                 <div class="form-group">
@@ -384,27 +384,27 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="instance" class="form-label">Instance Name:</label>
-                    <input type="text" id="instance" name="instance_name" placeholder="Type something..." required class="form-input">
+                    <label for="instance" class="form-label">Name der Instanz:</label>
+                    <input type="text" id="instance" name="instance_name" placeholder="Namen eingeben …" required class="form-input">
                 </div>
                 <div class="form-group">
-                    <label>Refresh</label>
-                    <span title="Determines how often the data and image should be refreshed.">ⓘ</span>
+                    <label>Aktualisierung</label>
+                    <span title="Legt fest, wie oft Daten und Bild aktualisiert werden.">ⓘ</span>
                 </div>
                 <div class="form-group nowrap" id="group-interval">
                   <input type="radio" name="refreshType" id="refresh-interval" value="interval" checked>
-                  <label for="refresh-interval">Every</label>
-                  <input type="number" id="interval" name="interval" class="form-input" required min="1" placeholder="Enter a number">
+                  <label for="refresh-interval">Alle</label>
+                  <input type="number" id="interval" name="interval" class="form-input" required min="1" placeholder="Zahl eingeben">
                   <select id="unit" name="unit" class="form-input" required>
-                    <option value="minute">Minute</option>
-                    <option value="hour">Hour</option>
-                    <option value="day">Day</option>
+                    <option value="minute">Minuten</option>
+                    <option value="hour">Stunden</option>
+                    <option value="day">Tage</option>
                   </select>
                 </div>
 
                 <div class="form-group nowrap" id="group-scheduled">
                   <input type="radio" name="refreshType" id="refresh-scheduled" value="scheduled">
-                  <label for="refresh-scheduled">Daily at</label>
+                  <label for="refresh-scheduled">Täglich um</label>
                   <input id="scheduled" class="time-input" type="time" name="refreshTime" step="900">
                 </div>
 
@@ -450,7 +450,7 @@
 
             </form>
             <div class="buttons-container">
-                <button type="button" onclick="handleAction('add_to_playlist')" class="action-button">Save</button>
+                <button type="button" onclick="handleAction('add_to_playlist')" class="action-button">Speichern</button>
             </div>
         </div>
     </div>

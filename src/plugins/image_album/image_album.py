@@ -27,7 +27,7 @@ class ImmichProvider:
         album = [a for a in albums if a["albumName"] == album][0]
 
         if album is None:
-            raise RuntimeError(f"Album {album} not found.")
+            raise RuntimeError(f"Album {album} nicht gefunden.")
 
         return album["id"]
 
@@ -90,23 +90,23 @@ class ImageAlbum(BasePlugin):
             case "Immich":
                 key = device_config.load_env_key("IMMICH_KEY")
                 if not key:
-                    raise RuntimeError("Immich API Key not configured.")
+                    raise RuntimeError("Immich-API-Schlüssel ist nicht konfiguriert.")
 
                 url = settings.get('url')
                 if not url:
-                    raise RuntimeError("URL is required.")
+                    raise RuntimeError("Bitte eine URL angeben.")
 
                 album = settings.get('album')
                 if not album:
-                    raise RuntimeError("Album is required.")
+                    raise RuntimeError("Bitte einen Albumnamen angeben.")
 
                 provider = ImmichProvider(url, key, orientation)
                 img = provider.get_image(album)
                 if not img:
-                    raise RuntimeError("Failed to load image, please check logs.")
+                    raise RuntimeError("Bild konnte nicht geladen werden, bitte Logs prüfen.")
 
         if img is None:
-            raise RuntimeError("Failed to load image, please check logs.")
+            raise RuntimeError("Bild konnte nicht geladen werden, bitte Logs prüfen.")
 
         if settings.get('padImage') == "true":
             dimensions = device_config.get_resolution()

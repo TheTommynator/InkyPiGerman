@@ -1,24 +1,24 @@
 
 <div class="form-group">
-    <label for="githubType" class="form-label">Type:</label>
+    <label for="githubType" class="form-label">Typ:</label>
     <select id="githubType" name="githubType" class="form-input" onchange="updateGitHubInputs()">
-        <option value="contributions">Contributions</option>
+        <option value="contributions">Beiträge</option>
         <option value="sponsors">Sponsors</option>
-        <option value="stars">Stars</option>
+        <option value="stars">Sterne</option>
     </select>
 </div>
 
 <div class="form-group">
     <div class="form-group">
-        <label for="githubUsername" class="form-label">GitHub Username:</label>
-        <input type="text" id="githubUsername" name="githubUsername" placeholder="GitHub Username" required class="form-input">
+        <label for="githubUsername" class="form-label">GitHub-Benutzername:</label>
+        <input type="text" id="githubUsername" name="githubUsername" placeholder="GitHub-Benutzername" required class="form-input">
     </div>
     <div class="form-group" id="repositoryGroup" style="display: none;">
         <label for="githubRepository" class="form-label">Repository:</label>
-        <input type="text" id="githubRepository" name="githubRepository" placeholder="GitHub Repository" class="form-input">
+        <input type="text" id="githubRepository" name="githubRepository" placeholder="GitHub-Repository" class="form-input">
     </div>
     <div class="form-group" id="colorGroup">
-        <label for="contributionColor[]" class="form-label">Grid Colors:</label>
+        <label for="contributionColor[]" class="form-label">Rasterfarben:</label>
         <input type="color" name="contributionColor[]" class="color-picker">
         <input type="color" name="contributionColor[]" class="color-picker">
         <input type="color" name="contributionColor[]" class="color-picker">

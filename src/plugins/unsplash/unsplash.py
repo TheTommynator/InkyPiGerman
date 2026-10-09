@@ -23,7 +23,7 @@ class Unsplash(BasePlugin):
     def generate_image(self, settings, device_config):
         access_key = device_config.load_env_key("UNSPLASH_ACCESS_KEY")
         if not access_key:
-            raise RuntimeError("'Unsplash Access Key' not found.")
+            raise RuntimeError("Unsplash-Zugriffsschlüssel (Access Key) nicht gefunden.")
 
         search_query = settings.get('search_query')
         collections = settings.get('collections')
@@ -57,16 +57,16 @@ class Unsplash(BasePlugin):
             if search_query:
                 results = data.get("results")
                 if not results:
-                    raise RuntimeError("No images found for the given search query.")
+                    raise RuntimeError("Zu diesem Suchbegriff wurden keine Bilder gefunden.")
                 image_url = random.choice(results)["urls"]["full"]
             else:
                 image_url = data["urls"]["full"]
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching image from Unsplash API: {e}")
-            raise RuntimeError("Failed to fetch image from Unsplash API, please check logs.")
+            raise RuntimeError("Bild konnte nicht von der Unsplash-API abgerufen werden, bitte Logs prüfen.")
         except (KeyError, IndexError) as e:
             logger.error(f"Error parsing Unsplash API response: {e}")
-            raise RuntimeError("Failed to parse Unsplash API response, please check logs.")
+            raise RuntimeError("Antwort der Unsplash-API konnte nicht verarbeitet werden, bitte Logs prüfen.")
 
 
         dimensions = device_config.get_resolution()
@@ -78,6 +78,6 @@ class Unsplash(BasePlugin):
         image = grab_image(image_url, dimensions, timeout_ms=40000)
 
         if not image:
-            raise RuntimeError("Failed to load image, please check logs.")
+            raise RuntimeError("Bild konnte nicht geladen werden, bitte Logs prüfen.")
 
         return image

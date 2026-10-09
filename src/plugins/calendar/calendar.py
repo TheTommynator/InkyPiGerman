@@ -26,15 +26,15 @@ class Calendar(BasePlugin):
         view = settings.get("viewMode")
 
         if not view:
-            raise RuntimeError("View is required")
+            raise RuntimeError("Bitte eine Ansicht auswählen")
         elif view not in ["timeGridDay", "timeGridWeek", "dayGrid", "dayGridMonth", "listMonth"]:
-            raise RuntimeError("Invalid view")
+            raise RuntimeError("Ungültige Ansicht")
 
         if not calendar_urls:
-            raise RuntimeError("At least one calendar URL is required")
+            raise RuntimeError("Bitte mindestens eine Kalender-URL angeben")
         for url in calendar_urls:
             if not url.strip():
-                raise RuntimeError("Invalid calendar URL")
+                raise RuntimeError("Ungültige Kalender-URL")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -67,7 +67,7 @@ class Calendar(BasePlugin):
         image = self.render_image(dimensions, "calendar.html", "calendar.css", template_params)
 
         if not image:
-            raise RuntimeError("Failed to take screenshot, please check logs.")
+            raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
         return image
     
     def fetch_ics_events(self, calendar_urls, colors, tz, start_range, end_range):
@@ -143,7 +143,7 @@ class Calendar(BasePlugin):
             response.raise_for_status()
             return icalendar.Calendar.from_ical(response.text)
         except Exception as e:
-            raise RuntimeError(f"Failed to fetch iCalendar url: {str(e)}")
+            raise RuntimeError(f"iCalendar-URL konnte nicht abgerufen werden: {str(e)}")
 
     def get_contrast_color(self, color):
         """

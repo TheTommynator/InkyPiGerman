@@ -38,7 +38,7 @@
 
         <input type="radio" id="title-custom" name="titleSelection" value="custom">
         <label for="title-custom">Benutzerdefiniert</label>
-        <input type="text" id="customTitle" name="customTitle" class="form-input" placeholder="Text eingeben..." />
+        <input type="text" id="customTitle" name="customTitle" class="form-input" placeholder="Text eingeben …" />
     </div>
 </div>
 
@@ -219,7 +219,7 @@
             document.getElementById('customTitle').value = pluginSettings.customTitle || '';
         } else {
             // set default values
-            document.getElementById('units').value = "imperial";
+            document.getElementById('units').value = "metric";
             document.getElementById('displayRefreshTime').checked = true;
             document.getElementById('displayRefreshTime').value = "true";
             document.getElementById('displayMetrics').checked = true;

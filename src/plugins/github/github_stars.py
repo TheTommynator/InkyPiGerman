@@ -13,13 +13,13 @@ def stars_generate_image(plugin_instance, settings, device_config):
 
     github_repository = username + "/" + repository
     if not github_repository:
-        raise RuntimeError("GitHub repository is required.")
+        raise RuntimeError("Bitte ein GitHub-Repository angeben.")
 
     try:
         stars = fetch_stars(github_repository)
     except Exception as e:
         logger.error(f"GitHub graphql request failed: {str(e)}")
-        raise RuntimeError(f"GitHub request failure, please check logs")
+        raise RuntimeError("Anfrage an GitHub fehlgeschlagen, bitte Logs prüfen.")
 
     template_params = {
         "repository": github_repository,

@@ -68,7 +68,7 @@ def get_panel(comic_name):
     try:
         element = COMICS[comic_name]["element"](feed)
     except IndexError:
-        raise RuntimeError("Failed to retrieve latest comic.")
+        raise RuntimeError("Aktueller Comic konnte nicht abgerufen werden.")
 
     return {
         "image_url": COMICS[comic_name]["url"](element),

@@ -26,7 +26,7 @@ class Rss(BasePlugin):
         title = settings.get("title")
         feed_url = settings.get("feedUrl")
         if not feed_url:
-            raise RuntimeError("RSS Feed Url is required.")
+            raise RuntimeError("Bitte eine RSS-Feed-URL angeben.")
         
         items = self.parse_rss_feed(feed_url)
 

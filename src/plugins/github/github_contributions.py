@@ -4,6 +4,8 @@ from datetime import datetime, date, timedelta
 
 logger = logging.getLogger(__name__)
 
+MONTHS_DE_SHORT = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+
 GRAPHQL_QUERY = """
 query($username: String!) {
   user(login: $username) {
@@ -29,12 +31,12 @@ def contributions_generate_image(plugin_instance, settings, device_config):
 
     api_key = device_config.load_env_key("GITHUB_SECRET")
     if not api_key:
-        raise RuntimeError("GitHub API Key not configured.")
+        raise RuntimeError("GitHub-API-Schlüssel ist nicht konfiguriert.")
 
     colors = settings.get("contributionColor[]")
     github_username = settings.get("githubUsername")
     if not github_username:
-        raise RuntimeError("GitHub username is required.")
+        raise RuntimeError("Bitte einen GitHub-Benutzernamen angeben.")
 
     data = fetch_contributions(github_username, api_key)
     grid, month_positions = parse_contributions(data, colors)
@@ -90,7 +92,7 @@ def parse_contributions(data, colors):
         dt = datetime.strptime(first_day, "%Y-%m-%d")
         month_year = f"{dt.strftime('%b')}-{dt.year}"
         if month_year not in seen_months:
-            month_positions.append({"name": dt.strftime("%b"), "index": i})
+            month_positions.append({"name": MONTHS_DE_SHORT[dt.month - 1], "index": i})
             seen_months.add(month_year)
 
     if month_positions:
@@ -122,7 +124,7 @@ def calculate_metrics(data):
             in_current_streak = False
 
     return [
-        {"title": "Contributions", "value": total},
-        {"title": "Current Streak", "value": current_streak},
-        {"title": "Longest Streak", "value": longest_streak},
+        {"title": "Beiträge", "value": total},
+        {"title": "Aktuelle Serie", "value": current_streak},
+        {"title": "Längste Serie", "value": longest_streak},
     ]

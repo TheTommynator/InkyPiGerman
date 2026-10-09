@@ -12,13 +12,13 @@ logger = logging.getLogger(__name__)
 class ImageUpload(BasePlugin):
     def open_image(self, img_index: int, image_locations: list) -> Image:
         if not image_locations:
-            raise RuntimeError("No images provided.")
+            raise RuntimeError("Keine Bilder hochgeladen.")
         # Open the image using Pillow
         try:
             image = Image.open(image_locations[img_index])
         except Exception as e:
             logger.error(f"Failed to read image file: {str(e)}")
-            raise RuntimeError("Failed to read image file.")
+            raise RuntimeError("Bilddatei konnte nicht gelesen werden.")
         return image
 
 
