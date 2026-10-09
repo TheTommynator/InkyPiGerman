@@ -1,0 +1,154 @@
+<div class="form-group">
+    <p>
+        Zeigt dasselbe Motiv mehrmals nebeneinander, jede Kachel mit anderen Bildwerten.
+        Such dir auf dem Display die schönste Kachel aus und trag ihre Werte unter
+        <a href="{{ url_for('settings.settings_page') }}">Einstellungen → Bild</a> ein.
+        Die globalen Bildeinstellungen werden auf dieses Testbild nicht zusätzlich angewendet.
+    </p>
+</div>
+
+<div class="form-group">
+    <label class="form-label" for="source">Motiv:</label>
+    <select id="source" name="source" class="form-input">
+        <option value="pattern" selected>Testbild (Farben, Verläufe, feine Linien)</option>
+        <option value="upload">Eigenes Bild</option>
+    </select>
+</div>
+
+<div id="uploadGroup" style="display: none;">
+    <div class="form-group">
+        <label for="calibrationUpload" class="form-input file-upload-label">Bild auswählen</label>
+        <input type="file" id="calibrationUpload" name="calibrationImage" accept="image/*"
+               class="file-upload-input" onchange="showCalibrationFile()">
+    </div>
+    <div class="form-group">
+        <div id="calibrationFileName" class="file-name" style="display: none;"></div>
+    </div>
+    <input type="hidden" id="calibrationImageExisting" name="calibrationImage" value="">
+</div>
+
+<div class="form-group">
+    <label class="form-label" for="base">Übrige Werte:</label>
+    <select id="base" name="base" class="form-input">
+        <option value="current" selected>Aktuelle Einstellungen übernehmen</option>
+        <option value="neutral">Neutral (alle 1.0)</option>
+    </select>
+</div>
+
+<hr />
+
+<div class="form-group">
+    <label class="form-label" for="primaryParameter">Vergleichen:</label>
+    <select id="primaryParameter" name="primaryParameter" class="form-input">
+        {% for p in calibration_parameters %}
+        <option value="{{ p.id }}" data-from="{{ p.from }}" data-to="{{ p.to }}">{{ p.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="form-group">
+    <label class="form-label" for="primaryFrom">Von:</label>
+    <input type="number" id="primaryFrom" name="primaryFrom" class="form-input" min="0" max="5" step="0.05">
+    <label class="form-label" for="primaryTo">Bis:</label>
+    <input type="number" id="primaryTo" name="primaryTo" class="form-input" min="0" max="5" step="0.05">
+    <label class="form-label" for="primarySteps">Stufen:</label>
+    <input type="number" id="primarySteps" name="primarySteps" class="form-input" min="1" max="6" step="1" value="4">
+</div>
+
+<div class="form-group">
+    <label class="form-label" for="secondaryParameter">Zusätzlich kombinieren mit:</label>
+    <select id="secondaryParameter" name="secondaryParameter" class="form-input">
+        <option value="none" selected>– nichts –</option>
+        {% for p in calibration_parameters %}
+        <option value="{{ p.id }}" data-from="{{ p.from }}" data-to="{{ p.to }}">{{ p.name }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div class="form-group" id="secondaryRange" style="display: none;">
+    <label class="form-label" for="secondaryFrom">Von:</label>
+    <input type="number" id="secondaryFrom" name="secondaryFrom" class="form-input" min="0" max="5" step="0.05">
+    <label class="form-label" for="secondaryTo">Bis:</label>
+    <input type="number" id="secondaryTo" name="secondaryTo" class="form-input" min="0" max="5" step="0.05">
+    <label class="form-label" for="secondarySteps">Stufen:</label>
+    <input type="number" id="secondarySteps" name="secondarySteps" class="form-input" min="1" max="6" step="1" value="3">
+</div>
+
+<div class="form-group">
+    <span id="calibrationSummary"></span>
+</div>
+
+<script>
+    (function () {
+        const maxTiles = {{ max_tiles }};
+        const el = id => document.getElementById(id);
+
+        function applyDefaults(prefix) {
+            const option = el(prefix + 'Parameter').selectedOptions[0];
+            if (!option || !option.dataset.from) return;
+            el(prefix + 'From').value = option.dataset.from;
+            el(prefix + 'To').value = option.dataset.to;
+        }
+
+        function values(prefix) {
+            const from = parseFloat(el(prefix + 'From').value);
+            const to = parseFloat(el(prefix + 'To').value);
+            const steps = Math.max(1, Math.min(6, parseInt(el(prefix + 'Steps').value, 10) || 1));
+            if (isNaN(from) || isNaN(to)) return [];
+            if (steps === 1) return [from];
+            return Array.from({length: steps}, (_, i) => +(from + i * (to - from) / (steps - 1)).toFixed(2));
+        }
+
+        function update() {
+            el('uploadGroup').style.display = el('source').value === 'upload' ? '' : 'none';
+            const combined = el('secondaryParameter').value !== 'none';
+            el('secondaryRange').style.display = combined ? '' : 'none';
+
+            const first = values('primary');
+            const second = combined ? values('secondary') : [null];
+            const count = first.length * second.length;
+            let text = `${count} Kachel${count === 1 ? '' : 'n'}: ` + el('primaryParameter').selectedOptions[0].text + ' ' + first.join(' / ');
+            if (combined) text += ' × ' + el('secondaryParameter').selectedOptions[0].text + ' ' + second.join(' / ');
+            if (count > maxTiles) text += ` – zu viele, maximal ${maxTiles}!`;
+            if (combined && el('secondaryParameter').value === el('primaryParameter').value) {
+                text = 'Bitte zwei verschiedene Werte zum Kombinieren wählen.';
+            }
+            el('calibrationSummary').textContent = text;
+        }
+
+        window.showCalibrationFile = function () {
+            const input = el('calibrationUpload');
+            const label = el('calibrationFileName');
+            if (input.files.length) {
+                label.textContent = input.files[0].name;
+                label.style.display = '';
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof loadPluginSettings !== 'undefined' && loadPluginSettings) {
+                const s = pluginSettings;
+                el('source').value = s.source || 'pattern';
+                el('base').value = s.base || 'current';
+                el('primaryParameter').value = s.primaryParameter || 'saturation';
+                el('secondaryParameter').value = s.secondaryParameter || 'none';
+                applyDefaults('primary');
+                applyDefaults('secondary');
+                ['primaryFrom', 'primaryTo', 'primarySteps', 'secondaryFrom', 'secondaryTo', 'secondarySteps']
+                    .forEach(key => { if (s[key] !== undefined && s[key] !== '') el(key).value = s[key]; });
+                if (s.calibrationImage) {
+                    el('calibrationImageExisting').value = s.calibrationImage;
+                    el('calibrationFileName').textContent = s.calibrationImage.split('/').pop();
+                    el('calibrationFileName').style.display = '';
+                }
+            } else {
+                applyDefaults('primary');
+                applyDefaults('secondary');
+            }
+
+            el('primaryParameter').addEventListener('change', () => { applyDefaults('primary'); update(); });
+            el('secondaryParameter').addEventListener('change', () => { applyDefaults('secondary'); update(); });
+            ['source', 'primaryFrom', 'primaryTo', 'primarySteps', 'secondaryFrom', 'secondaryTo', 'secondarySteps']
+                .forEach(id => el(id).addEventListener('input', update));
+            update();
+        });
+    })();
+</script>
