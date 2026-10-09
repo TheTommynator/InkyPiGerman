@@ -1,8 +1,11 @@
 import os
 import json
 import logging
+import shutil
+from datetime import datetime
 from dotenv import load_dotenv
 from model import PlaylistManager, RefreshInfo
+from zeitplan import Schedule, migrate_from_playlists
 
 logger = logging.getLogger(__name__)
 
@@ -114,3 +117,31 @@ class Config:
     def get_refresh_info(self):
         """Returns the refresh information."""
         return self.refresh_info
+
+    def load_schedule(self):
+        """Liefert den gespeicherten Zeitplan oder – falls noch keiner existiert –
+        einen aus den Playlists übernommenen. Die Übernahme wird dabei nicht gespeichert."""
+        data = self.get_config("schedule", default=None)
+        if data:
+            return Schedule.from_dict(data)
+        return migrate_from_playlists(
+            self.get_config("playlist_config", default={}),
+            self.get_config("plugin_cycle_interval_seconds", default=3600),
+        )
+
+    def save_schedule(self, schedule):
+        """Speichert den Zeitplan zusätzlich zu den Playlists (playlist_config bleibt erhalten).
+        Vor dem allerersten Speichern wird device.json gesichert."""
+        if "schedule" not in self.config:
+            self.backup_config("vor-zeitplan")
+        self.update_value("schedule", schedule.to_dict(), write=True)
+
+    def backup_config(self, label):
+        """Kopiert device.json nach device.json.bak-<label>-<Zeitstempel> und gibt den Pfad zurück."""
+        if not os.path.isfile(self.config_file):
+            return None
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_file = f"{self.config_file}.bak-{label}-{stamp}"
+        shutil.copy2(self.config_file, backup_file)
+        logger.info(f"Konfiguration gesichert nach {backup_file}")
+        return backup_file
