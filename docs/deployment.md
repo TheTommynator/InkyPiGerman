@@ -49,12 +49,32 @@ als Symlink auf `src/` im geklonten Repo anlegt. Der Pi läuft also direkt aus d
 
    Ab jetzt gibt es den Befehl `inkypi-deploy`.
 
-3. Optional: automatisches Deploy einschalten:
+3. Optional: automatisches Deploy einschalten, entweder in der Weboberfläche unter
+   **Settings → Updates** oder per Befehl:
 
    ```bash
    sudo inkypi-deploy auto on        # alle 5 Minuten
-   sudo inkypi-deploy auto on 15     # alle 15 Minuten
+   sudo inkypi-deploy auto on 15     # alle 15 Minuten (erlaubt: 5, 10, 15, 30, 60)
    ```
+
+## In der Weboberfläche
+
+Unter **Settings → Updates** siehst du:
+
+- einen Schalter für das automatische Update und das Prüfintervall
+- welcher Stand installiert ist, wann zuletzt und wann als Nächstes geprüft wird
+- ob auf GitHub schon neue Änderungen warten
+- die letzten 20 Aktualisierungen mit Ergebnis und den enthaltenen Änderungen
+- den Button **Jetzt aktualisieren**
+
+Die Daten dafür schreibt `deploy.sh` nach `/var/lib/inkypi/`.
+
+## Neustart
+
+Nach jedem Update startet das Skript InkyPi automatisch neu, weil Python-Code nur beim
+Start geladen wird. Das dauert je nach Pi etwa 10–30 Sekunden. Das Display behält
+währenddessen das letzte Bild, die Weboberfläche ist kurz nicht erreichbar.
+Ist nichts Neues da, wird auch nichts neu gestartet.
 
 ## Befehle
 
@@ -63,7 +83,7 @@ als Symlink auf `src/` im geklonten Repo anlegt. Der Pi läuft also direkt aus d
 | `sudo inkypi-deploy` | neuesten Stand holen, prüfen, neu starten |
 | `sudo inkypi-deploy status` | Stand auf dem Pi und auf GitHub, Service- und Auto-Status |
 | `sudo inkypi-deploy rollback` | zurück auf den Stand vor dem letzten Deploy |
-| `sudo inkypi-deploy auto on [MIN]` / `auto off` | automatisches Deploy ein-/ausschalten |
+| `sudo inkypi-deploy auto on [MIN]` / `auto off` | automatisches Deploy ein-/ausschalten (MIN: 5, 10, 15, 30, 60) |
 | `journalctl -u inkypi-deploy` | Log der automatischen Deploys |
 | `journalctl -u inkypi -f` | Live-Log von InkyPi |
 
