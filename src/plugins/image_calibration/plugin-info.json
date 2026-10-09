@@ -1,0 +1,6 @@
+{
+    "display_name": "Bildkalibrierung",
+    "id": "image_calibration",
+    "class": "ImageCalibration",
+    "image_settings": ["skip-enhancement"]
+}

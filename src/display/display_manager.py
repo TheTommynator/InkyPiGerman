@@ -78,7 +78,9 @@ class DisplayManager:
         image = change_orientation(image, self.device_config.get_config("orientation"))
         image = resize_image(image, self.device_config.get_resolution(), image_settings)
         if self.device_config.get_config("inverted_image"): image = image.rotate(180)
-        image = apply_image_enhancement(image, self.device_config.get_config("image_settings"))
+        # Plugins wie die Bildkalibrierung wenden die Werte selbst an
+        if "skip-enhancement" not in image_settings:
+            image = apply_image_enhancement(image, self.device_config.get_config("image_settings"))
 
         # Pass to the concrete instance to render to the device.
         self.display.display_image(image, image_settings)
