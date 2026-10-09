@@ -138,6 +138,34 @@ body {
     /* Do NOT apply filter to image-container images */
 }
 
+/* Status der Display-Aktualisierung unter dem Bild */
+.display-status {
+    max-width: 20rem;
+    margin: 8px auto 0 auto;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.display-status.refreshing {
+    color: var(--loading-color);
+}
+
+.display-status-bar {
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 2px;
+    background-color: var(--border-light);
+    overflow: hidden;
+}
+
+.display-status-fill {
+    height: 100%;
+    width: 0;
+    background-color: var(--loading-color);
+    transition: width 1s linear;
+}
+
 /* When maximized, darken the original */
 .image-container.maximized {
     opacity: 0.1;
