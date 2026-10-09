@@ -36,7 +36,7 @@ DEFAULT_RANGES = {
 
 MAX_TILES = 12
 MAX_STEPS = 6
-VALUE_LIMITS = (0.0, 5.0)
+VALUE_LIMITS = (0.0, 3.0)  # wie die Regler in den Einstellungen
 
 LABEL_BG = (255, 255, 255)
 LABEL_FG = (0, 0, 0)

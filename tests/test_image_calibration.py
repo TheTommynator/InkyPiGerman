@@ -20,7 +20,7 @@ BASE = {"saturation": 1.2, "contrast": 1.0, "sharpness": 1.0, "brightness": 1.0}
 def test_parse_float_akzeptiert_komma_und_begrenzt():
     assert parse_float("1,5", 1.0) == 1.5
     assert parse_float("abc", 1.0) == 1.0
-    assert parse_float("99", 1.0) == 5.0
+    assert parse_float("99", 1.0) == 3.0
 
 
 def test_value_range_inklusive_enden():
@@ -66,3 +66,47 @@ def test_grid_shape():
     assert grid_shape(4, 800, 460) == (2, 2)
     assert grid_shape(6, 480, 780) == (2, 3)
     assert grid_shape(12, 800, 460, columns=4) == (4, 3)
+
+
+class FakeDeviceConfig:
+    def __init__(self, config):
+        self.config = config
+
+    def get_config(self, key=None, default={}):
+        return self.config.get(key, default)
+
+    def update_config(self, config):
+        self.config.update(config)
+
+
+@pytest.fixture
+def client():
+    flask = pytest.importorskip("flask")
+    pytest.importorskip("pytz")
+    from blueprints.settings import settings_bp
+
+    app = flask.Flask(__name__)
+    app.register_blueprint(settings_bp)
+    app.config["DEVICE_CONFIG"] = FakeDeviceConfig({"image_settings": {"saturation": 1.4}})
+    return app.test_client(), app.config["DEVICE_CONFIG"]
+
+
+def test_bildeinstellungen_lesen(client):
+    test_client, _ = client
+    data = test_client.get("/image_settings").get_json()
+    assert data == {"saturation": 1.4, "contrast": 1.0, "sharpness": 1.0, "brightness": 1.0}
+
+
+def test_bildeinstellungen_uebernehmen(client):
+    test_client, config = client
+    response = test_client.post("/image_settings", json={"contrast": 1.333, "sharpness": "2.5"})
+    assert response.status_code == 200
+    assert config.config["image_settings"] == {"saturation": 1.4, "contrast": 1.33, "sharpness": 2.5}
+
+
+@pytest.mark.parametrize("value", ["abc", 3.5, -1])
+def test_bildeinstellungen_ungueltig(client, value):
+    test_client, config = client
+    response = test_client.post("/image_settings", json={"saturation": value})
+    assert response.status_code == 400
+    assert config.config["image_settings"] == {"saturation": 1.4}

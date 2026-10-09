@@ -1,8 +1,8 @@
 <div class="form-group">
     <p>
         Zeigt dasselbe Motiv mehrmals nebeneinander, jede Kachel mit anderen Bildwerten.
-        Such dir auf dem Display die schönste Kachel aus und trag ihre Werte unter
-        <a href="{{ url_for('settings.settings_page') }}">Einstellungen → Bild</a> ein.
+        Such dir auf dem Display die schönste Kachel aus und übernimm sie unten mit
+        „Beste Kachel“ in die <a href="{{ url_for('settings.settings_page') }}">Bildeinstellungen</a>.
         Die globalen Bildeinstellungen werden auf dieses Testbild nicht zusätzlich angewendet.
     </p>
 </div>
@@ -47,9 +47,9 @@
 </div>
 <div class="form-group">
     <label class="form-label" for="primaryFrom">Von:</label>
-    <input type="number" id="primaryFrom" name="primaryFrom" class="form-input" min="0" max="5" step="0.05">
+    <input type="number" id="primaryFrom" name="primaryFrom" class="form-input" min="0" max="3" step="0.05">
     <label class="form-label" for="primaryTo">Bis:</label>
-    <input type="number" id="primaryTo" name="primaryTo" class="form-input" min="0" max="5" step="0.05">
+    <input type="number" id="primaryTo" name="primaryTo" class="form-input" min="0" max="3" step="0.05">
     <label class="form-label" for="primarySteps">Stufen:</label>
     <input type="number" id="primarySteps" name="primarySteps" class="form-input" min="1" max="6" step="1" value="4">
 </div>
@@ -65,15 +65,29 @@
 </div>
 <div class="form-group" id="secondaryRange" style="display: none;">
     <label class="form-label" for="secondaryFrom">Von:</label>
-    <input type="number" id="secondaryFrom" name="secondaryFrom" class="form-input" min="0" max="5" step="0.05">
+    <input type="number" id="secondaryFrom" name="secondaryFrom" class="form-input" min="0" max="3" step="0.05">
     <label class="form-label" for="secondaryTo">Bis:</label>
-    <input type="number" id="secondaryTo" name="secondaryTo" class="form-input" min="0" max="5" step="0.05">
+    <input type="number" id="secondaryTo" name="secondaryTo" class="form-input" min="0" max="3" step="0.05">
     <label class="form-label" for="secondarySteps">Stufen:</label>
     <input type="number" id="secondarySteps" name="secondarySteps" class="form-input" min="1" max="6" step="1" value="3">
 </div>
 
 <div class="form-group">
     <span id="calibrationSummary"></span>
+</div>
+
+<hr />
+
+<div class="form-group">
+    <label class="form-label" for="bestTile">Beste Kachel:</label>
+    <select id="bestTile" class="form-input"></select>
+    <button type="button" id="applyBestTile" class="action-button">Übernehmen</button>
+</div>
+<div class="form-group">
+    <small>
+        Die Liste passt zu den Werten oben. Hast du sie seit dem letzten „Jetzt anzeigen“ geändert,
+        zeig das Testbild vorher erneut an, damit die Buchstaben übereinstimmen.
+    </small>
 </div>
 
 <script>
@@ -89,8 +103,9 @@
         }
 
         function values(prefix) {
-            const from = parseFloat(el(prefix + 'From').value);
-            const to = parseFloat(el(prefix + 'To').value);
+            const clamp = v => Math.max(0, Math.min(3, v));
+            const from = clamp(parseFloat(el(prefix + 'From').value));
+            const to = clamp(parseFloat(el(prefix + 'To').value));
             const steps = Math.max(1, Math.min(6, parseInt(el(prefix + 'Steps').value, 10) || 1));
             if (isNaN(from) || isNaN(to)) return [];
             if (steps === 1) return [from];
@@ -112,6 +127,75 @@
                 text = 'Bitte zwei verschiedene Werte zum Kombinieren wählen.';
             }
             el('calibrationSummary').textContent = text;
+            fillBestTile();
+        }
+
+        const names = {saturation: 'Sättigung', contrast: 'Kontrast', sharpness: 'Schärfe', brightness: 'Helligkeit'};
+        const order = ['saturation', 'contrast', 'sharpness', 'brightness'];
+        let currentSettings = null;
+
+        // Gleiche Reihenfolge wie build_variants() im Plugin
+        function variants() {
+            if (!currentSettings) return [];
+            const base = {};
+            order.forEach(p => {
+                base[p] = el('base').value === 'neutral' ? 1.0 : Math.max(0, Math.min(3, currentSettings[p] ?? 1.0));
+            });
+            const p1 = el('primaryParameter').value;
+            const p2 = el('secondaryParameter').value;
+            const first = values('primary');
+            const second = p2 !== 'none' ? values('secondary') : [null];
+            if (p2 === p1 || first.length * second.length > maxTiles) return [];
+            const result = [];
+            second.forEach(v2 => first.forEach(v1 => {
+                const v = Object.assign({}, base);
+                v[p1] = v1;
+                if (v2 !== null) v[p2] = v2;
+                result.push(v);
+            }));
+            return result;
+        }
+
+        function fillBestTile() {
+            const select = el('bestTile');
+            const previous = select.value;
+            select.innerHTML = '';
+            variants().forEach((v, i) => {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = String.fromCharCode(65 + i) + ' – ' +
+                    order.map(p => `${names[p]} ${v[p].toFixed(2).replace(/0$/, '')}`).join(', ');
+                select.appendChild(option);
+            });
+            if (previous && previous < select.options.length) select.value = previous;
+            el('applyBestTile').disabled = select.options.length === 0;
+        }
+
+        async function loadCurrentSettings() {
+            try {
+                const response = await fetch('{{ url_for("settings.get_image_settings") }}');
+                currentSettings = await response.json();
+            } catch (e) {
+                currentSettings = null;
+            }
+            fillBestTile();
+        }
+
+        async function applyBestTile() {
+            const chosen = variants()[parseInt(el('bestTile').value, 10)];
+            if (!chosen) return;
+            const response = await fetch('{{ url_for("settings.save_image_settings") }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(chosen),
+            });
+            const result = await response.json();
+            if (response.ok) {
+                showResponseModal('success', `Erfolg! ${result.message}`);
+                await loadCurrentSettings();
+            } else {
+                showResponseModal('failure', `Fehler! ${result.error}`);
+            }
         }
 
         window.showCalibrationFile = function () {
@@ -148,7 +232,10 @@
             el('secondaryParameter').addEventListener('change', () => { applyDefaults('secondary'); update(); });
             ['source', 'primaryFrom', 'primaryTo', 'primarySteps', 'secondaryFrom', 'secondaryTo', 'secondarySteps']
                 .forEach(id => el(id).addEventListener('input', update));
+            el('base').addEventListener('change', update);
+            el('applyBestTile').addEventListener('click', applyBestTile);
             update();
+            loadCurrentSettings();
         });
     })();
 </script>
