@@ -43,6 +43,7 @@ class DisplayManager:
         self._status_lock = threading.Lock()
         self._refresh_started = None
         self._refresh_finished = None
+        self._last_error = None
         self._last_duration = device_config.get_config("last_display_refresh_seconds", default=None)
      
         display_type = device_config.get_config("display_type", default="inky")
@@ -80,11 +81,13 @@ class DisplayManager:
 
         with self._status_lock:
             self._refresh_started = time.monotonic()
+            self._last_error = None
         try:
             self._render(image, image_settings)
-        except Exception:
+        except Exception as e:
             with self._status_lock:
                 self._refresh_started = None
+                self._last_error = str(e) or type(e).__name__
             raise
 
         with self._status_lock:
@@ -106,6 +109,7 @@ class DisplayManager:
                 "elapsed_seconds": round(now - started, 1) if started is not None else None,
                 "expected_seconds": self._last_duration,
                 "seconds_since_update": round(now - finished, 1) if finished is not None else None,
+                "error": self._last_error,
             }
 
     def _render(self, image, image_settings):

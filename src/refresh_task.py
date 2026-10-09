@@ -23,11 +23,7 @@ class RefreshTask:
         self.lock = threading.Lock()
         self.condition = threading.Condition(self.lock)
         self.running = False
-        self.manual_update_request = ()
-
-        self.refresh_event = threading.Event()
-        self.refresh_event.set()
-        self.refresh_result = {}
+        self.manual_update_request = None
 
     def start(self):
         """Starts the background thread for refreshing the display."""
@@ -71,14 +67,16 @@ class RefreshTask:
         - Captures and logs any unexpected errors during execution to prevent the thread from exiting.
         """
         while True:
+            request = None
+            pending_display = None
             try:
                 with self.condition:
                     sleep_time = self.device_config.get_config("plugin_cycle_interval_seconds", default=60*60)
 
-                    # Wait for sleep_time or until notified
-                    self.condition.wait(timeout=sleep_time)
-                    self.refresh_result = {}
-                    self.refresh_event.clear()
+                    # Wait for sleep_time or until notified (a request may already be waiting
+                    # if it arrived while the display was busy)
+                    if not self.manual_update_request and self.running:
+                        self.condition.wait(timeout=sleep_time)
 
                     # Exit if `stop()` is called
                     if not self.running:
@@ -92,8 +90,9 @@ class RefreshTask:
                     if self.manual_update_request:
                         # handle immediate update request
                         logger.info("Manual update requested")
-                        refresh_action = self.manual_update_request
-                        self.manual_update_request = ()
+                        request = self.manual_update_request
+                        refresh_action = request.action
+                        self.manual_update_request = None
                     else:
 
                         if self.device_config.get_config("log_system_stats"):
@@ -108,8 +107,7 @@ class RefreshTask:
                     if refresh_action:
                         plugin_config = self.device_config.get_plugin(refresh_action.get_plugin_id())
                         if plugin_config is None:
-                            logger.error(f"Plugin config not found for '{refresh_action.get_plugin_id()}'.")
-                            continue
+                            raise ValueError(f"Plugin '{refresh_action.get_plugin_id()}' nicht gefunden")
                         plugin = get_plugin_instance(plugin_config)
                         image = refresh_action.execute(plugin, self.device_config, current_dt)
                         image_hash = compute_image_hash(image)
@@ -119,7 +117,7 @@ class RefreshTask:
                         # check if image is the same as current image
                         if image_hash != latest_refresh.image_hash:
                             logger.info(f"Updating display. | refresh_info: {refresh_info}")
-                            self.display_manager.display_image(image, image_settings=plugin.config.get("image_settings", []))
+                            pending_display = (image, plugin.config.get("image_settings", []), latest_refresh)
                         else:
                             logger.info(f"Image already displayed, skipping refresh. | refresh_info: {refresh_info}")
 
@@ -129,23 +127,46 @@ class RefreshTask:
 
             except Exception as e:
                 logger.exception('Exception during refresh')
-                self.refresh_result["exception"] = e  # Capture exception
+                if request:
+                    request.exception = e
+                continue
             finally:
-                self.refresh_event.set()
+                # The image is ready: a waiting web request can return now, the
+                # (slow) e-paper refresh continues in the background.
+                if request:
+                    request.display_started = pending_display is not None
+                    request.done.set()
+
+            if pending_display:
+                self._show(*pending_display)
+
+    def _show(self, image, image_settings, previous_refresh_info):
+        """Sends the image to the display without holding the lock, so the web interface stays usable."""
+        try:
+            self.display_manager.display_image(image, image_settings=image_settings)
+        except Exception:
+            logger.exception('Exception while updating the display')
+            # Show the image again on the next refresh instead of skipping it as "already displayed"
+            with self.condition:
+                self.device_config.refresh_info = previous_refresh_info
+                self.device_config.write_config()
 
     def manual_update(self, refresh_action):
-        """Manually triggers an update for the specified plugin id and plugin settings by notifying the background process."""
-        if self.running:
-            with self.condition:
-                self.manual_update_request = refresh_action
-                self.refresh_result = {}
-                self.refresh_event.clear()
+        """Manually triggers an update for the specified plugin id and plugin settings by notifying the background process.
 
+        Returns as soon as the image has been generated; the display itself is updated in the background.
+        The return value tells whether a display update was started (False if the image was already shown).
+        """
+        if self.running:
+            request = ManualUpdateRequest(refresh_action)
+            with self.condition:
+                self.manual_update_request = request
                 self.condition.notify_all()  # Wake the thread to process manual update
 
-            self.refresh_event.wait()
-            if self.refresh_result.get("exception"):
-                raise self.refresh_result.get("exception")
+            request.done.wait()
+            if request.exception:
+                raise request.exception
+            return request.display_started
         else:
             logger.warn("Background refresh task is not running, unable to do a manual update")
 
@@ -201,6 +222,15 @@ class RefreshTask:
         }
 
         logger.info(f"System Stats: {metrics}")
+
+class ManualUpdateRequest:
+    """A manual update waiting for the background thread, with its own completion signal."""
+
+    def __init__(self, action):
+        self.action = action
+        self.done = threading.Event()
+        self.exception = None
+        self.display_started = False
 
 class RefreshAction:
     """Base class for a refresh action. Subclasses should override the methods below."""
