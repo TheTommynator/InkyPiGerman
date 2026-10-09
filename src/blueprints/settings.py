@@ -40,17 +40,17 @@ def save_settings():
 
         unit, interval, time_format = form_data.get('unit'), form_data.get("interval"), form_data.get("timeFormat")
         if not unit or unit not in ["minute", "hour"]:
-            return jsonify({"error": "Plugin cycle interval unit is required"}), 400
+            return jsonify({"error": "Einheit des Plugin-Wechselintervalls fehlt"}), 400
         if not interval or not interval.isnumeric():
-            return jsonify({"error": "Refresh interval is required"}), 400
+            return jsonify({"error": "Wechselintervall fehlt"}), 400
         if not form_data.get("timezoneName"):
-            return jsonify({"error": "Time Zone is required"}), 400
+            return jsonify({"error": "Zeitzone fehlt"}), 400
         if not time_format or time_format not in ["12h", "24h"]:
-            return jsonify({"error": "Time format is required"}), 400
+            return jsonify({"error": "Zeitformat fehlt"}), 400
         previous_interval_seconds = device_config.get_config("plugin_cycle_interval_seconds")
         plugin_cycle_interval_seconds = calculate_seconds(int(interval), unit)
         if plugin_cycle_interval_seconds > 86400 or plugin_cycle_interval_seconds <= 0:
-            return jsonify({"error": "Plugin cycle interval must be less than 24 hours"}), 400
+            return jsonify({"error": "Das Plugin-Wechselintervall muss kürzer als 24 Stunden sein"}), 400
 
         settings = {
             "name": form_data.get("deviceName"),
@@ -76,8 +76,8 @@ def save_settings():
     except RuntimeError as e:
         return jsonify({"error": str(e)}), 500
     except Exception as e:
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-    return jsonify({"success": True, "message": "Saved settings."})
+        return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
+    return jsonify({"success": True, "message": "Einstellungen gespeichert."})
 
 @settings_bp.route('/shutdown', methods=['POST'])
 def shutdown():
@@ -105,9 +105,9 @@ def download_logs():
 
         if not JOURNAL_AVAILABLE:
             # Return a message when running in development mode without systemd
-            buffer.write(f"Log download not available in development mode (cysystemd not installed).\n")
-            buffer.write(f"Logs would normally show InkyPi service logs from the last {hours} hours.\n")
-            buffer.write(f"\nTo see Flask development logs, check your terminal output.\n")
+            buffer.write("Log-Download im Entwicklungsmodus nicht verfügbar (cysystemd ist nicht installiert).\n")
+            buffer.write(f"Normalerweise enthält diese Datei die Logs des InkyPi-Dienstes der letzten {hours} Stunden.\n")
+            buffer.write("\nDie Flask-Entwicklungslogs findest du in der Terminalausgabe.\n")
         else:
             reader = JournalReader()
             reader.open(JournalOpenMode.SYSTEM)
@@ -141,6 +141,6 @@ def download_logs():
         )
 
     except Exception as e:
-        logger.error(f"Error reading logs: {e}")
-        return Response(f"Error reading logs: {e}", status=500, mimetype="text/plain")
+        logger.error(f"Fehler beim Lesen der Logs: {e}")
+        return Response(f"Fehler beim Lesen der Logs: {e}", status=500, mimetype="text/plain")
 

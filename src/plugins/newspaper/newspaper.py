@@ -13,7 +13,7 @@ class Newspaper(BasePlugin):
         newspaper_slug = settings.get('newspaperSlug')
 
         if not newspaper_slug:
-            raise RuntimeError("Newspaper input not provided.")
+            raise RuntimeError("Bitte eine Zeitung auswählen.")
         newspaper_slug = newspaper_slug.upper()
 
         # Get today's date
@@ -49,7 +49,7 @@ class Newspaper(BasePlugin):
                 new_image.paste(image, (0, 0))
                 image = new_image
         else:
-            raise RuntimeError("Newspaper front cover not found.")
+            raise RuntimeError("Titelseite der Zeitung nicht gefunden.")
     
         return image
     

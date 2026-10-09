@@ -38,11 +38,11 @@ def sponsors_generate_image(plugin_instance, settings, device_config):
 
     api_key = device_config.load_env_key("GITHUB_SECRET")
     if not api_key:
-        raise RuntimeError("GitHub API Key not configured.")
+        raise RuntimeError("GitHub-API-Schlüssel ist nicht konfiguriert.")
 
     github_username = settings.get("githubUsername")
     if not github_username:
-        raise RuntimeError("GitHub username is required.")
+        raise RuntimeError("Bitte einen GitHub-Benutzernamen angeben.")
 
     data = fetch_sponsorships(github_username, api_key)
     total_per_month = calculate_monthly_total(data)
@@ -74,7 +74,7 @@ def fetch_sponsorships(username, api_key):
     data = resp.json()
 
     if "errors" in data:
-        raise RuntimeError(f"GitHub API returned errors: {data['errors']}")
+        raise RuntimeError(f"Die GitHub-API hat Fehler gemeldet: {data['errors']}")
 
     logger.debug(f"Fetched sponsor data for {username}: {data}")
     return data

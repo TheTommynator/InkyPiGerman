@@ -30,7 +30,7 @@ class GitHub(BasePlugin):
                 return stars_generate_image(self, settings, device_config)
             else:
                 logger.error(f"Unknown GitHub type: {github_type}")
-                raise ValueError(f"Unknown GitHub type: {github_type}")
+                raise ValueError(f"Unbekannter GitHub-Typ: {github_type}")
         except Exception as e:
             logger.error(f"GitHub image generation failed: {str(e)}")
             raise

@@ -33,28 +33,28 @@
 
 <div class="form-group">
     <div class="form-group nowrap">
-        <label for="title" class="form-label">Title</label>
-        <input type="text" id="title" name="title" placeholder="Type something..." class="form-input">
+        <label for="title" class="form-label">Titel</label>
+        <input type="text" id="title" name="title" placeholder="Hier eingeben …" class="form-input">
     </div>
     <div class="form-group nowrap">
-        <label for="listStyle" class="form-label">List Style:</label>
+        <label for="listStyle" class="form-label">Aufzählungszeichen:</label>
         <select id="listStyle" name="listStyle" class="form-input">
-            <option value="disc">Disc (●)</option>
-            <option value="square">Square (◼)</option>
-            <option value="'\25C6  '">Diamond (◆)</option>
-            <option value="decimal">Decimal</option>
-            <option value="lower-roman">Roman Numeral</option>
-            <option value="lower-alpha">Alphabetical</option>
+            <option value="disc">Punkt (●)</option>
+            <option value="square">Quadrat (◼)</option>
+            <option value="'\25C6  '">Raute (◆)</option>
+            <option value="decimal">Zahlen (1, 2, 3)</option>
+            <option value="lower-roman">Römische Zahlen (i, ii, iii)</option>
+            <option value="lower-alpha">Buchstaben (a, b, c)</option>
         </select>
     </div>
     <div class="form-group nowrap">
-        <label for="fontSize" class="form-label">Font Size:</label>
+        <label for="fontSize" class="form-label">Schriftgröße:</label>
         <select id="fontSize" name="fontSize" class="form-input">
-            <option value="x-small">Extra Small</option>
-            <option value="small">Small</option>
+            <option value="x-small">Sehr klein</option>
+            <option value="small">Klein</option>
             <option value="normal">Normal</option>
-            <option value="large">Large</option>
-            <option value="x-large">Extra Larger</option>
+            <option value="large">Groß</option>
+            <option value="x-large">Sehr groß</option>
         </select>
     </div>
 </div>
@@ -62,7 +62,7 @@
 <!-- Lists will go here -->
 </div>
 
-<button class="header-button" id="addBtn">+ Add List</button>
+<button class="header-button" id="addBtn">+ Liste hinzufügen</button>
 
 <script>
     const container = document.getElementById("listsContainer");
@@ -79,12 +79,12 @@
 
         list.innerHTML = `
         <div class="title-container form-group">
-            <input id="list-title[]" name="list-title[]" type="text" placeholder="List title" value="${title}">
-            <button class="delete-button" title="Delete List">
-                <img src="{{ url_for('static', filename='icons/remove.png') }}" alt="delete plugin" class="action-icon">
+            <input id="list-title[]" name="list-title[]" type="text" placeholder="Titel der Liste" value="${title}">
+            <button class="delete-button" title="Liste löschen">
+                <img src="{{ url_for('static', filename='icons/remove.png') }}" alt="Liste löschen" class="action-icon">
             </button>
         </div>
-        <textarea id="list[]" name="list[]" placeholder="Enter your tasks...">${text}</textarea>
+        <textarea id="list[]" name="list[]" placeholder="Aufgaben eingeben (eine pro Zeile) …">${text}</textarea>
         `;
 
         list.querySelector(".delete-button").onclick = () => {

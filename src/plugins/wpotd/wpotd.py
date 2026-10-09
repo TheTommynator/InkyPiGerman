@@ -55,7 +55,7 @@ class Wpotd(BasePlugin):
         image = self._download_image(picurl)
         if image is None:
             logger.error("Failed to download WPOTD image.")
-            raise RuntimeError("Failed to download WPOTD image.")
+            raise RuntimeError("Wikipedia-Bild des Tages konnte nicht heruntergeladen werden.")
         if settings.get("shrinkToFitWpotd") == "true":
             dimensions = device_config.get_resolution()
             if device_config.get_config("orientation") == "vertical":
@@ -80,17 +80,17 @@ class Wpotd(BasePlugin):
         try:
             if url.lower().endswith(".svg"):
                 logger.warning("SVG format is not supported by Pillow. Skipping image download.")
-                raise RuntimeError("Unsupported image format: SVG.")
+                raise RuntimeError("Nicht unterstütztes Bildformat: SVG.")
 
             response = self.SESSION.get(url, headers=self.HEADERS, timeout=10)
             response.raise_for_status()
             return Image.open(BytesIO(response.content))
         except UnidentifiedImageError as e:
             logger.error(f"Unsupported image format at {url}: {str(e)}")
-            raise RuntimeError("Unsupported image format.")
+            raise RuntimeError("Nicht unterstütztes Bildformat.")
         except Exception as e:
             logger.error(f"Failed to load WPOTD image from {url}: {str(e)}")
-            raise RuntimeError("Failed to load WPOTD image.")
+            raise RuntimeError("Wikipedia-Bild des Tages konnte nicht geladen werden.")
 
     def _fetch_potd(self, cur_date: date) -> Dict[str, Any]:
         title = f"Template:POTD/{cur_date.isoformat()}"
@@ -107,7 +107,7 @@ class Wpotd(BasePlugin):
             filename = data["query"]["pages"][0]["images"][0]["title"]
         except (KeyError, IndexError) as e:
             logger.error(f"Failed to retrieve POTD filename for {cur_date}: {e}")
-            raise RuntimeError("Failed to retrieve POTD filename.")
+            raise RuntimeError("Dateiname des Bildes des Tages konnte nicht ermittelt werden.")
 
         image_src = self._fetch_image_src(filename)
 
@@ -132,7 +132,7 @@ class Wpotd(BasePlugin):
             return page["imageinfo"][0]["url"]
         except (KeyError, IndexError, StopIteration) as e:
             logger.error(f"Failed to retrieve image URL for {filename}: {e}")
-            raise RuntimeError("Failed to retrieve image URL.")
+            raise RuntimeError("Bild-URL konnte nicht ermittelt werden.")
 
     def _make_request(self, params: Dict[str, Any]) -> Dict[str, Any]:
         try:
@@ -141,7 +141,7 @@ class Wpotd(BasePlugin):
             return response.json()
         except Exception as e:
             logger.error(f"Wikipedia API request failed with params {params}: {str(e)}")
-            raise RuntimeError("Wikipedia API request failed.")
+            raise RuntimeError("Anfrage an die Wikipedia-API fehlgeschlagen.")
         
     def _shrink_to_fit(self, image: Image.Image, max_width: int, max_height: int) -> Image.Image:
         """

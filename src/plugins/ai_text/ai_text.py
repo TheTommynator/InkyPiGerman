@@ -26,24 +26,24 @@ class AIText(BasePlugin):
     def generate_image(self, settings, device_config):
         api_key = device_config.load_env_key("OPEN_AI_SECRET")
         if not api_key:
-            raise RuntimeError("OPEN AI API Key not configured.")
+            raise RuntimeError("OpenAI-API-Schlüssel ist nicht konfiguriert.")
 
         title = settings.get("title")
 
         text_model = settings.get('textModel')
         if not text_model:
-            raise RuntimeError("Text Model is required.")
+            raise RuntimeError("Bitte ein Textmodell auswählen.")
 
         text_prompt = settings.get('textPrompt', '')
         if not text_prompt.strip():
-            raise RuntimeError("Text Prompt is required.")
+            raise RuntimeError("Bitte einen Prompt angeben.")
 
         try:
             ai_client = OpenAI(api_key = api_key)
             prompt_response = AIText.fetch_text_prompt(ai_client, text_model, text_prompt)
         except Exception as e:
             logger.error(f"Failed to make Open AI request: {str(e)}")
-            raise RuntimeError("Open AI request failure, please check logs.")
+            raise RuntimeError("Anfrage an OpenAI fehlgeschlagen, bitte Logs prüfen.")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":

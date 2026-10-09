@@ -15,7 +15,7 @@ def get_current_image():
     image_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images', 'current_image.png')
     
     if not os.path.exists(image_path):
-        return jsonify({"error": "Image not found"}), 404
+        return jsonify({"error": "Bild nicht gefunden"}), 404
     
     # Get the file's last modified time (truncate to seconds to match HTTP header precision)
     file_mtime = int(os.path.getmtime(image_path))

@@ -15,7 +15,7 @@ class Comic(BasePlugin):
     def generate_image(self, settings, device_config):
         comic = settings.get("comic")
         if not comic or comic not in COMICS:
-            raise RuntimeError("Invalid comic provided.")
+            raise RuntimeError("Ungültiger Comic ausgewählt.")
 
         is_caption = settings.get("titleCaption") == "true"
         caption_font_size = settings.get("fontSize")

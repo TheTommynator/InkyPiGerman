@@ -74,7 +74,7 @@ class Clock(BasePlugin):
                 img = self.draw_word_clock(dimensions, current_time, primary_color, secondary_color)
         except Exception as e:
             logger.error(f"Failed to draw clock image: {str(e)}")
-            raise RuntimeError("Failed to display clock.")
+            raise RuntimeError("Uhr konnte nicht angezeigt werden.")
         return img
     
     def draw_digital_clock(self, dimensions, time, primary_color=(255,255,255), secondary_color=(0,0,0)):

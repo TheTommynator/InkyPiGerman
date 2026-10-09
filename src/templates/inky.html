@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -68,18 +68,18 @@
         <!-- Page Title -->
         <header class="header">
             <h1>{{ config.name }}</h1>
-            <button class="settings-button dark-mode-toggle" title="Toggle Dark Mode" aria-label="Toggle Dark Mode"></button>
+            <button class="settings-button dark-mode-toggle" title="Dunkelmodus umschalten" aria-label="Dunkelmodus umschalten"></button>
             <a href="{{ url_for('playlist.playlists') }}" class="settings-button">
-                <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Playlists" alt="playlists icon" class="icon-image">
+                <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Playlists" alt="Playlist-Symbol" class="icon-image">
             </a>
             <a href="{{ url_for('settings.settings_page') }}" class="settings-button">
-                <img src="{{ url_for('static', filename='icons/settings.png') }}" title="Settings" alt="settings icon" class="icon-image">
+                <img src="{{ url_for('static', filename='icons/settings.png') }}" title="Einstellungen" alt="Einstellungen-Symbol" class="icon-image">
             </a>
         </header>
 
         <!-- Display the current image -->
         <div class="image-container">
-            <img src="{{ url_for('static', filename='images/current_image.png') }}" alt="Current Image">
+            <img src="{{ url_for('static', filename='images/current_image.png') }}" alt="Aktuelles Bild">
         </div>
 
         <!-- Separator -->
@@ -88,7 +88,7 @@
         <div class="button-grid">
             {% for plugin in plugins %}
             <a href="{{ url_for('plugin.plugin_page', plugin_id=plugin.id) }}" class="icon-button" title="{{ plugin.display_name }}" >
-                <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="{{ plugin.display_name }} icon" class="icon-image">
+                <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="Symbol für {{ plugin.display_name }}" class="icon-image">
             </a>
             {% endfor %}
         </div>

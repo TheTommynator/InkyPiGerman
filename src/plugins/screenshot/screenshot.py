@@ -10,7 +10,7 @@ class Screenshot(BasePlugin):
 
         url = settings.get('url')
         if not url:
-            raise RuntimeError("URL is required.")
+            raise RuntimeError("Bitte eine URL angeben.")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -21,6 +21,6 @@ class Screenshot(BasePlugin):
         image = take_screenshot(url, dimensions, timeout_ms=40000)
 
         if not image:
-            raise RuntimeError("Failed to take screenshot, please check logs.")
+            raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
 
         return image

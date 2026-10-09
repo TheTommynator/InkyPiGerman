@@ -31,7 +31,7 @@ class Apod(BasePlugin):
 
         api_key = device_config.load_env_key("NASA_SECRET")
         if not api_key:
-            raise RuntimeError("NASA API Key not configured.")
+            raise RuntimeError("NASA-API-Schlüssel ist nicht konfiguriert.")
 
         params = {"api_key": api_key}
 
@@ -48,12 +48,12 @@ class Apod(BasePlugin):
 
         if response.status_code != 200:
             logger.error(f"NASA API error: {response.text}")
-            raise RuntimeError("Failed to retrieve NASA APOD.")
+            raise RuntimeError("NASA-Astronomiebild des Tages konnte nicht abgerufen werden.")
 
         data = response.json()
 
         if data.get("media_type") != "image":
-            raise RuntimeError("APOD is not an image today.")
+            raise RuntimeError("Das Astronomiebild des Tages ist heute kein Bild (z. B. ein Video).")
 
         image_url = data.get("hdurl") or data.get("url")
 
@@ -62,6 +62,6 @@ class Apod(BasePlugin):
             image = Image.open(BytesIO(img_data.content))
         except Exception as e:
             logger.error(f"Failed to load APOD image: {str(e)}")
-            raise RuntimeError("Failed to load APOD image.")
+            raise RuntimeError("Astronomiebild konnte nicht geladen werden.")
 
         return image

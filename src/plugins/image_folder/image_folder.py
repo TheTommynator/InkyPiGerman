@@ -23,13 +23,13 @@ class ImageFolder(BasePlugin):
     def generate_image(self, settings, device_config):
         folder_path = settings.get('folder_path')
         if not folder_path:
-            raise RuntimeError("Folder path is required.")
+            raise RuntimeError("Bitte einen Ordnerpfad angeben.")
         
         if not os.path.exists(folder_path):
-            raise RuntimeError(f"Folder does not exist: {folder_path}")
+            raise RuntimeError(f"Ordner existiert nicht: {folder_path}")
         
         if not os.path.isdir(folder_path):
-            raise RuntimeError(f"Path is not a directory: {folder_path}")
+            raise RuntimeError(f"Pfad ist kein Ordner: {folder_path}")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -39,7 +39,7 @@ class ImageFolder(BasePlugin):
 
         image_files = list_files_in_folder(folder_path)
         if not image_files:
-            raise RuntimeError(f"No image files found in folder: {folder_path}")
+            raise RuntimeError(f"Keine Bilddateien im Ordner gefunden: {folder_path}")
 
         image_url = random.choice(image_files)
         logger.info(f"Random image selected {image_url}")
@@ -60,6 +60,6 @@ class ImageFolder(BasePlugin):
             logger.error(f"Error loading image from {image_url}: {e}")
 
         if not img:
-            raise RuntimeError("Failed to load image, please check logs.")
+            raise RuntimeError("Bild konnte nicht geladen werden, bitte Logs prüfen.")
 
         return img
