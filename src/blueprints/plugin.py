@@ -9,6 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 plugin_bp = Blueprint("plugin", __name__)
 
+# Das Bild ist fertig, der Bildaufbau auf dem E-Paper läuft danach im Hintergrund weiter
+DISPLAY_STARTED_MESSAGE = "Bild erstellt – das Display wird jetzt aktualisiert. Den Fortschritt siehst du auf der Startseite."
+DISPLAY_UNCHANGED_MESSAGE = "Das Display zeigt dieses Bild bereits."
+
+def _display_message(display_started):
+    return DISPLAY_STARTED_MESSAGE if display_started else DISPLAY_UNCHANGED_MESSAGE
+
 def _delete_plugin_instance_images(device_config, plugin_instance_obj):
     """Delete all images associated with a plugin instance."""
     # Delete the plugin instance's generated image
@@ -197,11 +204,11 @@ def display_plugin_instance():
         if not plugin_instance:
             return jsonify({"success": False, "message": f"Plugin-Instanz '{plugin_instance_name}' nicht gefunden"}), 400
 
-        refresh_task.manual_update(PlaylistRefresh(playlist, plugin_instance, force=True))
+        display_started = refresh_task.manual_update(PlaylistRefresh(playlist, plugin_instance, force=True))
     except Exception as e:
         return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
 
-    return jsonify({"success": True, "message": "Anzeige aktualisiert"}), 200
+    return jsonify({"success": True, "message": _display_message(display_started)}), 200
 
 @plugin_bp.route('/update_now', methods=['POST'])
 def update_now():
@@ -216,7 +223,8 @@ def update_now():
 
         # Check if refresh task is running
         if refresh_task.running:
-            refresh_task.manual_update(ManualRefresh(plugin_id, plugin_settings))
+            display_started = refresh_task.manual_update(ManualRefresh(plugin_id, plugin_settings))
+            return jsonify({"success": True, "message": _display_message(display_started)}), 200
         else:
             # In development mode, directly update the display
             logger.info("Refresh task not running, updating display directly")

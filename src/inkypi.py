@@ -112,6 +112,7 @@ if __name__ == '__main__':
             except:
                 pass  # Ignore if we can't get the IP
             
-        serve(app, host="0.0.0.0", port=PORT, threads=1)
+        # Mehrere Threads, damit die Oberfläche bedienbar bleibt, während eine Anfrage länger dauert
+        serve(app, host="0.0.0.0", port=PORT, threads=4)
     finally:
         refresh_task.stop()

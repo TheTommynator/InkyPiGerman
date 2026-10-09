@@ -75,6 +75,7 @@
             const expected = displayStatus.expected_seconds;
 
             box.classList.toggle('refreshing', displayStatus.refreshing);
+            box.classList.toggle('failed', !displayStatus.refreshing && !!displayStatus.error);
             if (displayStatus.refreshing) {
                 const elapsed = displayStatus.elapsed_seconds + passed;
                 bar.hidden = false;
@@ -88,6 +89,10 @@
                     fill.style.width = '100%';
                     text.textContent = `Display wird aktualisiert … seit ${formatDuration(elapsed)}`;
                 }
+                box.hidden = false;
+            } else if (displayStatus.error) {
+                bar.hidden = true;
+                text.textContent = `Fehler beim Aktualisieren des Displays: ${displayStatus.error}`;
                 box.hidden = false;
             } else if (displayStatus.seconds_since_update !== null) {
                 bar.hidden = true;

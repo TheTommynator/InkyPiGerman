@@ -151,6 +151,10 @@ body {
     color: var(--loading-color);
 }
 
+.display-status.failed {
+    color: var(--failure-color);
+}
+
 .display-status-bar {
     height: 4px;
     margin-top: 4px;
