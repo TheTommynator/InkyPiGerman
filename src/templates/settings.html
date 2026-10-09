@@ -264,7 +264,231 @@
         <div class="buttons-container">
             <button type="button" onclick="handleAction()" class="action-button">Speichern</button>
         </div>
+
+        <!-- Updates (scripts/deploy.sh) -->
+        <div class="separator"></div>
+        <div id="updates" class="updates-section">
+            <h2 class="updates-title">Updates</h2>
+            <p id="updatesUnavailable" class="updates-muted" hidden></p>
+
+            <div id="updatesBody" hidden>
+                <div class="updates-row">
+                    <label class="form-label" for="autoUpdateToggle">Automatisch aktualisieren</label>
+                    <div class="toggle-container">
+                        <input type="checkbox" id="autoUpdateToggle" class="toggle-checkbox" onchange="setAutoUpdate()">
+                        <label for="autoUpdateToggle" class="toggle-label"></label>
+                    </div>
+                    <span>alle</span>
+                    <select id="autoUpdateInterval" class="form-input updates-interval" onchange="setAutoUpdate()"></select>
+                    <span>Minuten</span>
+                </div>
+
+                <dl class="updates-facts">
+                    <dt>Installiert</dt><dd id="updInstalled">–</dd>
+                    <dt>Letzte Prüfung</dt><dd id="updLastCheck">–</dd>
+                    <dt>Nächste Prüfung</dt><dd id="updNextRun">–</dd>
+                    <dt>Neu auf GitHub</dt><dd id="updPending">–</dd>
+                </dl>
+
+                <div class="buttons-container updates-buttons">
+                    <button type="button" id="updateNowButton" class="action-button" onclick="runUpdateNow()">Jetzt aktualisieren</button>
+                </div>
+
+                <h3 class="updates-subtitle">Letzte Aktualisierungen</h3>
+                <ul id="updHistory" class="updates-history"></ul>
+            </div>
+        </div>
     </div>
+
+    <style>
+        .updates-section { margin-top: 10px; }
+        .updates-title { margin: 0 0 12px 0; font-size: 1.3em; }
+        .updates-subtitle { margin: 18px 0 8px 0; font-size: 1.05em; }
+        .updates-muted { color: var(--text-secondary); }
+        .updates-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .updates-row .form-label { margin: 0; }
+        .updates-row .updates-interval { flex: 0 0 auto; width: 80px; }
+        .updates-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0; }
+        .updates-facts dt { font-weight: bold; }
+        .updates-facts dd { margin: 0; overflow-wrap: anywhere; }
+        .updates-buttons { justify-content: flex-start; margin: 0; }
+        .updates-history { list-style: none; padding: 0; margin: 0; }
+        .updates-history > li { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--bg-secondary); }
+        .updates-history .upd-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+        .updates-history .upd-time { color: var(--text-secondary); font-size: 0.9em; }
+        .updates-history .upd-msg { margin-top: 4px; white-space: pre-line; }
+        .updates-history ul { margin: 6px 0 0 0; padding-left: 20px; font-size: 0.92em; list-style: disc; }
+        .updates-history ul li { border: 0; padding: 0; margin: 2px 0; background: none; }
+        .updates-history code, .updates-facts code { font-size: 0.9em; }
+        .upd-badge { font-weight: bold; }
+        .upd-ok { color: var(--success-color); }
+        .upd-bad { color: var(--failure-color); }
+    </style>
+
+    <script>
+        const UPDATE_RESULTS = {
+            success:      ["✔ Aktualisiert", "upd-ok"],
+            check_failed: ["✘ Prüfung fehlgeschlagen – nicht installiert", "upd-bad"],
+            rolled_back:  ["↩ Fehlgeschlagen – alter Stand wiederhergestellt", "upd-bad"],
+            rollback:     ["↩ Manuell zurückgesetzt", ""],
+            current:      ["✔ Bereits aktuell", "upd-ok"],
+            skipped:      ["⏸ Übersprungen", ""],
+            running:      ["⏳ Update läuft …", ""],
+            error:        ["✘ Fehler", "upd-bad"],
+        };
+        const UPDATE_TRIGGERS = { auto: "automatisch", manual: "per Befehl", web: "über die Weboberfläche" };
+        let updatePollTimer = null;
+        let lastUpdateData = null;
+        let checkTimeBeforeRun = undefined;  // gesetzt, solange auf das Ergebnis von "Jetzt aktualisieren" gewartet wird
+
+        function escapeHtml(s) {
+            return String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+        }
+
+        function formatTime(iso) {
+            if (!iso) return "–";
+            const d = new Date(iso);
+            if (isNaN(d)) return escapeHtml(iso);
+            return d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        }
+
+        function resultLabel(result) {
+            const [text, cls] = UPDATE_RESULTS[result] || [result, ""];
+            return `<span class="upd-badge ${cls}">${escapeHtml(text)}</span>`;
+        }
+
+        function commitList(commits) {
+            if (!commits || !commits.length) return "";
+            return "<ul>" + commits.map(c =>
+                `<li><code>${escapeHtml(c.hash)}</code> ${escapeHtml(c.subject)} <span class="upd-time">(${escapeHtml(c.author)})</span></li>`
+            ).join("") + "</ul>";
+        }
+
+        function renderUpdates(data) {
+            lastUpdateData = data;
+            const unavailable = document.getElementById("updatesUnavailable");
+            const body = document.getElementById("updatesBody");
+            if (!data.available) {
+                unavailable.textContent = data.reason;
+                unavailable.hidden = false;
+                body.hidden = true;
+                return;
+            }
+            unavailable.hidden = true;
+            body.hidden = false;
+
+            const toggle = document.getElementById("autoUpdateToggle");
+            const select = document.getElementById("autoUpdateInterval");
+            if (!select.options.length) {
+                data.intervals.forEach(m => select.add(new Option(m, m)));
+            }
+            toggle.checked = data.auto.enabled;
+            select.value = data.auto.interval || 5;
+            select.disabled = !data.auto.enabled;
+
+            const inst = data.installed;
+            document.getElementById("updInstalled").innerHTML = inst
+                ? `<code>${escapeHtml(inst.hash)}</code> ${escapeHtml(inst.subject)} <span class="upd-time">(${formatTime(inst.date)})</span>`
+                : "–";
+
+            const lc = data.last_check;
+            document.getElementById("updLastCheck").innerHTML = lc
+                ? `${formatTime(lc.time)} · ${resultLabel(lc.result)}` + (lc.result === "error" || lc.result === "skipped" ? `<div class="updates-muted">${escapeHtml(lc.message)}</div>` : "")
+                : "noch keine";
+
+            document.getElementById("updNextRun").textContent = data.auto.enabled ? formatTime(data.auto.next_run) : "Auto-Update ist aus";
+
+            document.getElementById("updPending").innerHTML = data.pending.length
+                ? `${data.pending.length} Änderung(en) warten auf Installation` + commitList(data.pending)
+                : "nichts – alles installiert";
+
+            const history = document.getElementById("updHistory");
+            history.innerHTML = data.history.length ? data.history.map(h => `
+                <li>
+                    <div class="upd-head">${resultLabel(h.result)}
+                        <span class="upd-time">${formatTime(h.time)} · ${escapeHtml(UPDATE_TRIGGERS[h.trigger] || h.trigger || "")}</span>
+                    </div>
+                    ${h.result !== "success" && h.message ? `<div class="upd-msg">${escapeHtml(h.message)}</div>` : ""}
+                    ${commitList(h.commits)}
+                </li>`).join("") : '<li class="updates-muted">Noch keine Updates installiert.</li>';
+
+            const running = lc && lc.result === "running";
+            const waiting = checkTimeBeforeRun !== undefined && (lc ? lc.time : null) === checkTimeBeforeRun;
+            const button = document.getElementById("updateNowButton");
+            button.disabled = running || waiting;
+            button.textContent = running ? "Update läuft …" : waiting ? "Suche nach Updates …" : "Jetzt aktualisieren";
+            if (running || waiting) {
+                pollUpdates();
+            } else if (checkTimeBeforeRun !== undefined) {
+                checkTimeBeforeRun = undefined;
+                const ok = ["success", "current"].includes(lc.result);
+                showResponseModal(ok ? "success" : "failure", (UPDATE_RESULTS[lc.result] || [lc.result])[0] + (ok ? "" : ` – ${lc.message}`));
+            }
+        }
+
+        async function loadUpdates() {
+            try {
+                const response = await fetch("{{ url_for('updates.status') }}");
+                renderUpdates(await response.json());
+                return true;
+            } catch (e) {
+                // InkyPi startet gerade neu (z. B. nach einem Update)
+                return false;
+            }
+        }
+
+        // Während eines Updates alle paar Sekunden neu laden – InkyPi ist beim Neustart kurz weg
+        function pollUpdates() {
+            if (updatePollTimer) return;
+            updatePollTimer = setTimeout(async () => {
+                updatePollTimer = null;
+                const ok = await loadUpdates();
+                if (!ok) {
+                    const button = document.getElementById("updateNowButton");
+                    button.disabled = true;
+                    button.textContent = "InkyPi startet neu …";
+                    pollUpdates();
+                }
+            }, 4000);
+        }
+
+        async function setAutoUpdate() {
+            const enabled = document.getElementById("autoUpdateToggle").checked;
+            const interval = parseInt(document.getElementById("autoUpdateInterval").value || "5", 10);
+            const response = await fetch("{{ url_for('updates.set_auto') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled, interval }),
+            });
+            const result = await response.json();
+            if (response.ok) {
+                renderUpdates(result);
+                showResponseModal("success", enabled ? `Auto-Update ist an (alle ${interval} Minuten).` : "Auto-Update ist aus.");
+            } else {
+                showResponseModal("failure", `Fehler: ${result.error}`);
+                loadUpdates();
+            }
+        }
+
+        async function runUpdateNow() {
+            const button = document.getElementById("updateNowButton");
+            button.disabled = true;
+            button.textContent = "Suche nach Updates …";
+            checkTimeBeforeRun = lastUpdateData && lastUpdateData.last_check ? lastUpdateData.last_check.time : null;
+            const response = await fetch("{{ url_for('updates.run_now') }}", { method: "POST" });
+            const result = await response.json();
+            if (!response.ok) {
+                showResponseModal("failure", `Fehler: ${result.error}`);
+                checkTimeBeforeRun = undefined;
+                button.disabled = false;
+                button.textContent = "Jetzt aktualisieren";
+                return;
+            }
+            pollUpdates();
+        }
+
+        document.addEventListener("DOMContentLoaded", loadUpdates);
+    </script>
     <!-- Success/Error Modal -->
     {% include 'response_modal.html' %}
 </body>

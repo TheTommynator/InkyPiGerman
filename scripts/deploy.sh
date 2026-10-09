@@ -6,7 +6,7 @@
 #   sudo inkypi-deploy               neuesten Stand holen, prüfen, Service neu starten
 #   sudo inkypi-deploy rollback      zurück auf den Stand vor dem letzten Deploy
 #   sudo inkypi-deploy status        aktuellen Stand, Service- und Auto-Deploy-Status anzeigen
-#   sudo inkypi-deploy auto on [MIN] automatisch alle MIN Minuten deployen (Standard: 5)
+#   sudo inkypi-deploy auto on [MIN] automatisch alle MIN Minuten deployen (5, 10, 15, 30, 60; Standard: 5)
 #   sudo inkypi-deploy auto off      automatisches Deploy abschalten
 #
 # Beim ersten Aufruf über "sudo bash scripts/deploy.sh" wird der Befehl
@@ -19,17 +19,23 @@
 #   4. bei Bedarf Python-Abhängigkeiten / Service-Dateien aktualisieren
 #   5. Service neu starten und prüfen, ob die Weboberfläche antwortet
 #   6. startet InkyPi nicht, wird automatisch auf den alten Stand zurückgesetzt
+#
+# Jede Prüfung und jedes Update wird in /var/lib/inkypi protokolliert und in
+# der Weboberfläche unter Settings → Updates angezeigt.
 
 set -uo pipefail
 
 APPNAME="inkypi"
 INSTALL_PATH="/usr/local/$APPNAME"
 VENV_PATH="$INSTALL_PATH/venv_$APPNAME"
-BINPATH="/usr/local/bin"
+BINPATH="${INKYPI_BINPATH:-/usr/local/bin}"
 SERVICE="$APPNAME.service"
 DEPLOY_UNIT="$APPNAME-deploy"
+STATE_DIR="${INKYPI_STATE_DIR:-/var/lib/$APPNAME}"
+LOCK_FILE="/run/$APPNAME-deploy.lock"
 HEALTH_URL="${INKYPI_HEALTH_URL:-http://127.0.0.1/}"
 HEALTH_TIMEOUT="${INKYPI_HEALTH_TIMEOUT:-90}"
+ALLOWED_INTERVALS="5 10 15 30 60"
 
 SOURCE=${BASH_SOURCE[0]}
 while [ -h "$SOURCE" ]; do # Symlink (inkypi-deploy) auflösen
@@ -43,6 +49,7 @@ STATE_PREVIOUS="$REPO_DIR/.git/inkypi-previous-deploy"
 STATE_FAILED="$REPO_DIR/.git/inkypi-failed-deploy"
 
 QUIET=false
+TRIGGER="${INKYPI_DEPLOY_TRIGGER:-}"
 
 info()    { $QUIET || echo -e "$1"; }
 success() { echo -e "$1 [\e[32m\xE2\x9C\x94\e[0m]"; }
@@ -59,10 +66,67 @@ git_repo() {
   fi
 }
 
+# Schreibt das Ergebnis einer Prüfung nach $STATE_DIR/deploy-last-check.json;
+# Deploy-Ereignisse kommen zusätzlich in den Verlauf deploy-history.json.
+# Aufruf: record <check|deploy> <ergebnis> <meldung> [alter-commit] [neuer-commit]
+PY_RECORD='
+import json, os, sys
+from datetime import datetime
+state_dir, kind, result, message, old, new, trigger = sys.argv[1:8]
+commits = []
+for line in sys.stdin.read().splitlines():
+    parts = line.split("\x1f")
+    if len(parts) == 4:
+        commits.append(dict(zip(("hash", "subject", "author", "date"), parts)))
+entry = {
+    "time": datetime.now().astimezone().isoformat(timespec="seconds"),
+    "result": result,
+    "message": message,
+    "trigger": trigger,
+    "from": old[:7],
+    "to": new[:7],
+    "commits": commits,
+}
+os.makedirs(state_dir, exist_ok=True)
+
+def write(name, data):
+    path = os.path.join(state_dir, name)
+    with open(path + ".tmp", "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=1)
+    os.replace(path + ".tmp", path)
+
+write("deploy-last-check.json", entry)
+if kind == "deploy":
+    path = os.path.join(state_dir, "deploy-history.json")
+    try:
+        with open(path) as f:
+            history = json.load(f)
+    except Exception:
+        history = []
+    write("deploy-history.json", [entry] + history[:19])
+'
+record() {
+  local kind=$1 result=$2 message=$3 old=${4:-} new=${5:-} commits=""
+  if [ -n "$old" ] && [ -n "$new" ] && git_repo merge-base --is-ancestor "$old" "$new" 2>/dev/null; then
+    commits=$(git_repo log --format='%h%x1f%s%x1f%an%x1f%cI' "$old..$new" 2>/dev/null)
+  fi
+  python3 -c "$PY_RECORD" "$STATE_DIR" "$kind" "$result" "$message" "$old" "$new" "$TRIGGER" <<< "$commits" \
+    || error "Konnte Status nicht nach $STATE_DIR schreiben"
+}
+
 require_root() {
   if [ "$EUID" -ne 0 ]; then
     error "Bitte mit sudo ausführen: sudo inkypi-deploy $*"
     exit 1
+  fi
+}
+
+# Verhindert, dass Timer und Weboberfläche gleichzeitig deployen
+acquire_lock() {
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    info "Es läuft bereits ein Deploy."
+    exit 0
   fi
 }
 
@@ -151,18 +215,21 @@ apply_side_effects() {
 
 cmd_deploy() {
   local auto=${1:-false} branch old new
+  acquire_lock
   branch=$(current_branch)
 
   if [ -n "$(git_repo status --porcelain --untracked-files=no)" ]; then
     error "Es gibt lokale Änderungen an versionierten Dateien in $REPO_DIR:"
     git_repo status --short --untracked-files=no >&2
     error "Bitte erst sichern oder verwerfen (z. B. 'git stash' oder 'git checkout -- <datei>')."
+    record check error "Lokale Änderungen auf dem Pi verhindern das Update."
     exit 1
   fi
 
   info "Hole neuesten Stand von origin/$branch ..."
   if ! git_repo fetch --quiet origin "$branch"; then
     error "git fetch fehlgeschlagen (Netzwerk?)"
+    record check error "GitHub nicht erreichbar (Netzwerk?)."
     exit 1
   fi
 
@@ -171,39 +238,53 @@ cmd_deploy() {
 
   if [ "$old" = "$new" ]; then
     info "Bereits aktuell ($(git_repo log -1 --format='%h %s' HEAD))."
+    record check current "Bereits aktuell." "$old" "$new"
     exit 0
   fi
 
   if $auto && [ -f "$STATE_FAILED" ] && [ "$(cat "$STATE_FAILED")" = "$new" ]; then
     # Dieser Stand ist schon einmal fehlgeschlagen – nicht in Schleife neu versuchen
+    record check skipped "Neuer Stand ist fehlgeschlagen und wird übersprungen, bis ein weiterer Commit kommt." "$old" "$new"
     exit 0
   fi
 
   if ! git_repo merge-base --is-ancestor "$old" "$new"; then
     error "Lokaler Stand und origin/$branch sind auseinandergelaufen (lokale Commits auf dem Pi?)."
     error "Bitte manuell klären, z. B.: git -C $REPO_DIR reset --hard origin/$branch"
+    record check error "Stand auf dem Pi und GitHub sind auseinandergelaufen."
     exit 1
   fi
 
   QUIET=false
+  record check running "Update wird installiert ..." "$old" "$new"
   echo "Neue Commits:"
   git_repo log --format='  %h %s (%an, %ar)' "$old..$new"
 
   echo "Prüfe neuen Stand ..."
-  if ! check_revision "$new"; then
+  local check_output
+  check_output=$(check_revision "$new" 2>&1)
+  local check_rc=$?
+  echo "$check_output"
+  if [ $check_rc -ne 0 ]; then
     error "Deploy abgebrochen – auf dem Pi wurde nichts verändert."
     echo "$new" > "$STATE_FAILED"
+    record deploy check_failed "$(grep '✘' <<< "$check_output" | sed 's/^ *✘ //' | head -5)" "$old" "$new"
     exit 1
   fi
 
   echo "$old" > "$STATE_PREVIOUS"
-  git_repo merge --quiet --ff-only "$new" || { error "git merge fehlgeschlagen"; exit 1; }
+  if ! git_repo merge --quiet --ff-only "$new"; then
+    error "git merge fehlgeschlagen"
+    record check error "git merge fehlgeschlagen." "$old" "$new"
+    exit 1
+  fi
   success "Code aktualisiert: $(git_repo log -1 --format='%h %s' HEAD)"
 
   apply_side_effects "$old" "$new"
 
   if restart_and_verify; then
     rm -f "$STATE_FAILED"
+    record deploy success "Update installiert, InkyPi läuft." "$old" "$new"
     success "Deploy abgeschlossen"
     return 0
   fi
@@ -213,11 +294,13 @@ cmd_deploy() {
   git_repo reset --quiet --hard "$old"
   apply_side_effects "$new" "$old"
   restart_and_verify && success "Vorheriger Stand wiederhergestellt"
+  record deploy rolled_back "InkyPi startete mit dem neuen Stand nicht – alter Stand wiederhergestellt." "$old" "$new"
   exit 1
 }
 
 cmd_rollback() {
   local current previous
+  acquire_lock
   if [ ! -f "$STATE_PREVIOUS" ]; then
     error "Kein vorheriger Deploy-Stand gespeichert."
     exit 1
@@ -232,9 +315,10 @@ cmd_rollback() {
   echo "      ->  $(git_repo log -1 --format='%h %s' "$previous")"
   git_repo reset --quiet --hard "$previous"
   # Damit das Auto-Deploy den zurückgerollten Stand nicht sofort wieder holt
-  echo "$(git_repo rev-parse "origin/$(current_branch)")" > "$STATE_FAILED"
+  git_repo rev-parse "origin/$(current_branch)" > "$STATE_FAILED"
   apply_side_effects "$current" "$previous"
   restart_and_verify
+  record deploy rollback "Manuell zurückgesetzt auf $(git_repo log -1 --format='%h %s' "$previous")." "$current" "$previous"
 }
 
 cmd_status() {
@@ -250,7 +334,7 @@ cmd_status() {
   [ "$behind" -gt 0 ] && echo "          -> $behind neue(r) Commit(s), 'sudo inkypi-deploy' holt sie"
   echo "Service:  $(systemctl is-active "$SERVICE")"
   if systemctl is-enabled --quiet "$DEPLOY_UNIT.timer" 2>/dev/null; then
-    echo "Auto:     an ($(systemctl show -p NextElapseUSecRealtime --value "$DEPLOY_UNIT.timer" | sed 's/^$/-/') nächste Prüfung)"
+    echo "Auto:     an, alle $(auto_interval) Minuten"
   else
     echo "Auto:     aus"
   fi
@@ -259,10 +343,19 @@ cmd_status() {
   fi
 }
 
+auto_interval() {
+  sed -n 's/^# interval=\([0-9]*\)$/\1/p' "/etc/systemd/system/$DEPLOY_UNIT.timer" 2>/dev/null
+}
+
 cmd_auto() {
-  local mode=${1:-} minutes=${2:-5}
+  local mode=${1:-} minutes=${2:-5} calendar
   case "$mode" in
     on)
+      if ! grep -qw -- "$minutes" <<< "$ALLOWED_INTERVALS"; then
+        error "Erlaubte Intervalle: $ALLOWED_INTERVALS Minuten"
+        exit 1
+      fi
+      if [ "$minutes" = "60" ]; then calendar="hourly"; else calendar="*:0/$minutes"; fi
       cat > "/etc/systemd/system/$DEPLOY_UNIT.service" <<EOF
 [Unit]
 Description=InkyPi Auto-Deploy von GitHub
@@ -271,21 +364,24 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+Environment=INKYPI_DEPLOY_TRIGGER=auto
 ExecStart=$SCRIPT_PATH auto-run
 EOF
       cat > "/etc/systemd/system/$DEPLOY_UNIT.timer" <<EOF
+# interval=$minutes
 [Unit]
 Description=InkyPi Auto-Deploy alle $minutes Minuten
 
 [Timer]
 OnBootSec=2min
-OnUnitActiveSec=${minutes}min
+OnCalendar=$calendar
 
 [Install]
 WantedBy=timers.target
 EOF
       systemctl daemon-reload
-      systemctl enable --now "$DEPLOY_UNIT.timer" >/dev/null 2>&1
+      systemctl enable "$DEPLOY_UNIT.timer" >/dev/null 2>&1
+      systemctl restart "$DEPLOY_UNIT.timer"
       success "Auto-Deploy aktiv: alle $minutes Minuten (Log: journalctl -u $DEPLOY_UNIT)"
       ;;
     off)
@@ -301,14 +397,25 @@ EOF
   esac
 }
 
+# Timer aus älteren Versionen (OnUnitActiveSec) auf das neue Format umstellen,
+# damit die Weboberfläche Intervall und nächste Prüfung anzeigen kann
+migrate_timer() {
+  local timer="/etc/systemd/system/$DEPLOY_UNIT.timer" minutes
+  [ -f "$timer" ] && ! grep -q '^# interval=' "$timer" || return 0
+  minutes=$(sed -n 's/^OnUnitActiveSec=\([0-9]*\)min$/\1/p' "$timer")
+  grep -qw -- "${minutes:-x}" <<< "$ALLOWED_INTERVALS" || minutes=5
+  cmd_auto on "$minutes" >/dev/null
+}
+
 main() {
   local cmd=${1:-deploy}
   require_root "$@"
   ensure_command_link
+  migrate_timer
   case "$cmd" in
-    deploy)   cmd_deploy false ;;
-    auto-run) QUIET=true; cmd_deploy true ;;
-    rollback) cmd_rollback ;;
+    deploy)   TRIGGER=${TRIGGER:-manual}; cmd_deploy false ;;
+    auto-run) TRIGGER=${TRIGGER:-auto}; QUIET=true; cmd_deploy true ;;
+    rollback) TRIGGER=${TRIGGER:-manual}; cmd_rollback ;;
     status)   cmd_status ;;
     auto)     shift; cmd_auto "$@" ;;
     -h|--help|help) sed -n '3,12p' "$SCRIPT_PATH" | sed 's/^# \{0,1\}//' ;;
