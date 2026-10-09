@@ -50,12 +50,80 @@
             }
         }
 
+        // Status der Display-Aktualisierung (Zeiten in Sekunden, vom Server gemessen)
+        let displayStatus = null;
+        let displayStatusReceived = 0;
+
+        function formatDuration(seconds) {
+            seconds = Math.max(0, Math.round(seconds));
+            if (seconds < 60) return `${seconds} s`;
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return `${minutes} Min.`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours} Std.`;
+            const days = Math.floor(hours / 24);
+            return days === 1 ? '1 Tag' : `${days} Tagen`;
+        }
+
+        function renderDisplayStatus() {
+            const box = document.getElementById('displayStatus');
+            if (!box || !displayStatus) return;
+            const text = box.querySelector('.display-status-text');
+            const bar = box.querySelector('.display-status-bar');
+            const fill = box.querySelector('.display-status-fill');
+            const passed = (Date.now() - displayStatusReceived) / 1000;
+            const expected = displayStatus.expected_seconds;
+
+            box.classList.toggle('refreshing', displayStatus.refreshing);
+            if (displayStatus.refreshing) {
+                const elapsed = displayStatus.elapsed_seconds + passed;
+                bar.hidden = false;
+                if (expected) {
+                    const remaining = expected - elapsed;
+                    fill.style.width = `${Math.min(100, elapsed / expected * 100)}%`;
+                    text.textContent = remaining > 0
+                        ? `Display wird aktualisiert … noch ca. ${formatDuration(remaining)}`
+                        : 'Display wird aktualisiert … gleich fertig';
+                } else {
+                    fill.style.width = '100%';
+                    text.textContent = `Display wird aktualisiert … seit ${formatDuration(elapsed)}`;
+                }
+                box.hidden = false;
+            } else if (displayStatus.seconds_since_update !== null) {
+                bar.hidden = true;
+                const since = displayStatus.seconds_since_update + passed;
+                text.textContent = `Display aktuell – aktualisiert vor ${formatDuration(since)}`
+                    + (expected ? ` (Bildaufbau: ${formatDuration(expected)})` : '');
+                box.hidden = false;
+            } else {
+                box.hidden = true;
+            }
+        }
+
+        async function refreshDisplayStatus() {
+            try {
+                const response = await fetch('{{ url_for("main.get_display_status") }}');
+                if (!response.ok) return;
+                const wasRefreshing = displayStatus && displayStatus.refreshing;
+                displayStatus = await response.json();
+                displayStatusReceived = Date.now();
+                renderDisplayStatus();
+                if (wasRefreshing && !displayStatus.refreshing) refreshImage();
+            } catch (error) {
+                console.error('Error refreshing display status:', error);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // Refresh image immediately on page load
             refreshImage();
+            refreshDisplayStatus();
             
             // Set up auto-refresh based on plugin cycle interval
             setInterval(refreshImage, refreshIntervalMs);
+            setInterval(refreshDisplayStatus, refreshIntervalMs);
+            // Restzeit zwischen den Abfragen weiterzählen
+            setInterval(renderDisplayStatus, 1000);
         });
     </script>
 </head>
@@ -80,6 +148,10 @@
         <!-- Display the current image -->
         <div class="image-container">
             <img src="{{ url_for('static', filename='images/current_image.png') }}" alt="Aktuelles Bild">
+        </div>
+        <div id="displayStatus" class="display-status" role="status" aria-live="polite" hidden>
+            <span class="display-status-text"></span>
+            <div class="display-status-bar" hidden><div class="display-status-fill"></div></div>
         </div>
 
         <!-- Separator -->

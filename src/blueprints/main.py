@@ -9,6 +9,14 @@ def main_page():
     device_config = current_app.config['DEVICE_CONFIG']
     return render_template('inky.html', config=device_config.get_config(), plugins=device_config.get_plugins())
 
+@main_bp.route('/api/display_status')
+def get_display_status():
+    """Zeigt an, ob das Display gerade ein neues Bild aufbaut."""
+    display_manager = current_app.config['DISPLAY_MANAGER']
+    response = jsonify(display_manager.get_status())
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
 @main_bp.route('/api/current_image')
 def get_current_image():
     """Serve current_image.png with conditional request support (If-Modified-Since)."""
