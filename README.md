@@ -85,6 +85,9 @@ Note:
 For more details, including instructions on how to image your microSD with Raspberry Pi OS, refer to [installation.md](./docs/installation.md). You can also checkout [this YouTube tutorial](https://youtu.be/L5PvQj1vfC4).
 
 ## Update
+
+> **InkyPiGerman:** Änderungen aus diesem Repo kommen mit `sudo inkypi-deploy` auf den Pi, siehe [Änderungen auf den InkyPi bringen](./docs/deployment.md).
+
 To update your InkyPi with the latest code changes, follow these steps:
 1. Navigate to the project directory:
     ```bash

@@ -1,0 +1,20 @@
+name: Prüfung
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax und Plugins prüfen
+        run: python scripts/check.py
+      - name: Tests
+        run: |
+          pip install -q pytest
+          python -m pytest -q
