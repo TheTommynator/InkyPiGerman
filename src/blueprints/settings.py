@@ -79,6 +79,37 @@ def save_settings():
         return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
     return jsonify({"success": True, "message": "Einstellungen gespeichert."})
 
+IMAGE_SETTING_KEYS = ("saturation", "contrast", "sharpness", "brightness")
+IMAGE_SETTING_LIMITS = (0.0, 3.0)
+
+@settings_bp.route('/image_settings', methods=['GET'])
+def get_image_settings():
+    device_config = current_app.config['DEVICE_CONFIG']
+    current = device_config.get_config("image_settings", default={}) or {}
+    return jsonify({key: float(current.get(key, 1.0)) for key in IMAGE_SETTING_KEYS})
+
+@settings_bp.route('/image_settings', methods=['POST'])
+def save_image_settings():
+    """Übernimmt nur die Bildeinstellungen, z. B. aus der Bildkalibrierung."""
+    device_config = current_app.config['DEVICE_CONFIG']
+    data = request.get_json(silent=True) or {}
+
+    image_settings = dict(device_config.get_config("image_settings", default={}) or {})
+    for key in IMAGE_SETTING_KEYS:
+        if key not in data:
+            continue
+        try:
+            value = float(data[key])
+        except (TypeError, ValueError):
+            return jsonify({"error": f"Ungültiger Wert für {key}"}), 400
+        low, high = IMAGE_SETTING_LIMITS
+        if not low <= value <= high:
+            return jsonify({"error": f"{key} muss zwischen {low} und {high} liegen"}), 400
+        image_settings[key] = round(value, 2)
+
+    device_config.update_config({"image_settings": image_settings})
+    return jsonify({"success": True, "message": "Bildeinstellungen übernommen."})
+
 @settings_bp.route('/shutdown', methods=['POST'])
 def shutdown():
     data = request.get_json() or {}

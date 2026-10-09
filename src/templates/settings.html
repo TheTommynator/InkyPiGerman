@@ -92,7 +92,7 @@
 
         function updateSliderValue(slider) {
             const valueDisplay = document.getElementById(`${slider.id}-value`);
-            valueDisplay.textContent = parseFloat(slider.value).toFixed(1);
+            valueDisplay.textContent = +parseFloat(slider.value).toFixed(2);
         }
         document.addEventListener('DOMContentLoaded', populateIntervalFields);
     </script>
@@ -207,7 +207,7 @@
                                 id="saturation"
                                 name="saturation"
                                 class="form-input"
-                                min="0" max="2" step="0.1"
+                                min="0" max="3" step="0.01"
                                 value="{{ device_settings.get('image_settings', {}).get('saturation', 1.0) }}"
                                 style="max-width: 400px;"
                                 oninput="updateSliderValue(this)"
@@ -221,7 +221,7 @@
                                 id="contrast"
                                 name="contrast"
                                 class="form-input"
-                                min="0" max="2" step="0.1"
+                                min="0" max="3" step="0.01"
                                 value="{{ device_settings.get('image_settings', {}).get('contrast', 1.0) }}"
                                 style="max-width: 400px;"
                                 oninput="updateSliderValue(this)"
@@ -235,7 +235,7 @@
                                 id="sharpness"
                                 name="sharpness"
                                 class="form-input"
-                                min="0" max="2" step="0.1"
+                                min="0" max="3" step="0.01"
                                 value="{{ device_settings.get('image_settings', {}).get('sharpness', 1.0) }}"
                                 style="max-width: 400px;"
                                 oninput="updateSliderValue(this)"
@@ -249,7 +249,7 @@
                                 id="brightness"
                                 name="brightness"
                                 class="form-input"
-                                min="0" max="2" step="0.1"
+                                min="0" max="3" step="0.01"
                                 value="{{ device_settings.get('image_settings', {}).get('brightness', 1.0) }}"
                                 style="max-width: 400px;"
                                 oninput="updateSliderValue(this)"
