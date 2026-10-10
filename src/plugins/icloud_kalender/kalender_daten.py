@@ -362,6 +362,30 @@ def kontrastfarbe(farbe):
     return "#000000" if (r * 299 + g * 587 + b * 114) / 1000 >= 150 else "#ffffff"
 
 
+# Farben, die 7-Farben-Displays ohne Rastern darstellen. Pimoronis Inky-Bibliothek
+# mischt die gesättigte mit der echten Displaypalette (Sättigung 0.5), Waveshare
+# rechnet mit den reinen Farben. Weiß fehlt bewusst: ein weißer Termin wäre unsichtbar.
+EINK_PALETTEN = {
+    "inky": ["#1c181c", "#1dad23", "#1e1dae", "#cd2425", "#e7de23", "#d87b24"],
+    "waveshare": ["#000000", "#00ff00", "#0000ff", "#ff0000", "#ffff00", "#ff8000"],
+}
+
+
+def eink_palette(display_type):
+    return EINK_PALETTEN["inky" if str(display_type).startswith("inky") else "waveshare"]
+
+
+def naechste_farbe(farbe, palette):
+    """Die Palettenfarbe, die `farbe` am ähnlichsten ist (gewichteter RGB-Abstand)."""
+    r, g, b = hex_zu_rgb(farbe)
+
+    def abstand(kandidat):
+        r2, g2, b2 = hex_zu_rgb(kandidat)
+        return 3 * (r - r2) ** 2 + 4 * (g - g2) ** 2 + 2 * (b - b2) ** 2
+
+    return min(palette, key=abstand)
+
+
 def termin_tint(farbe, anteil=0.18):
     """Helle Variante der Kalenderfarbe als Hintergrund für den Stil „Dezent“."""
     r, g, b = hex_zu_rgb(farbe)

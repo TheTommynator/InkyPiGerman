@@ -8,8 +8,11 @@ import pytest
 # Die Plugins importieren relativ zu src/ (wie beim Start von InkyPi)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from plugins.icloud_kalender.icloud_caldav import (  # noqa: E402
+    CalDAVFehler, ICloudCalDAV, apple_farbe, waehle_kalender,
+)
 from plugins.icloud_kalender.kalender_daten import (  # noqa: E402
-    Termin, baue_monat, baue_tag, baue_woche, kontrastfarbe, monatsraster,
+    EINK_PALETTEN, Termin, baue_monat, baue_tag, baue_woche, eink_palette, kontrastfarbe, monatsraster, naechste_farbe,
     normalisiere_url, parse_stunde, spalten_verteilen, stundenbereich,
     termin_tint, termine_am_tag, wochen_titel, wochenanfang, zeitraum,
 )
@@ -137,6 +140,26 @@ def test_farben():
     assert kontrastfarbe("kaputt") == "#ffffff"
     assert termin_tint("#ffffff") == "#ffffff"
     assert termin_tint("#000000") == "#d1d1d1"
+
+
+def test_eink_palette_je_display():
+    assert eink_palette("inky") == EINK_PALETTEN["inky"]
+    assert eink_palette("epd7in3f") == EINK_PALETTEN["waveshare"]
+    assert eink_palette("") == EINK_PALETTEN["waveshare"]
+
+
+def test_farben_werden_auf_displayfarben_gesetzt():
+    inky = EINK_PALETTEN["inky"]
+    rot, gruen, blau, gelb, orange = "#cd2425", "#1dad23", "#1e1dae", "#e7de23", "#d87b24"
+    assert naechste_farbe("#e0393e", inky) == rot
+    assert naechste_farbe("#2f6fde", inky) == blau
+    assert naechste_farbe("#1f9d55", inky) == gruen
+    assert naechste_farbe("#f08c00", inky) == orange
+    assert naechste_farbe("#ffd60a", inky) == gelb
+    assert naechste_farbe("#111418", inky) == "#1c181c"
+    # Weiß wäre auf weißem Grund unsichtbar
+    assert naechste_farbe("#ffffff", inky) != "#ffffff"
+    assert all(naechste_farbe(f, inky) == f for f in inky)
 
 
 def test_baue_tag_mit_vorschau_und_jetzt_linie():
@@ -295,3 +318,149 @@ def test_kalender_liste_aus_einstellungen():
         {"url": "https://a/1", "name": "Privat", "farbe": "#ff0000"},
         {"url": "https://b/2", "name": "Arbeit", "farbe": "#2f6fde"},
     ]
+
+
+# --- iCloud per CalDAV (mit nachgebautem Server) ---
+
+def multistatus(*antworten):
+    return ('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" '
+            'xmlns:a="http://apple.com/ns/ical/">' + "".join(antworten) + "</d:multistatus>")
+
+
+def antwort(href, props, fehlend=""):
+    xml = f"<d:response><d:href>{href}</d:href><d:propstat><d:prop>{props}</d:prop>" \
+          "<d:status>HTTP/1.1 200 OK</d:status></d:propstat>"
+    if fehlend:
+        xml += f"<d:propstat><d:prop>{fehlend}</d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat>"
+    return xml + "</d:response>"
+
+
+HOME = "https://p42-caldav.icloud.com:443/1234/calendars/"
+KALENDER_ORDNER = multistatus(
+    antwort("/1234/calendars/", "<d:resourcetype><d:collection/></d:resourcetype>"),
+    antwort("/1234/calendars/home/",
+            "<d:displayname>Privat</d:displayname><a:calendar-color>#FF2968FF</a:calendar-color>"
+            "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>"
+            '<c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set>'),
+    antwort("/1234/calendars/work/",
+            "<d:displayname>Arbeit</d:displayname>"
+            "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>",
+            fehlend="<a:calendar-color/>"),
+    antwort("/1234/calendars/tasks/",
+            "<d:displayname>Erinnerungen</d:displayname>"
+            "<d:resourcetype><d:collection/><c:calendar/></d:resourcetype>"
+            '<c:supported-calendar-component-set><c:comp name="VTODO"/></c:supported-calendar-component-set>'),
+    antwort("/1234/calendars/inbox/", "<d:resourcetype><d:collection/><c:schedule-inbox/></d:resourcetype>"),
+)
+
+
+class Antwort:
+    def __init__(self, status, text, url):
+        self.status_code, self.text, self.url = status, text, url
+
+
+class ICloudAttrappe:
+    """Antwortet wie caldav.icloud.com und merkt sich die Anfragen."""
+
+    def __init__(self, status=207):
+        self.status = status
+        self.anfragen = []
+
+    def request(self, methode, url, data=None, headers=None, auth=None, timeout=None):
+        body = data.decode()
+        self.anfragen.append((methode, url, headers["Depth"], body, auth))
+        if self.status != 207:
+            return Antwort(self.status, "", url)
+        if methode == "PROPFIND" and "current-user-principal" in body:
+            return Antwort(207, multistatus(antwort("/", "<d:current-user-principal><d:href>/1234/principal/"
+                                                         "</d:href></d:current-user-principal>")), url)
+        if methode == "PROPFIND" and "calendar-home-set" in body:
+            return Antwort(207, multistatus(antwort("/1234/principal/", "<c:calendar-home-set><d:href>"
+                                                    f"{HOME}</d:href></c:calendar-home-set>")), url)
+        if methode == "PROPFIND":
+            return Antwort(207, KALENDER_ORDNER, url)
+        if methode == "REPORT":
+            return Antwort(207, multistatus(
+                antwort("/1234/calendars/home/a.ics", f"<c:calendar-data>{ICS.decode()}</c:calendar-data>"),
+                antwort("/1234/calendars/home/b.ics", "<c:calendar-data></c:calendar-data>"),
+            ), url)
+        raise AssertionError(methode)
+
+
+def test_caldav_findet_kalender_mit_namen_und_farben():
+    server = ICloudAttrappe()
+    kalender = ICloudCalDAV(server, "ich@icloud.com", "abcd-efgh").kalender()
+    assert kalender == [
+        {"url": HOME + "home/", "name": "Privat", "farbe": "#ff2968"},
+        {"url": HOME + "work/", "name": "Arbeit", "farbe": None},
+    ]
+    urls = [a[1] for a in server.anfragen]
+    assert urls == ["https://caldav.icloud.com/", "https://caldav.icloud.com/1234/principal/", HOME]
+    assert all(a[4] == ("ich@icloud.com", "abcd-efgh") for a in server.anfragen)
+    assert [a[2] for a in server.anfragen] == ["0", "0", "1"]
+
+
+def test_caldav_holt_termine_im_zeitraum():
+    server = ICloudAttrappe()
+    client = ICloudCalDAV(server, "ich", "pw")
+    daten = client.termine_ical(HOME + "home/", zeit(MI, 0), zeit(MI + timedelta(days=7), 0))
+    assert len(daten) == 1 and "Telefonat USA" in daten[0]
+    methode, _, tiefe, body, _ = server.anfragen[0]
+    assert (methode, tiefe) == ("REPORT", "1")
+    # Berliner Mitternacht ist im Oktober 22 Uhr UTC am Vortag
+    assert 'start="20261013T220000Z"' in body and 'end="20261020T220000Z"' in body
+
+
+def test_caldav_falsches_passwort():
+    with pytest.raises(CalDAVFehler, match="app-spezifisches Passwort"):
+        ICloudCalDAV(ICloudAttrappe(status=401), "ich", "falsch").kalender()
+    with pytest.raises(CalDAVFehler, match="503"):
+        ICloudCalDAV(ICloudAttrappe(status=503), "ich", "pw").kalender()
+
+
+def test_apple_farbe():
+    assert apple_farbe("#FF2968FF") == "#ff2968"
+    assert apple_farbe("#1BADF8") == "#1badf8"
+    assert apple_farbe("") is None
+    assert apple_farbe("rot") is None
+
+
+def test_kalenderauswahl_nach_namen():
+    alle = [{"name": "Privat"}, {"name": "Arbeit"}, {"name": "Familie"}]
+    assert waehle_kalender(alle, "") == alle
+    assert waehle_kalender(alle, " familie, Privat ") == [{"name": "Familie"}, {"name": "Privat"}]
+    with pytest.raises(CalDAVFehler, match="nicht gefunden: Urlaub .vorhanden: Privat, Arbeit, Familie"):
+        waehle_kalender(alle, "Privat, Urlaub")
+
+
+class Geraet:
+    def __init__(self, env):
+        self.env = env
+
+    def load_env_key(self, key):
+        return self.env.get(key)
+
+
+def test_icloud_konto_im_plugin(monkeypatch):
+    for modul in ("icalendar", "recurring_ical_events", "requests", "PIL", "jinja2"):
+        pytest.importorskip(modul)
+    import requests
+    from plugins.icloud_kalender.icloud_kalender import ICloudKalender
+
+    server = ICloudAttrappe()
+    monkeypatch.setattr(requests, "Session", lambda: server)
+    plugin = ICloudKalender({"id": "icloud_kalender"})
+    start, ende = zeit(date(2026, 10, 12), 0), zeit(date(2026, 10, 19), 0)
+
+    with pytest.raises(RuntimeError, match="ICLOUD_APPLE_ID"):
+        plugin.icloud_kalender({}, Geraet({}), start, ende)
+
+    geraet = Geraet({"ICLOUD_APPLE_ID": " ich@icloud.com ", "ICLOUD_APP_PASSWORT": "pw"})
+    kalender = plugin.icloud_kalender({"icloudKalender": "Arbeit, Privat"}, geraet, start, ende)
+    assert [(k["name"], k["farbe"]) for k in kalender] == [("Arbeit", "#2f6fde"), ("Privat", "#ff2968")]
+
+    termine, fehler = plugin.lade_termine(kalender, TZ, date(2026, 10, 12), date(2026, 10, 19))
+    assert fehler == []
+    titel = sorted({t.titel for t in termine if t.kalender == "Privat"})
+    assert "Telefonat USA" in titel and "Stand-up" in titel
+    assert server.anfragen[0][4] == ("ich@icloud.com", "pw")
