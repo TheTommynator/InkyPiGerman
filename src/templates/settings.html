@@ -200,6 +200,10 @@
                     </button>
                     <div class="settings-container collapsible-content">
                         <div class="form-group">
+                            <p style="margin: 0 0 8px;">Nicht sicher, welche Werte passen? Der Assistent führt dich Schritt für Schritt zum besten Bild.</p>
+                            <a class="action-button compact" href="{{ url_for('calibration.wizard_page') }}" style="text-decoration: none; display: inline-block;">Bild-Assistent starten</a>
+                        </div>
+                        <div class="form-group">
                             <label for="saturation" class="form-label" style="min-width: 100px;">Sättigung:</label>
                             <span id="saturation-value">{{ device_settings.get('image_settings', {}).get('saturation', 1.0) }}</span>
                             <input

@@ -257,54 +257,77 @@ class ImageCalibration(BasePlugin):
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
             dimensions = dimensions[::-1]
-        width, height = dimensions
+
+        mode = settings.get("mode")
+        if mode == "wizard":
+            # Vom Bild-Assistenten vorgegebene Kacheln
+            tiles = [(str(t.get("label", "")), clean_values(t.get("values", {}))) for t in settings.get("tiles", [])]
+            if not tiles:
+                raise RuntimeError("Keine Kacheln zum Anzeigen.")
+            return render_grid(dimensions, tiles, str(settings.get("footer", "")), load_source_image(settings))
+        if mode == "fullscreen":
+            # Ein Bild bildschirmfüllend mit den angegebenen Werten
+            source = load_source_image(settings)
+            image = fit_image(source, dimensions) if source else create_test_pattern(dimensions)
+            return apply_image_enhancement(image, clean_values(settings.get("values", {})))
 
         current = device_config.get_config("image_settings", default={}) or {}
         if settings.get("base") == "neutral":
             base = {p: 1.0 for p in PARAMETER_ORDER}
         else:
-            base = {p: parse_float(current.get(p, 1.0), 1.0) for p in PARAMETER_ORDER}
+            base = clean_values(current)
 
         param1, param2, columns, variants = build_variants(settings, base)
-
-        gap = max(2, width // 200)
-        footer_h = max(14, min(width, height) // 22)
-        cols, rows = grid_shape(len(variants), width, height - footer_h, columns)
-        tile_w = (width - gap * (cols + 1)) // cols
-        tile_h = (height - footer_h - gap * (rows + 1)) // rows
-        label_h = max(12, min(tile_h // 6, 28))
-        image_h = tile_h - label_h
-        if tile_w < 20 or image_h < 20:
-            raise RuntimeError("Die Kacheln wären zu klein. Bitte weniger Varianten wählen.")
-
-        source = load_source_image(settings)
-        sample = fit_image(source, (tile_w, image_h)) if source else create_test_pattern((tile_w, image_h))
-
-        canvas = Image.new("RGB", (width, height), GRID_BG)
-        draw = ImageDraw.Draw(canvas)
         varied = [p for p in (param1, param2) if p]
-        labels = [
-            f"{string.ascii_uppercase[i]}  " + " · ".join(
-                f"{PARAMETERS[p]['short']} {format_value(values[p])}" for p in varied)
+        tiles = [
+            (f"{string.ascii_uppercase[i]}  " + " · ".join(
+                f"{PARAMETERS[p]['short']} {format_value(values[p])}" for p in varied), values)
             for i, values in enumerate(variants)
         ]
-        reference_font = load_font(20)
-        longest = max(labels, key=lambda text: draw.textlength(text, font=reference_font))
-        label_font = fitting_font(draw, longest, tile_w - 6, max(9, int(label_h * 0.7)))
-
-        for index, (values, label) in enumerate(zip(variants, labels)):
-            row, col = divmod(index, cols)
-            x = gap + col * (tile_w + gap)
-            y = gap + row * (tile_h + gap)
-            canvas.paste(apply_image_enhancement(sample.copy(), values), (x, y))
-            draw.rectangle([x, y + image_h, x + tile_w, y + tile_h], fill=LABEL_BG)
-            draw.text((x + 3, y + image_h + (label_h - getattr(label_font, 'size', 10)) // 2 - 1), label,
-                      font=label_font, fill=LABEL_FG)
-
         fixed = [p for p in PARAMETER_ORDER if p not in varied]
         footer = "Fest: " + ", ".join(f"{PARAMETERS[p]['name']} {format_value(base[p])}" for p in fixed)
+        return render_grid(dimensions, tiles, footer, load_source_image(settings), columns)
+
+
+def clean_values(values):
+    """Alle vier Bildwerte als Zahlen im erlaubten Bereich."""
+    values = values if isinstance(values, dict) else {}
+    return {p: parse_float(values.get(p, 1.0), 1.0) for p in PARAMETER_ORDER}
+
+
+def render_grid(dimensions, tiles, footer, source=None, columns=None):
+    """Zeichnet die Kacheln (Beschriftung, Werte) als Raster mit Fußzeile."""
+    width, height = dimensions
+    gap = max(2, width // 200)
+    footer_h = max(14, min(width, height) // 22) if footer else 0
+    cols, rows = grid_shape(len(tiles), width, height - footer_h, columns)
+    tile_w = (width - gap * (cols + 1)) // cols
+    tile_h = (height - footer_h - gap * (rows + 1)) // rows
+    label_h = max(12, min(tile_h // 6, 28))
+    image_h = tile_h - label_h
+    if tile_w < 20 or image_h < 20:
+        raise RuntimeError("Die Kacheln wären zu klein. Bitte weniger Varianten wählen.")
+
+    sample = fit_image(source, (tile_w, image_h)) if source else create_test_pattern((tile_w, image_h))
+
+    canvas = Image.new("RGB", (width, height), GRID_BG)
+    draw = ImageDraw.Draw(canvas)
+    reference_font = load_font(20)
+    longest = max((label for label, _ in tiles), key=lambda text: draw.textlength(text, font=reference_font))
+    label_font = fitting_font(draw, longest, tile_w - 6, max(9, int(label_h * 0.7)))
+
+    for index, (label, values) in enumerate(tiles):
+        row, col = divmod(index, cols)
+        x = gap + col * (tile_w + gap)
+        y = gap + row * (tile_h + gap)
+        canvas.paste(apply_image_enhancement(sample.copy(), values), (x, y))
+        draw.rectangle([x, y + image_h, x + tile_w, y + tile_h], fill=LABEL_BG)
+        draw.text((x + 3, y + image_h + (label_h - getattr(label_font, 'size', 10)) // 2 - 1), label,
+                  font=label_font, fill=LABEL_FG)
+
+    if footer:
         footer_font = fitting_font(draw, footer, width - 2 * gap, max(9, int(footer_h * 0.7)))
         draw.text((gap, height - footer_h + (footer_h - getattr(footer_font, 'size', 10)) // 2 - 1), footer,
                   font=footer_font, fill=LABEL_FG)
 
-        return canvas
+    return canvas

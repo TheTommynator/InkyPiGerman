@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bild-Assistent</title>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('inkypi-theme') ||
+                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
+    <style>
+        .wz-page {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 32px 16px;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .wz-card {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 22px;
+            box-shadow: 0 10px 40px var(--shadow-light);
+            padding: 36px 32px 28px;
+            box-sizing: border-box;
+        }
+        .wz-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: var(--button-bg);
+            color: var(--text-secondary);
+            font-size: 18px;
+            line-height: 32px;
+            cursor: pointer;
+        }
+        .wz-close:hover { background: var(--button-hover); }
+
+        .wz-progress {
+            display: flex;
+            gap: 6px;
+            margin: 0 40px 28px 0;
+        }
+        .wz-progress-item { flex: 1; }
+        .wz-progress-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--border-color);
+            transition: background .3s;
+        }
+        .wz-progress-item.done .wz-progress-bar,
+        .wz-progress-item.active .wz-progress-bar { background: var(--accent-primary); }
+        .wz-progress-label {
+            font-size: 11px;
+            margin-top: 6px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        .wz-progress-item.active .wz-progress-label { color: var(--text-primary); font-weight: 600; }
+
+        .wz-screen { display: none; animation: wz-fade .35s ease; }
+        .wz-screen.active { display: block; }
+        @keyframes wz-fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+        .wz-hero {
+            width: 84px;
+            height: 84px;
+            margin: 4px auto 20px;
+            border-radius: 22px;
+            background: conic-gradient(#ff3b30, #ffcc00, #34c759, #007aff, #af52de, #ff3b30);
+            box-shadow: 0 6px 20px var(--shadow-medium);
+        }
+        .wz-hero.success {
+            background: var(--accent-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 44px;
+        }
+        .wz-eyebrow {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: .02em;
+            color: var(--accent-primary);
+            margin-bottom: 4px;
+        }
+        .wz-title {
+            font-size: 30px;
+            font-weight: 700;
+            letter-spacing: -.02em;
+            margin: 0 0 10px;
+        }
+        .wz-center { text-align: center; }
+        .wz-text {
+            font-size: 16px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            margin: 0 0 18px;
+        }
+        .wz-steps-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 22px;
+            border-radius: 14px;
+            background: var(--bg-primary);
+        }
+        .wz-steps-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 11px 16px;
+            font-size: 15px;
+        }
+        .wz-steps-list li + li { border-top: 1px solid var(--border-color); }
+        .wz-steps-list .num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .wz-section-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin: 0 0 8px;
+        }
+
+        .wz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+        .wz-option {
+            text-align: left;
+            border: 2px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font: inherit;
+            transition: border-color .2s, transform .1s;
+        }
+        .wz-option:active { transform: scale(.98); }
+        .wz-option strong { display: block; font-size: 15px; margin-bottom: 4px; }
+        .wz-option span { font-size: 13px; color: var(--text-secondary); line-height: 1.35; }
+        .wz-option.selected { border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--input-focus); }
+        .wz-option:disabled { opacity: .45; cursor: not-allowed; }
+
+        .wz-hint {
+            display: flex;
+            gap: 10px;
+            background: var(--bg-primary);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 14px;
+            line-height: 1.45;
+            margin-bottom: 16px;
+        }
+        .wz-hint-icon { font-size: 18px; }
+
+        .wz-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+        }
+        .wz-status.ready { color: var(--accent-hover); }
+        .wz-status.error { color: var(--failure-color); }
+        .wz-status .wz-status-text { flex: 1; }
+        .wz-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: wz-spin .8s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes wz-spin { to { transform: rotate(360deg); } }
+        .wz-status-bar {
+            height: 3px;
+            border-radius: 2px;
+            background: var(--border-color);
+            margin: -10px 0 16px;
+            overflow: hidden;
+        }
+        .wz-status-bar div { height: 100%; width: 0; background: var(--accent-primary); transition: width 1s linear; }
+
+        .wz-round-label { display: flex; justify-content: space-between; align-items: baseline; }
+        .wz-choices {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .wz-choice {
+            position: relative;
+            border: 2px solid var(--border-color);
+            border-radius: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 14px 6px 12px;
+            cursor: pointer;
+            font: inherit;
+            transition: border-color .2s, transform .1s, background .2s;
+        }
+        .wz-choice:active { transform: scale(.97); }
+        .wz-choice .letter { display: block; font-size: 26px; font-weight: 700; }
+        .wz-choice .value { display: block; font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+        .wz-choice .badge {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+        .wz-choice.selected { border-color: var(--accent-primary); background: var(--input-focus); }
+
+        .wz-actions { display: flex; flex-direction: column; gap: 10px; }
+        .wz-btn {
+            width: 100%;
+            border: none;
+            border-radius: 14px;
+            padding: 15px 18px;
+            font: inherit;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, opacity .2s, transform .1s;
+        }
+        .wz-btn:active { transform: scale(.99); }
+        .wz-btn.primary { background: var(--accent-primary); color: #fff; }
+        .wz-btn.primary:hover { background: var(--accent-hover); }
+        .wz-btn.secondary { background: var(--button-bg); color: var(--text-primary); }
+        .wz-btn.secondary:hover { background: var(--button-hover); }
+        .wz-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .wz-links { display: flex; justify-content: space-between; margin-top: 14px; }
+        .wz-link {
+            background: none;
+            border: none;
+            color: var(--accent-hover);
+            font: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+        .wz-link:disabled { color: var(--text-secondary); opacity: .5; cursor: default; }
+        .wz-note { font-size: 13px; color: var(--text-secondary); text-align: center; margin: 4px 0 0; }
+
+        .wz-summary { border-radius: 14px; background: var(--bg-primary); margin-bottom: 18px; }
+        .wz-summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 16px;
+            font-size: 15px;
+        }
+        .wz-summary-row + .wz-summary-row { border-top: 1px solid var(--border-color); }
+        .wz-summary-row .vals { color: var(--text-secondary); }
+        .wz-summary-row .vals strong { color: var(--text-primary); }
+        .wz-summary-row .vals strong.changed { color: var(--accent-hover); }
+
+        @media (max-width: 480px) {
+            .wz-card { padding: 30px 20px 22px; border-radius: 18px; }
+            .wz-title { font-size: 26px; }
+            .wz-options { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wz-page">
+    <div class="wz-card">
+        <button class="wz-close" type="button" title="Assistent beenden" onclick="closeWizard()">✕</button>
+
+        <div class="wz-progress" id="progress"></div>
+
+        <!-- Willkommen -->
+        <section class="wz-screen active" id="screen-welcome">
+            <div class="wz-hero"></div>
+            <div class="wz-center">
+                <h1 class="wz-title">Bild einrichten</h1>
+                <p class="wz-text">
+                    In vier kurzen Schritten findest du die Einstellungen, mit denen Bilder auf deinem
+                    Display am besten aussehen. Du siehst jeweils mehrere Varianten direkt auf dem Display
+                    und wählst hier die schönste aus. Danach wird es immer feiner, bis es dir gefällt.
+                </p>
+            </div>
+
+            <ul class="wz-steps-list">
+                {% for step in steps %}
+                <li><span class="num">{{ loop.index }}</span>{{ step.name }}</li>
+                {% endfor %}
+            </ul>
+            <p class="wz-text" style="font-size: 14px;">
+                Die Reihenfolge ist kein Zufall: Dein Display berechnet ein Bild genau so – erst
+                Helligkeit, dann Kontrast, dann Farbe, zum Schluss Schärfe. So baut jeder Schritt auf
+                dem vorherigen auf.
+            </p>
+
+            <p class="wz-section-label">Woran möchtest du vergleichen?</p>
+            <div class="wz-options">
+                <button type="button" class="wz-option selected" data-motif="pattern" onclick="selectMotif(this)">
+                    <strong>Testbild</strong>
+                    <span>Farben, Hauttöne, Verläufe und feine Linien – ideal zum Vergleichen.</span>
+                </button>
+                <button type="button" class="wz-option" data-motif="current" onclick="selectMotif(this)"
+                        {% if not has_current_image %}disabled{% endif %}>
+                    <strong>Aktuelles Bild</strong>
+                    <span>Das, was gerade auf deinem Display zu sehen ist.</span>
+                </button>
+            </div>
+
+            <div class="wz-actions">
+                <button type="button" class="wz-btn primary" onclick="startWizard()">Los geht's</button>
+            </div>
+            <p class="wz-note">Jede Runde dauert so lange wie ein Bildwechsel auf dem Display.</p>
+        </section>
+
+        <!-- Ein Schritt -->
+        <section class="wz-screen" id="screen-step">
+            <div class="wz-eyebrow" id="stepEyebrow"></div>
+            <h2 class="wz-title" id="stepTitle"></h2>
+            <div class="wz-hint">
+                <span class="wz-hint-icon">👀</span>
+                <span id="stepHint"></span>
+            </div>
+
+            <div class="wz-status" id="status">
+                <div class="wz-spinner" id="statusSpinner"></div>
+                <span class="wz-status-text" id="statusText"></span>
+            </div>
+            <div class="wz-status-bar" id="statusBar"><div></div></div>
+
+            <div class="wz-round-label">
+                <p class="wz-section-label" id="roundLabel"></p>
+                <p class="wz-section-label" id="roundHint"></p>
+            </div>
+            <div class="wz-choices" id="choices"></div>
+
+            <div class="wz-actions">
+                <button type="button" class="wz-btn primary" id="refineButton" onclick="refineRound()">Feiner abstimmen</button>
+                <button type="button" class="wz-btn secondary" id="nextButton" onclick="acceptStep()">Passt so – weiter</button>
+            </div>
+            <p class="wz-note" id="stepNote">Kaum Unterschiede zu sehen? Dann nimm einfach die Mitte und mach weiter.</p>
+            <div class="wz-links">
+                <button type="button" class="wz-link" id="backButton" onclick="goBack()">‹ Zurück</button>
+                <button type="button" class="wz-link" id="skipButton" onclick="skipStep()">Schritt überspringen</button>
+            </div>
+        </section>
+
+        <!-- Zusammenfassung -->
+        <section class="wz-screen" id="screen-summary">
+            <div class="wz-eyebrow">Geschafft</div>
+            <h2 class="wz-title">Dein Ergebnis</h2>
+            <p class="wz-text">Auf dem Display siehst du links dein bisheriges Bild und rechts das neue.</p>
+
+            <div class="wz-status" id="summaryStatus">
+                <div class="wz-spinner" id="summarySpinner"></div>
+                <span class="wz-status-text" id="summaryStatusText"></span>
+            </div>
+
+            <div class="wz-summary" id="summary"></div>
+
+            <div class="wz-actions">
+                <button type="button" class="wz-btn primary" onclick="saveResult()">Übernehmen</button>
+                <button type="button" class="wz-btn secondary" onclick="restartWizard()">Noch mal von vorn</button>
+            </div>
+            <div class="wz-links">
+                <button type="button" class="wz-link" onclick="goBack()">‹ Zurück</button>
+                <button type="button" class="wz-link" onclick="cancelWizard()">Verwerfen</button>
+            </div>
+        </section>
+
+        <!-- Fertig -->
+        <section class="wz-screen" id="screen-done">
+            <div class="wz-hero success" id="doneIcon">✓</div>
+            <div class="wz-center">
+                <h2 class="wz-title" id="doneTitle">Fertig!</h2>
+                <p class="wz-text" id="doneText"></p>
+            </div>
+            <div class="wz-actions">
+                <a class="wz-btn primary wz-center" style="text-decoration: none; box-sizing: border-box;"
+                   href="{{ url_for('main.main_page') }}">Zur Startseite</a>
+            </div>
+            <div class="wz-links" style="justify-content: center;">
+                <a class="wz-link" href="{{ url_for('settings.settings_page') }}">Einstellungen ansehen</a>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    const STEPS = {{ steps | tojson }};
+    const URLS = {
+        start: "{{ url_for('calibration.wizard_start') }}",
+        round: "{{ url_for('calibration.wizard_round') }}",
+        compare: "{{ url_for('calibration.wizard_compare') }}",
+        finish: "{{ url_for('calibration.wizard_finish') }}",
+        save: "{{ url_for('settings.save_image_settings') }}",
+        status: "{{ url_for('main.get_display_status') }}",
+    };
+
+    const state = {
+        motif: 'pattern',
+        original: {{ current_values | tojson }},
+        values: {},
+        stepIndex: 0,
+        rounds: [],       // Runden des aktuellen Schritts: {values, picked, finest}
+        stepHistory: [],  // Werte vor jedem Schritt, für "Zurück"
+        busy: false,
+    };
+    state.values = Object.assign({}, state.original);
+
+    const $ = id => document.getElementById(id);
+    const fmt = v => (Math.round(v * 100) / 100).toFixed(2).replace(/0$/, '');
+    const letter = i => String.fromCharCode(65 + i);
+    const currentRound = () => state.rounds[state.rounds.length - 1];
+
+    function showScreen(name) {
+        document.querySelectorAll('.wz-screen').forEach(s => s.classList.remove('active'));
+        $('screen-' + name).classList.add('active');
+        renderProgress(name);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function renderProgress(screen) {
+        const progress = $('progress');
+        progress.innerHTML = '';
+        if (screen === 'welcome' || screen === 'done') return;
+        STEPS.forEach((step, i) => {
+            const item = document.createElement('div');
+            item.className = 'wz-progress-item';
+            if (screen === 'summary' || i < state.stepIndex) item.classList.add('done');
+            else if (i === state.stepIndex) item.classList.add('active');
+            item.innerHTML = `<div class="wz-progress-bar"></div><div class="wz-progress-label">${step.name}</div>`;
+            progress.appendChild(item);
+        });
+    }
+
+    async function post(url, body) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body || {}),
+        });
+        let result = {};
+        try { result = await response.json(); } catch (e) { /* leer */ }
+        if (!response.ok) throw new Error(result.error || `Fehler ${response.status}`);
+        return result;
+    }
+
+    // ---------- Anzeige-Status des Displays ----------
+    let statusTimer = null;
+
+    function setStatus(prefix, kind, text, fraction) {
+        const box = $(prefix === 'summary' ? 'summaryStatus' : 'status');
+        const spinner = $(prefix === 'summary' ? 'summarySpinner' : 'statusSpinner');
+        const label = $(prefix === 'summary' ? 'summaryStatusText' : 'statusText');
+        box.className = 'wz-status' + (kind === 'busy' ? '' : ' ' + kind);
+        spinner.style.display = kind === 'busy' ? '' : 'none';
+        label.textContent = (kind === 'ready' ? '✓ ' : kind === 'error' ? '⚠︎ ' : '') + text;
+        if (prefix !== 'summary') {
+            $('statusBar').style.display = kind === 'busy' ? '' : 'none';
+            $('statusBar').firstElementChild.style.width = Math.round((fraction || 0) * 100) + '%';
+        }
+    }
+
+    function watchDisplay(prefix, readyText) {
+        clearInterval(statusTimer);
+        let seenRefreshing = false;
+        const startedAt = Date.now();
+        const tick = async () => {
+            try {
+                const response = await fetch(URLS.status, {cache: 'no-store'});
+                const s = await response.json();
+                if (s.refreshing) {
+                    seenRefreshing = true;
+                    const expected = s.expected_seconds || 30;
+                    const remaining = Math.max(0, Math.round(expected - s.elapsed_seconds));
+                    setStatus(prefix, 'busy',
+                        remaining > 0 ? `Das Display baut das Bild auf … noch etwa ${remaining} s`
+                                      : 'Das Display baut das Bild auf … gleich fertig',
+                        Math.min(1, s.elapsed_seconds / expected));
+                    return;
+                }
+                // Fertig – oder es lief gar keine Aktualisierung an (gleiches Bild)
+                if (seenRefreshing || Date.now() - startedAt > 3000) {
+                    clearInterval(statusTimer);
+                    if (s.error) setStatus(prefix, 'error', `Anzeige fehlgeschlagen: ${s.error}`);
+                    else setStatus(prefix, 'ready', readyText);
+                }
+            } catch (e) {
+                clearInterval(statusTimer);
+                setStatus(prefix, 'ready', readyText);
+            }
+        };
+        tick();
+        statusTimer = setInterval(tick, 1000);
+    }
+
+    // ---------- Willkommen ----------
+    function selectMotif(button) {
+        document.querySelectorAll('.wz-option').forEach(b => b.classList.remove('selected'));
+        button.classList.add('selected');
+        state.motif = button.dataset.motif;
+    }
+
+    async function startWizard() {
+        try {
+            const result = await post(URLS.start);
+            state.original = result.values;
+            if (state.motif === 'current' && !result.has_snapshot) state.motif = 'pattern';
+        } catch (e) {
+            alert(e.message);
+            return;
+        }
+        state.values = Object.assign({}, state.original);
+        state.stepIndex = 0;
+        state.stepHistory = [];
+        startStep();
+    }
+
+    // ---------- Schritte ----------
+    function startStep() {
+        state.rounds = [];
+        const step = STEPS[state.stepIndex];
+        $('stepEyebrow').textContent = `Schritt ${state.stepIndex + 1} von ${STEPS.length}`;
+        $('stepTitle').textContent = step.name;
+        $('stepHint').textContent = step.hint;
+        showScreen('step');
+        loadRound(null);
+    }
+
+    async function loadRound(previous) {
+        const step = STEPS[state.stepIndex];
+        state.busy = true;
+        $('choices').innerHTML = '';
+        updateStepButtons();
+        setStatus('step', 'busy', 'Testbild wird erstellt …', 0);
+        const body = {step: step.id, base: state.values, motif: state.motif};
+        if (previous) Object.assign(body, {previous: previous.values, picked: previous.picked});
+        try {
+            const result = await post(URLS.round, body);
+            state.rounds.push({values: result.values, picked: null, finest: result.finest});
+            renderChoices();
+            watchDisplay('step', 'Schau jetzt aufs Display und tipp hier auf die schönste Kachel.');
+        } catch (e) {
+            setStatus('step', 'error', e.message);
+        } finally {
+            state.busy = false;
+            updateStepButtons();
+        }
+    }
+
+    function renderChoices() {
+        const round = currentRound();
+        const step = STEPS[state.stepIndex];
+        const number = state.rounds.length;
+        $('roundLabel').textContent = number === 1 ? 'Runde 1 · grob' : `Runde ${number} · feiner`;
+        $('roundHint').textContent = round.finest ? 'feinste Stufe' : '';
+        const container = $('choices');
+        container.innerHTML = '';
+        round.values.forEach((value, i) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'wz-choice' + (round.picked === value ? ' selected' : '');
+            const isOriginal = Math.abs(value - state.original[step.id]) < 0.001;
+            button.innerHTML = `<span class="letter">${letter(i)}</span><span class="value">${fmt(value)}</span>` +
+                (isOriginal ? '<span class="badge">bisher</span>' : '');
+            button.onclick = () => { round.picked = value; renderChoices(); updateStepButtons(); };
+            container.appendChild(button);
+        });
+    }
+
+    function updateStepButtons() {
+        const round = currentRound();
+        const picked = round && round.picked !== null;
+        const index = picked ? round.values.indexOf(round.picked) : -1;
+        $('refineButton').disabled = state.busy || !picked || round.finest;
+        $('refineButton').style.display = round && round.finest ? 'none' : '';
+        $('nextButton').disabled = state.busy || !picked;
+        $('nextButton').className = 'wz-btn ' + (round && round.finest ? 'primary' : 'secondary');
+        $('nextButton').textContent = picked ? `${letter(index)} passt – weiter` : 'Wähle eine Kachel';
+        $('backButton').disabled = state.busy;
+        $('skipButton').disabled = state.busy;
+        if (round && round.finest) $('stepNote').textContent = 'Feiner geht es nicht – wähle deinen Favoriten.';
+        else $('stepNote').textContent = 'Kaum Unterschiede zu sehen? Dann nimm einfach die Mitte und mach weiter.';
+    }
+
+    function refineRound() {
+        const round = currentRound();
+        if (!round || round.picked === null || round.finest) return;
+        loadRound(round);
+    }
+
+    function acceptStep() {
+        const round = currentRound();
+        if (!round || round.picked === null) return;
+        finishStep(round.picked);
+    }
+
+    function skipStep() {
+        finishStep(state.values[STEPS[state.stepIndex].id]);
+    }
+
+    function finishStep(value) {
+        state.stepHistory.push({values: Object.assign({}, state.values)});
+        state.values[STEPS[state.stepIndex].id] = value;
+        if (state.stepIndex < STEPS.length - 1) {
+            state.stepIndex += 1;
+            startStep();
+        } else {
+            state.stepIndex = STEPS.length;
+            showSummary();
+        }
+    }
+
+    function goBack() {
+        if (state.busy) return;
+        const onSummary = $('screen-summary').classList.contains('active');
+        if (!onSummary && state.rounds.length > 1) {
+            // Eine Runde zurück: vorherige (gröbere) Stufen erneut anzeigen
+            state.rounds.pop();
+            state.rounds.pop();
+            if (state.rounds.length === 0) loadRound(null);
+            else loadRound(state.rounds[state.rounds.length - 1]);
+            return;
+        }
+        if (state.stepHistory.length === 0) {
+            showScreen('welcome');
+            return;
+        }
+        // Zum vorherigen Schritt
+        const last = state.stepHistory.pop();
+        state.values = last.values;
+        state.stepIndex = Math.min(state.stepIndex, STEPS.length) - 1;
+        startStep();
+    }
+
+    // ---------- Ergebnis ----------
+    async function showSummary() {
+        const summary = $('summary');
+        summary.innerHTML = '';
+        STEPS.forEach(step => {
+            const before = state.original[step.id];
+            const after = state.values[step.id];
+            const changed = Math.abs(before - after) > 0.001;
+            const row = document.createElement('div');
+            row.className = 'wz-summary-row';
+            row.innerHTML = `<span>${step.name}</span><span class="vals">${fmt(before)} → ` +
+                `<strong class="${changed ? 'changed' : ''}">${fmt(after)}</strong></span>`;
+            summary.appendChild(row);
+        });
+        showScreen('summary');
+        setStatus('summary', 'busy', 'Vergleich wird erstellt …');
+        try {
+            await post(URLS.compare, {before: state.original, after: state.values, motif: state.motif});
+            watchDisplay('summary', 'Links vorher, rechts nachher – schau aufs Display.');
+        } catch (e) {
+            setStatus('summary', 'error', e.message);
+        }
+    }
+
+    async function saveResult() {
+        try {
+            await post(URLS.save, state.values);
+            await finishDisplay();
+            showDone('Fertig!', 'Dein Display nutzt jetzt die neuen Einstellungen. Das vorherige Bild ' +
+                'erscheint gleich wieder – schon mit den neuen Werten.');
+        } catch (e) {
+            setStatus('summary', 'error', e.message);
+        }
+    }
+
+    async function cancelWizard() {
+        try { await finishDisplay(); } catch (e) { /* trotzdem beenden */ }
+        showDone('Nichts geändert', 'Deine bisherigen Einstellungen bleiben. Das vorherige Bild erscheint gleich wieder.');
+    }
+
+    async function finishDisplay() {
+        const result = await post(URLS.finish);
+        return result.restored;
+    }
+
+    function showDone(title, text) {
+        clearInterval(statusTimer);
+        $('doneTitle').textContent = title;
+        $('doneText').textContent = text;
+        showScreen('done');
+    }
+
+    function restartWizard() {
+        state.values = Object.assign({}, state.original);
+        state.stepIndex = 0;
+        state.stepHistory = [];
+        startStep();
+    }
+
+    async function closeWizard() {
+        const onWelcome = $('screen-welcome').classList.contains('active');
+        const onDone = $('screen-done').classList.contains('active');
+        if (onWelcome || onDone) {
+            window.location.href = "{{ url_for('main.main_page') }}";
+            return;
+        }
+        if (!confirm('Assistent beenden? Deine bisherigen Einstellungen bleiben unverändert.')) return;
+        try { await finishDisplay(); } catch (e) { /* trotzdem beenden */ }
+        window.location.href = "{{ url_for('main.main_page') }}";
+    }
+
+    renderProgress('welcome');
+</script>
+</body>
+</html>
