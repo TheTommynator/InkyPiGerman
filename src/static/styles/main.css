@@ -36,6 +36,7 @@
     --remove-btn-color: #ff3b30;
     --remove-btn-hover: #d70015;
     --bar-bg: rgba(249, 249, 251, 0.92);
+    --icon-tile: #f2f2f7;
     --image-filter: none;
     --tabbar-height: 56px;
     --sidebar-width: 220px;
@@ -76,6 +77,7 @@ html[data-theme="dark"] {
     --remove-btn-color: #ff453a;
     --remove-btn-hover: #ff6961;
     --bar-bg: rgba(22, 22, 24, 0.92);
+    --icon-tile: #e5e5ea;
     --image-filter: invert(0.85) hue-rotate(180deg);
     color-scheme: dark;
 }
@@ -170,15 +172,6 @@ a {
     margin: 12px 0;
 }
 
-/* Icon image styling */
-.icon-image {
-    width: 32px;
-    height: 32px;
-    margin-bottom: 8px;
-    filter: var(--image-filter);
-    transition: filter 0.3s ease;
-}
-
 /* App header container */
 .app-header {
     display: flex;
@@ -194,9 +187,8 @@ a {
     height: 36px;
     border-radius: 8px;
     padding: 4px;
-    background-color: var(--bg-secondary);
+    background-color: var(--icon-tile);
     object-fit: contain;
-    filter: var(--image-filter);
 }
 
 /* App title styling */
@@ -1149,8 +1141,7 @@ body.has-tabbar {
     padding: 5px;
     border-radius: 9px;
     object-fit: contain;
-    background-color: var(--bg-primary);
-    filter: var(--image-filter);
+    background-color: var(--icon-tile);
 }
 
 .list-text {
