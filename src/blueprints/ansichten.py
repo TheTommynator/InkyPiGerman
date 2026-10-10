@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import date, datetime, timedelta
 
+import pytz
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory, url_for
 
 from refresh_task import ViewRefresh
@@ -71,6 +72,7 @@ def page_data(device_config, open_view=""):
             "schedule": url_for("ansichten.update_schedule"),
             "override": url_for("ansichten.end_override"),
             "day": url_for("ansichten.day_plan"),
+            "timezone": url_for("ansichten.set_timezone"),
             "ansichten": url_for("ansichten.ansichten_page"),
             "view": "/api/ansicht/",
             "plugin": "/plugin/",
@@ -272,9 +274,28 @@ def day_plan():
         day = date.fromisoformat(request.args["datum"]) if request.args.get("datum") else now.date()
     except ValueError:
         return _error("Ungültiges Datum.")
-    response = jsonify(day_plan_for_page(device_config.get_schedule(), day, now))
+    plan = day_plan_for_page(device_config.get_schedule(), day, now)
+    # Zeitzone des Geräts: die Seite vergleicht sie mit der des Handys
+    aware_now = refresh_task._get_current_datetime()
+    plan["timezone"] = device_config.get_config("timezone", default=None) or "UTC"
+    plan["utc_offset_minutes"] = int(aware_now.utcoffset().total_seconds() // 60)
+    plan["device_time"] = aware_now.strftime("%H:%M")
+    response = jsonify(plan)
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@ansichten_bp.route("/api/zeitzone", methods=["POST"])
+def set_timezone():
+    """Übernimmt die Zeitzone (z. B. die des Handys) für das Gerät."""
+    device_config, refresh_task = _deps()
+    name = (request.get_json(silent=True) or {}).get("timezone", "")
+    if name not in pytz.all_timezones_set:
+        return _error(f"Unbekannte Zeitzone „{name}“.")
+    with refresh_task.condition:
+        device_config.update_value("timezone", name, write=True)
+    refresh_task.signal_config_change()
+    return jsonify({"success": True, "message": f"Zeitzone auf {name} gestellt."})
 
 
 @ansichten_bp.route("/api/ansicht/<view_id>/bild")

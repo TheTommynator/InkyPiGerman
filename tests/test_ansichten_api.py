@@ -12,6 +12,7 @@ for module in ("flask", "dotenv", "PIL", "psutil", "pytz"):
     pytest.importorskip(module)
 
 import flask  # noqa: E402
+import pytz  # noqa: E402
 from config import Config  # noqa: E402
 from model import RefreshInfo  # noqa: E402
 from blueprints import ansichten  # noqa: E402
@@ -41,7 +42,7 @@ class FakeRefreshTask:
         return True
 
     def _get_current_datetime(self):
-        return JETZT
+        return pytz.utc.localize(JETZT)
 
 
 @pytest.fixture
@@ -199,3 +200,16 @@ def test_tagesplan_endpunkt(env):
     assert plan["segments"][0]["view_name"] == "Wetter"
     assert client.get("/api/zeitplan/tag?datum=2026-10-11").get_json()["today"] is False
     assert client.get("/api/zeitplan/tag?datum=morgen").status_code == 400
+
+
+def test_zeitzone_im_tagesplan_und_uebernehmen(env):
+    client, config, task, path = env
+    einschalten(client)
+    plan = client.get("/api/zeitplan/tag").get_json()
+    assert plan["timezone"] == "UTC" and plan["utc_offset_minutes"] == 0 and plan["device_time"] == "08:05"
+    signals = task.signals
+    assert client.post("/api/zeitzone", json={"timezone": "Mond/Krater"}).status_code == 400
+    response = client.post("/api/zeitzone", json={"timezone": "Europe/Berlin"})
+    assert response.status_code == 200
+    assert json.loads(path.read_text())["timezone"] == "Europe/Berlin"
+    assert task.signals == signals + 1

@@ -57,10 +57,39 @@
   // ---------- Darstellung ----------
   function render() {
     if (!plan) return;
+    renderTimezone();
     renderNow();
     renderDayHead();
     renderBar();
     renderDay();
+  }
+
+  // Rechnet das Gerät mit einer anderen Zeitzone als das Handy, stimmen alle Uhrzeiten nicht.
+  const phoneTimezone = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { return ""; } })();
+  function renderTimezone() {
+    let box = document.getElementById("tpTz");
+    if (!box) { box = document.createElement("div"); box.id = "tpTz"; root.prepend(box); }
+    const phoneOffset = -new Date().getTimezoneOffset();
+    if (plan.utc_offset_minutes === undefined || plan.utc_offset_minutes === phoneOffset) { box.innerHTML = ""; return; }
+    const now = new Date();
+    const phoneTime = pad(now.getHours()) + ":" + pad(now.getMinutes());
+    const button = phoneTimezone
+      ? '<button type="button" class="z-btn z-primary" data-tp="set-tz">„' + esc(phoneTimezone) + '“ übernehmen</button>'
+      : '<a class="z-btn" href="/settings">Zu den Einstellungen</a>';
+    box.innerHTML = '<div class="z-banner tp-tz"><span class="z-grow"><strong>Die Uhrzeit von InkyPi stimmt nicht mit deinem Handy überein.</strong> ' +
+      "InkyPi rechnet mit der Zeitzone „" + esc(plan.timezone) + "“ (" + esc(plan.device_time) + " Uhr), dein Handy " +
+      (phoneTimezone ? "mit „" + esc(phoneTimezone) + "“ " : "") + "(" + phoneTime + " Uhr). Davon hängen der Zeitplan und alle Uhrzeiten auf dem Display ab.</span>" + button + "</div>";
+  }
+
+  async function setTimezone() {
+    try {
+      const response = await fetch(DATA.urls.timezone, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ timezone: phoneTimezone }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      Z.toast(result.message);
+      scrollToNow = true;
+      load();
+    } catch (e) { showResponseModal("failure", e.message); }
   }
 
   function renderNow() {
@@ -91,7 +120,7 @@
     box.innerHTML =
       '<div class="z-row">' + icon + '<span class="z-grow"><span class="z-title">' + esc(title) + '</span><span class="z-meta">' + esc(meta) + "</span>" +
       (data ? '<span class="z-meta">' + esc(data) + "</span>" : "") + "</span>" + action + "</div>" +
-      '<div class="z-row"><span class="z-grow"><span class="z-meta">Als Nächstes</span><span class="z-title" style="font-weight:400">' + next + "</span></span></div>";
+      (plan.next ? '<div class="z-row"><span class="z-grow"><span class="z-meta">Als Nächstes</span><span class="z-title" style="font-weight:400">' + next + "</span></span></div>" : "");
   }
 
   function renderDayHead() {
@@ -196,6 +225,7 @@
         const now = new Date();
         Z.pickViewForFixed(Math.min(1380, (now.getHours() + 1) * 60));
       } else if (action === "end-override") Z.endOverride();
+      else if (action === "set-tz") setTimezone();
       return;
     }
     const bar = e.target.closest("#tpBar");
