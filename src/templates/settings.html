@@ -1,62 +1,108 @@
 {% set tab = 'einstellungen' %}
 {% extends 'layout.html' %}
 {% block title %}Einstellungen{% endblock %}
-{% block head %}
+{% block content %}
+    <div class="frame">
+        <header class="header">
+            <h1>Einstellungen</h1>
+        </header>
+
+        <div class="list-group">
+            <a class="list-row" href="{{ url_for('settings.device_page') }}">
+                <span class="list-text">
+                    <span class="list-title">Gerät</span>
+                    <span class="list-subtitle">{{ device_settings.name }} · {{ 'Hochformat' if device_settings.orientation == 'vertical' else 'Querformat' }} · {{ device_settings.timezone or 'Zeitzone fehlt' }}</span>
+                </span>
+                <span class="list-chevron" aria-hidden="true"></span>
+            </a>
+            <a class="list-row" href="{{ url_for('settings.image_page') }}">
+                <span class="list-text">
+                    <span class="list-title">Bild &amp; Farben</span>
+                    <span class="list-subtitle">Sättigung, Kontrast, Bild-Assistent</span>
+                </span>
+                <span class="list-chevron" aria-hidden="true"></span>
+            </a>
+            <a class="list-row" href="{{ url_for('zugangsdaten.zugangsdaten_page') }}">
+                <span class="list-text">
+                    <span class="list-title">Zugangsdaten</span>
+                    <span class="list-subtitle">API-Schlüssel und Passwörter für Plugins</span>
+                </span>
+                <span class="list-chevron" aria-hidden="true"></span>
+            </a>
+        </div>
+
+        <section class="list-section">
+            <h2 class="list-header">Erscheinungsbild</h2>
+            <div class="list-group">
+                <div class="list-row list-field">
+                    <div class="segmented" role="group" aria-label="Erscheinungsbild" style="flex: 1;">
+                        <button type="button" data-theme-choice="auto">Automatisch</button>
+                        <button type="button" data-theme-choice="light">Hell</button>
+                        <button type="button" data-theme-choice="dark">Dunkel</button>
+                    </div>
+                </div>
+            </div>
+            <p class="list-footer">„Automatisch“ folgt der Einstellung deines Handys oder Computers. Die Wahl gilt nur für diesen Browser.</p>
+        </section>
+
+        <section class="list-section">
+            <div class="list-group">
+                <a class="list-row" href="{{ url_for('settings.updates_page') }}">
+                    <span class="list-text">
+                        <span class="list-title">Software-Update</span>
+                        <span class="list-subtitle" id="updateSummary">Wird geprüft …</span>
+                    </span>
+                    <span class="list-chevron" aria-hidden="true"></span>
+                </a>
+            </div>
+        </section>
+
+        <section class="list-section">
+            <h2 class="list-header">System</h2>
+            <div class="list-group">
+                <a class="list-row" href="{{ url_for('settings.download_logs', hours=24) }}" download>
+                    <span class="list-text"><span class="list-title">Protokolle herunterladen</span><span class="list-subtitle">Die letzten 24 Stunden</span></span>
+                </a>
+                <button type="button" class="list-row list-action" data-confirm="Wirklich neu starten? Nochmal tippen" onclick="confirmShutdown(this, true)">Neu starten</button>
+                <button type="button" class="list-row list-action list-danger" data-confirm="Wirklich herunterfahren? Nochmal tippen" onclick="confirmShutdown(this, false)">Herunterfahren</button>
+            </div>
+            <p class="list-footer">Nach dem Herunterfahren musst du das Gerät von Hand wieder einschalten.</p>
+        </section>
+    </div>
+
+    {% include 'response_modal.html' %}
+
     <script>
-        async function handleAction() {
-            const form = document.querySelector('.settings-form');
-            const formData = new FormData(form);
+        // Erscheinungsbild: Auswahl markieren und übernehmen
+        (function() {
+            const buttons = document.querySelectorAll('[data-theme-choice]');
+            function mark() {
+                const current = window.InkyTheme.get();
+                buttons.forEach(function(b) { b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current)); });
+            }
+            buttons.forEach(function(b) {
+                b.addEventListener('click', function() { window.InkyTheme.set(b.dataset.themeChoice); mark(); });
+            });
+            mark();
+        })();
 
+        // Kurzinfo zum Software-Update in der Übersicht
+        (async function() {
+            const summary = document.getElementById('updateSummary');
             try {
-                const response = await fetch("{{ url_for('settings.save_settings') }}", {
-                    method: 'POST',
-                    body: formData,
-                });
-                
-                const result = await response.json();
-                if (response.ok) {
-                    showResponseModal('success', `Erfolg! ${result.message}`);
+                const response = await fetch("{{ url_for('updates.status') }}");
+                const data = await response.json();
+                if (!data.available) {
+                    summary.textContent = data.reason || 'Nicht verfügbar';
+                } else if (data.pending && data.pending.length) {
+                    summary.textContent = data.pending.length === 1 ? '1 Änderung wartet auf Installation' : `${data.pending.length} Änderungen warten auf Installation`;
                 } else {
-                    showResponseModal('failure', `Fehler! ${result.error}`);
-                    form.reset();
+                    summary.textContent = 'Alles aktuell' + (data.installed ? ` · ${data.installed.hash}` : '');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Bei der Verarbeitung deiner Anfrage ist ein Fehler aufgetreten.');
+            } catch (e) {
+                summary.textContent = 'Status nicht abrufbar';
             }
-        }
-
-        let pluginCycleIntervalSeconds = {{ device_settings.plugin_cycle_interval_seconds | default(3600) | tojson }};
-    
-        // Function to populate the fields
-        function populateIntervalFields() {
-            const intervalInput = document.getElementById('interval');
-            const unitSelect = document.getElementById('unit');
-
-            // Check if pluginCycleIntervalSeconds is valid
-            if (pluginCycleIntervalSeconds !== null && pluginCycleIntervalSeconds !== undefined) {
-                // Convert seconds to minutes and hours
-                let intervalInMinutes = Math.floor(pluginCycleIntervalSeconds / 60);
-                let intervalInHours = Math.floor(pluginCycleIntervalSeconds / 3600);
-
-                // Determine which unit to use (minute or hour) based on the interval
-                if (intervalInHours > 0) {
-                    intervalInput.value = intervalInHours;
-                    unitSelect.value = "hour";
-                } else {
-                    intervalInput.value = intervalInMinutes;
-                    unitSelect.value = "minute";
-                }
-            }
-        }
-
-        function toggleCollapsible(button) {
-            const content = button.nextElementSibling;
-            const icon = button.querySelector(".collapsible-icon");
-            button.classList.toggle("active");
-            content.style.display = content.style.display === "block" ? "none" : "block";
-            icon.textContent = content.style.display === "block" ? "▲" : "▼";
-        }
+        })();
 
         async function handleShutdown(reboot) {
             if (reboot) {
@@ -65,7 +111,7 @@
                 showResponseModal('success', 'Das System wird heruntergefahren. Die Oberfläche bleibt nicht erreichbar, bis das Gerät manuell wieder eingeschaltet wird.');
             }
             await new Promise(resolve => setTimeout(resolve, 1000));
-            // we cannot await a response here
+            // Auf eine Antwort kann nicht gewartet werden, das Gerät ist dann schon weg
             await fetch("{{ url_for('settings.shutdown') }}", {
                 method: 'POST',
                 headers: {
@@ -75,256 +121,6 @@
             });
         }
 
-
-        function updateSliderValue(slider) {
-            const valueDisplay = document.getElementById(`${slider.id}-value`);
-            valueDisplay.textContent = +parseFloat(slider.value).toFixed(2);
-        }
-        document.addEventListener('DOMContentLoaded', populateIntervalFields);
-    </script>
-{% endblock %}
-{% block content %}
-    <div class="frame">
-        <header class="header">
-            <h1>Einstellungen</h1>
-        </header>
-        <!-- Settings Content -->
-        <form class="settings-form">
-            <div id="settings-container">
-                <!-- Device Name -->
-                <div class="form-group">
-                    <label for="deviceName" class="form-label">Gerätename:</label>
-                    <input type="text" 
-                           id="deviceName" 
-                           name="deviceName" 
-                           placeholder="Namen eingeben …" 
-                           value="{{ device_settings.name }}" 
-                           required 
-                           class="form-input">
-                </div>
-                <div class="form-group nowrap">
-                    <!-- Orientation Dropdown -->
-                    <div class="form-group">
-                        <label for="orientation" class="form-label">Ausrichtung:</label>
-                        <select id="orientation" name="orientation" class="form-input">
-                            <option value="horizontal" {% if device_settings.orientation == "horizontal" %}selected{% endif %}>Querformat</option>
-                            <option value="vertical" {% if device_settings.orientation == "vertical" %}selected{% endif %}>Hochformat</option>
-                        </select>
-                    </div>
-                    <div class="form-group nowrap">
-                        <!-- Invert Image Checkbox -->
-                        <label class="form-label" for="invertImage">Bild invertieren</label>
-                        <input type="checkbox" id="invertImage" name="invertImage" {% if device_settings.inverted_image %}checked{% endif %}>
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <!-- Timezone Dropdown -->
-                    <div class="form-group nowrap">
-                        <label for="timezone" class="form-label">Zeitzone:</label>
-                        <input
-                            type="text"
-                            id="timezone"
-                            name="timezoneName"
-                            class="form-input"
-                            list="timezoneList"
-                            placeholder="Zum Suchen tippen …"
-                            value="{{ device_settings.timezone }}"
-                        />
-                        <datalist id="timezoneList">
-                            {% for timezone in timezones %}
-                            <option value="{{ timezone }}"></option>
-                            {% endfor %}
-                        </datalist>
-                    </div>
-
-                    <!-- Time Format Dropdown -->
-                    <div class="form-group nowrap">
-                        <label for="timeFormat" class="form-label">Zeitformat:</label>
-                        <select id="timeFormat" name="timeFormat" class="form-input">
-                            <option value="12h" {% if device_settings.time_format == "12h" %}selected{% endif %}>12 Stunden (AM/PM)</option>
-                            <option value="24h" {% if device_settings.time_format == "24h" %}selected{% endif %}>24 Stunden</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <div class="form-group">
-                        <label for="interval">Plugin-Wechselintervall:</label>
-                        <span title="Legt fest, wie oft das Display zum nächsten Plugin wechselt. Gilt nur für Playlists – im neuen Zeitplan hat jede Ansicht ihre eigene Anzeigedauer.">ⓘ</span>
-                        <span>Alle</span>
-                        <input type="number" id="interval" name="interval" class="form-input" required min="1">
-                        <select id="unit" name="unit" class="form-input" required>
-                            <option value="minute">Minuten</option>
-                            <option value="hour">Stunden</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group nowrap">
-                        <label class="form-label" for="logSystemStats">Systemstatistiken protokollieren</label>
-                            <input type="checkbox" id="logSystemStats" name="logSystemStats" {% if device_settings.log_system_stats %}checked{% endif %}>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="collapsible">
-                    <button type="button" class="collapsible-header" onclick="toggleCollapsible(this)">
-                        Bildeinstellungen <span class="collapsible-icon">▼</span>
-                    </button>
-                    <div class="settings-container collapsible-content">
-                        <div class="form-group">
-                            <p style="margin: 0 0 8px;">Nicht sicher, welche Werte passen? Der Assistent führt dich Schritt für Schritt zum besten Bild.</p>
-                            <a class="action-button compact" href="{{ url_for('calibration.wizard_page') }}" style="text-decoration: none; display: inline-block;">Bild-Assistent starten</a>
-                        </div>
-                        <div class="form-group">
-                            <label for="saturation" class="form-label" style="min-width: 100px;">Sättigung:</label>
-                            <span id="saturation-value">{{ device_settings.get('image_settings', {}).get('saturation', 1.0) }}</span>
-                            <input
-                                type="range"
-                                id="saturation"
-                                name="saturation"
-                                class="form-input"
-                                min="0" max="3" step="0.01"
-                                value="{{ device_settings.get('image_settings', {}).get('saturation', 1.0) }}"
-                                style="max-width: 400px;"
-                                oninput="updateSliderValue(this)"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label for="contrast" class="form-label" style="min-width: 100px;">Kontrast:</label>
-                            <span id="contrast-value">{{ device_settings.get('image_settings', {}).get('contrast', 1.0) }}</span>
-                            <input
-                                type="range"
-                                id="contrast"
-                                name="contrast"
-                                class="form-input"
-                                min="0" max="3" step="0.01"
-                                value="{{ device_settings.get('image_settings', {}).get('contrast', 1.0) }}"
-                                style="max-width: 400px;"
-                                oninput="updateSliderValue(this)"
-                            />
-                         </div>
-                        <div class="form-group">
-                            <label for="sharpness" class="form-label" style="min-width: 100px;">Schärfe:</label>
-                            <span id="sharpness-value">{{ device_settings.get('image_settings', {}).get('sharpness', 1.0) }}</span>
-                            <input
-                                type="range"
-                                id="sharpness"
-                                name="sharpness"
-                                class="form-input"
-                                min="0" max="3" step="0.01"
-                                value="{{ device_settings.get('image_settings', {}).get('sharpness', 1.0) }}"
-                                style="max-width: 400px;"
-                                oninput="updateSliderValue(this)"
-                            />
-                        </div>
-                        <div class="form-group">
-                            <label for="brightness" class="form-label" style="min-width: 100px;">Helligkeit:</label>
-                            <span id="brightness-value">{{ device_settings.get('image_settings', {}).get('brightness', 1.0) }}</span>
-                            <input
-                                type="range"
-                                id="brightness"
-                                name="brightness"
-                                class="form-input"
-                                min="0" max="3" step="0.01"
-                                value="{{ device_settings.get('image_settings', {}).get('brightness', 1.0) }}"
-                                style="max-width: 400px;"
-                                oninput="updateSliderValue(this)"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </form>
- 
-        <!-- Buttons -->
-        <div class="buttons-container">
-            <button type="button" onclick="handleAction()" class="action-button">Speichern</button>
-        </div>
-
-        <!-- Zugangsdaten -->
-        <div class="separator"></div>
-        <div class="updates-section">
-            <h2 class="updates-title">Zugangsdaten</h2>
-            <div class="updates-row">
-                <a href="{{ url_for('zugangsdaten.zugangsdaten_page') }}">API-Schlüssel und Passwörter verwalten →</a>
-            </div>
-            <p class="updates-muted" style="margin-top: 8px;">Für Wetter, KI, NASA, iCloud-Kalender und Co. – ohne SSH und ohne die .env von Hand zu bearbeiten.</p>
-        </div>
-
-        <!-- Erscheinungsbild (nur in diesem Browser gespeichert) -->
-        <div class="separator"></div>
-        <div class="updates-section">
-            <h2 class="updates-title">Erscheinungsbild</h2>
-            <div class="segmented" role="group" aria-label="Erscheinungsbild" id="themeChoice">
-                <button type="button" data-theme-choice="auto">Automatisch</button>
-                <button type="button" data-theme-choice="light">Hell</button>
-                <button type="button" data-theme-choice="dark">Dunkel</button>
-            </div>
-            <p class="updates-muted" style="margin-top: 8px;">„Automatisch“ folgt der Einstellung deines Geräts.</p>
-        </div>
-        <script>
-            (function() {
-                const buttons = document.querySelectorAll('[data-theme-choice]');
-                function mark() {
-                    const current = window.InkyTheme.get();
-                    buttons.forEach(function(b) { b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current)); });
-                }
-                buttons.forEach(function(b) {
-                    b.addEventListener('click', function() { window.InkyTheme.set(b.dataset.themeChoice); mark(); });
-                });
-                mark();
-            })();
-        </script>
-
-        <!-- Updates (scripts/deploy.sh) -->
-        <div class="separator"></div>
-        <div id="updates" class="updates-section">
-            <h2 class="updates-title">Updates</h2>
-            <p id="updatesUnavailable" class="updates-muted" hidden></p>
-
-            <div id="updatesBody" hidden>
-                <div class="updates-row">
-                    <label class="form-label" for="autoUpdateToggle">Automatisch aktualisieren</label>
-                    <div class="toggle-container">
-                        <input type="checkbox" id="autoUpdateToggle" class="toggle-checkbox" onchange="setAutoUpdate()">
-                        <label for="autoUpdateToggle" class="toggle-label"></label>
-                    </div>
-                    <span>alle</span>
-                    <select id="autoUpdateInterval" class="form-input updates-interval" onchange="setAutoUpdate()"></select>
-                    <span>Minuten</span>
-                </div>
-
-                <dl class="updates-facts">
-                    <dt>Installiert</dt><dd id="updInstalled">–</dd>
-                    <dt>Letzte Prüfung</dt><dd id="updLastCheck">–</dd>
-                    <dt>Nächste Prüfung</dt><dd id="updNextRun">–</dd>
-                    <dt>Neu auf GitHub</dt><dd id="updPending">–</dd>
-                </dl>
-
-                <div class="buttons-container updates-buttons">
-                    <button type="button" id="updateNowButton" class="action-button" onclick="runUpdateNow()">Jetzt aktualisieren</button>
-                </div>
-
-                <h3 class="updates-subtitle">Letzte Aktualisierungen</h3>
-                <ul id="updHistory" class="updates-history"></ul>
-            </div>
-        </div>
-
-        <!-- System -->
-        <div class="separator"></div>
-        <div class="updates-section">
-            <h2 class="updates-title">System</h2>
-            <div class="list-group">
-                <a class="list-row" href="{{ url_for('settings.download_logs', hours=24) }}" download>
-                    <span class="list-text"><span class="list-title">Protokolle herunterladen</span><span class="list-subtitle">Die letzten 24 Stunden</span></span>
-                </a>
-                <button type="button" class="list-row list-action" data-confirm="Wirklich neu starten? Nochmal tippen" onclick="confirmShutdown(this, true)">Neu starten</button>
-                <button type="button" class="list-row list-action list-danger" data-confirm="Wirklich herunterfahren? Nochmal tippen" onclick="confirmShutdown(this, false)">Herunterfahren</button>
-            </div>
-            <p class="updates-muted" style="margin-top: 8px;">Nach dem Herunterfahren musst du das Gerät von Hand wieder einschalten.</p>
-        </div>
-    </div>
-    <script>
         // Erst beim zweiten Tippen ausführen, die Rückfrage steht im Button selbst
         function confirmShutdown(button, reboot) {
             if (!button.dataset.armed) {
@@ -340,196 +136,4 @@
             handleShutdown(reboot);
         }
     </script>
-
-    <style>
-        .updates-section { margin-top: 10px; }
-        .updates-title { margin: 0 0 12px 0; font-size: 1.3em; }
-        .updates-subtitle { margin: 18px 0 8px 0; font-size: 1.05em; }
-        .updates-muted { color: var(--text-secondary); }
-        .updates-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .updates-row .form-label { margin: 0; }
-        .updates-row .updates-interval { flex: 0 0 auto; width: 80px; }
-        .updates-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0; }
-        .updates-facts dt { font-weight: bold; }
-        .updates-facts dd { margin: 0; overflow-wrap: anywhere; }
-        .updates-buttons { justify-content: flex-start; margin: 0; }
-        .updates-history { list-style: none; padding: 0; margin: 0; }
-        .updates-history > li { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: var(--bg-secondary); }
-        .updates-history .upd-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
-        .updates-history .upd-time { color: var(--text-secondary); font-size: 0.9em; }
-        .updates-history .upd-msg { margin-top: 4px; white-space: pre-line; }
-        .updates-history ul { margin: 6px 0 0 0; padding-left: 20px; font-size: 0.92em; list-style: disc; }
-        .updates-history ul li { border: 0; padding: 0; margin: 2px 0; background: none; }
-        .updates-history code, .updates-facts code { font-size: 0.9em; }
-        .upd-badge { font-weight: bold; }
-        .upd-ok { color: var(--success-color); }
-        .upd-bad { color: var(--failure-color); }
-    </style>
-
-    <script>
-        const UPDATE_RESULTS = {
-            success:      ["✔ Aktualisiert", "upd-ok"],
-            check_failed: ["✘ Prüfung fehlgeschlagen – nicht installiert", "upd-bad"],
-            rolled_back:  ["↩ Fehlgeschlagen – alter Stand wiederhergestellt", "upd-bad"],
-            rollback:     ["↩ Manuell zurückgesetzt", ""],
-            current:      ["✔ Bereits aktuell", "upd-ok"],
-            skipped:      ["⏸ Übersprungen", ""],
-            running:      ["⏳ Update läuft …", ""],
-            error:        ["✘ Fehler", "upd-bad"],
-        };
-        const UPDATE_TRIGGERS = { auto: "automatisch", manual: "per Befehl", web: "über die Weboberfläche" };
-        let updatePollTimer = null;
-        let lastUpdateData = null;
-        let checkTimeBeforeRun = undefined;  // gesetzt, solange auf das Ergebnis von "Jetzt aktualisieren" gewartet wird
-
-        function escapeHtml(s) {
-            return String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-        }
-
-        function formatTime(iso) {
-            if (!iso) return "–";
-            const d = new Date(iso);
-            if (isNaN(d)) return escapeHtml(iso);
-            return d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-        }
-
-        function resultLabel(result) {
-            const [text, cls] = UPDATE_RESULTS[result] || [result, ""];
-            return `<span class="upd-badge ${cls}">${escapeHtml(text)}</span>`;
-        }
-
-        function commitList(commits) {
-            if (!commits || !commits.length) return "";
-            return "<ul>" + commits.map(c =>
-                `<li><code>${escapeHtml(c.hash)}</code> ${escapeHtml(c.subject)} <span class="upd-time">(${escapeHtml(c.author)})</span></li>`
-            ).join("") + "</ul>";
-        }
-
-        function renderUpdates(data) {
-            lastUpdateData = data;
-            const unavailable = document.getElementById("updatesUnavailable");
-            const body = document.getElementById("updatesBody");
-            if (!data.available) {
-                unavailable.textContent = data.reason;
-                unavailable.hidden = false;
-                body.hidden = true;
-                return;
-            }
-            unavailable.hidden = true;
-            body.hidden = false;
-
-            const toggle = document.getElementById("autoUpdateToggle");
-            const select = document.getElementById("autoUpdateInterval");
-            if (!select.options.length) {
-                data.intervals.forEach(m => select.add(new Option(m, m)));
-            }
-            toggle.checked = data.auto.enabled;
-            select.value = data.auto.interval || 5;
-            select.disabled = !data.auto.enabled;
-
-            const inst = data.installed;
-            document.getElementById("updInstalled").innerHTML = inst
-                ? `<code>${escapeHtml(inst.hash)}</code> ${escapeHtml(inst.subject)} <span class="upd-time">(${formatTime(inst.date)})</span>`
-                : "–";
-
-            const lc = data.last_check;
-            document.getElementById("updLastCheck").innerHTML = lc
-                ? `${formatTime(lc.time)} · ${resultLabel(lc.result)}` + (lc.result === "error" || lc.result === "skipped" ? `<div class="updates-muted">${escapeHtml(lc.message)}</div>` : "")
-                : "noch keine";
-
-            document.getElementById("updNextRun").textContent = data.auto.enabled ? formatTime(data.auto.next_run) : "Auto-Update ist aus";
-
-            document.getElementById("updPending").innerHTML = data.pending.length
-                ? `${data.pending.length} Änderung(en) warten auf Installation` + commitList(data.pending)
-                : "nichts – alles installiert";
-
-            const history = document.getElementById("updHistory");
-            history.innerHTML = data.history.length ? data.history.map(h => `
-                <li>
-                    <div class="upd-head">${resultLabel(h.result)}
-                        <span class="upd-time">${formatTime(h.time)} · ${escapeHtml(UPDATE_TRIGGERS[h.trigger] || h.trigger || "")}</span>
-                    </div>
-                    ${h.result !== "success" && h.message ? `<div class="upd-msg">${escapeHtml(h.message)}</div>` : ""}
-                    ${commitList(h.commits)}
-                </li>`).join("") : '<li class="updates-muted">Noch keine Updates installiert.</li>';
-
-            const running = lc && lc.result === "running";
-            const waiting = checkTimeBeforeRun !== undefined && (lc ? lc.time : null) === checkTimeBeforeRun;
-            const button = document.getElementById("updateNowButton");
-            button.disabled = running || waiting;
-            button.textContent = running ? "Update läuft …" : waiting ? "Suche nach Updates …" : "Jetzt aktualisieren";
-            if (running || waiting) {
-                pollUpdates();
-            } else if (checkTimeBeforeRun !== undefined) {
-                checkTimeBeforeRun = undefined;
-                const ok = ["success", "current"].includes(lc.result);
-                showResponseModal(ok ? "success" : "failure", (UPDATE_RESULTS[lc.result] || [lc.result])[0] + (ok ? "" : ` – ${lc.message}`));
-            }
-        }
-
-        async function loadUpdates() {
-            try {
-                const response = await fetch("{{ url_for('updates.status') }}");
-                renderUpdates(await response.json());
-                return true;
-            } catch (e) {
-                // InkyPi startet gerade neu (z. B. nach einem Update)
-                return false;
-            }
-        }
-
-        // Während eines Updates alle paar Sekunden neu laden – InkyPi ist beim Neustart kurz weg
-        function pollUpdates() {
-            if (updatePollTimer) return;
-            updatePollTimer = setTimeout(async () => {
-                updatePollTimer = null;
-                const ok = await loadUpdates();
-                if (!ok) {
-                    const button = document.getElementById("updateNowButton");
-                    button.disabled = true;
-                    button.textContent = "InkyPi startet neu …";
-                    pollUpdates();
-                }
-            }, 4000);
-        }
-
-        async function setAutoUpdate() {
-            const enabled = document.getElementById("autoUpdateToggle").checked;
-            const interval = parseInt(document.getElementById("autoUpdateInterval").value || "5", 10);
-            const response = await fetch("{{ url_for('updates.set_auto') }}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ enabled, interval }),
-            });
-            const result = await response.json();
-            if (response.ok) {
-                renderUpdates(result);
-                showResponseModal("success", enabled ? `Auto-Update ist an (alle ${interval} Minuten).` : "Auto-Update ist aus.");
-            } else {
-                showResponseModal("failure", `Fehler: ${result.error}`);
-                loadUpdates();
-            }
-        }
-
-        async function runUpdateNow() {
-            const button = document.getElementById("updateNowButton");
-            button.disabled = true;
-            button.textContent = "Suche nach Updates …";
-            checkTimeBeforeRun = lastUpdateData && lastUpdateData.last_check ? lastUpdateData.last_check.time : null;
-            const response = await fetch("{{ url_for('updates.run_now') }}", { method: "POST" });
-            const result = await response.json();
-            if (!response.ok) {
-                showResponseModal("failure", `Fehler: ${result.error}`);
-                checkTimeBeforeRun = undefined;
-                button.disabled = false;
-                button.textContent = "Jetzt aktualisieren";
-                return;
-            }
-            pollUpdates();
-        }
-
-        document.addEventListener("DOMContentLoaded", loadUpdates);
-    </script>
-    <!-- Success/Error Modal -->
-    {% include 'response_modal.html' %}
 {% endblock %}

@@ -1,0 +1,79 @@
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Bild &amp; Farben{% endblock %}
+{% block content %}
+    <div class="frame">
+        <a href="{{ url_for('settings.settings_page') }}" class="back-button">Einstellungen</a>
+        <header class="header">
+            <h1>Bild &amp; Farben</h1>
+        </header>
+
+        <div class="list-group">
+            <a class="list-row" href="{{ url_for('calibration.wizard_page') }}">
+                <span class="list-text">
+                    <span class="list-title">Bild-Assistent</span>
+                    <span class="list-subtitle">Schritt für Schritt zu den besten Werten, direkt auf dem Display verglichen</span>
+                </span>
+                <span class="list-chevron" aria-hidden="true"></span>
+            </a>
+        </div>
+
+        <section class="list-section">
+            <h2 class="list-header">Von Hand einstellen</h2>
+            <div class="list-group">
+                {% for key, label in [('saturation', 'Sättigung'), ('contrast', 'Kontrast'), ('sharpness', 'Schärfe'), ('brightness', 'Helligkeit')] %}
+                <div class="list-row list-stack">
+                    <div class="list-line">
+                        <label for="{{ key }}">{{ label }}</label>
+                        <span class="list-value" id="{{ key }}-value">{{ '%.2f' | format(image_settings[key]) }}</span>
+                    </div>
+                    <input type="range" class="slider" id="{{ key }}" data-key="{{ key }}" min="0" max="3" step="0.05" value="{{ image_settings[key] }}">
+                </div>
+                {% endfor %}
+                <button type="button" class="list-row list-action" id="resetImageSettings">Auf 1,00 zurücksetzen</button>
+            </div>
+            <p class="list-footer">1,00 lässt das Bild unverändert. Die Werte gelten für alle Plugins außer denen, die ihre Farben selbst auf das Display abstimmen (z. B. iCloud-Kalender). Änderungen siehst du beim nächsten Bild auf dem Display.</p>
+        </section>
+    </div>
+
+    {% include 'response_modal.html' %}
+
+    <script>
+        const SAVE_URL = "{{ url_for('settings.save_image_settings') }}";
+        const sliders = document.querySelectorAll('.slider[data-key]');
+        let saveTimer = null;
+        let pending = {};
+
+        function showValue(slider) {
+            document.getElementById(`${slider.id}-value`).textContent = parseFloat(slider.value).toFixed(2);
+        }
+
+        // Kurz nach dem letzten Verschieben speichern, nicht bei jedem Pixel
+        function scheduleSave(data) {
+            Object.assign(pending, data);
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(function() {
+                const changes = pending;
+                pending = {};
+                saveNow(SAVE_URL, changes);
+            }, 400);
+        }
+
+        sliders.forEach(function(slider) {
+            slider.addEventListener('input', function() { showValue(slider); });
+            slider.addEventListener('change', function() {
+                scheduleSave({ [slider.dataset.key]: parseFloat(slider.value) });
+            });
+        });
+
+        document.getElementById('resetImageSettings').addEventListener('click', function() {
+            const data = {};
+            sliders.forEach(function(slider) {
+                slider.value = 1;
+                showValue(slider);
+                data[slider.dataset.key] = 1;
+            });
+            scheduleSave(data);
+        });
+    </script>
+{% endblock %}

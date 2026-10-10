@@ -1,5 +1,4 @@
 from flask import Blueprint, request, jsonify, current_app, render_template, Response
-from utils.time_utils import calculate_seconds
 from datetime import datetime, timedelta
 import os
 import pytz
@@ -25,63 +24,80 @@ except ImportError:
 logger = logging.getLogger(__name__)
 settings_bp = Blueprint("settings", __name__)
 
+IMAGE_SETTING_KEYS = ("saturation", "contrast", "sharpness", "brightness")
+IMAGE_SETTING_LIMITS = (0.0, 3.0)
+
 @settings_bp.route('/settings')
 def settings_page():
     device_config = current_app.config['DEVICE_CONFIG']
-    timezones = sorted(pytz.all_timezones_set)
-    return render_template('settings.html', device_settings=device_config.get_config(), timezones = timezones)
+    return render_template('settings.html', device_settings=device_config.get_config())
 
-@settings_bp.route('/save_settings', methods=['POST'])
-def save_settings():
+@settings_bp.route('/settings/geraet')
+def device_page():
     device_config = current_app.config['DEVICE_CONFIG']
+    return render_template('settings_geraet.html', device_settings=device_config.get_config(),
+                           timezones=sorted(pytz.all_timezones_set))
 
+@settings_bp.route('/settings/bild')
+def image_page():
+    device_config = current_app.config['DEVICE_CONFIG']
+    image_settings = device_config.get_config("image_settings", default={}) or {}
+    values = {key: float(image_settings.get(key, 1.0)) for key in IMAGE_SETTING_KEYS}
+    return render_template('settings_bild.html', image_settings=values)
+
+@settings_bp.route('/settings/updates')
+def updates_page():
+    return render_template('settings_updates.html')
+
+DEVICE_NAME_MAX_LENGTH = 40
+ORIENTATIONS = ("horizontal", "vertical")
+TIME_FORMATS = ("24h", "12h")
+
+def validate_device_settings(data, timezones):
+    """Prüft einzelne Geräteeinstellungen (nur die übergebenen) und gibt sie für device.json zurück.
+    Wirft ValueError mit einer Meldung für die Oberfläche."""
+    settings = {}
+    if "name" in data:
+        name = str(data["name"] or "").strip()
+        if not name:
+            raise ValueError("Bitte gib dem Gerät einen Namen.")
+        if len(name) > DEVICE_NAME_MAX_LENGTH:
+            raise ValueError(f"Der Name darf höchstens {DEVICE_NAME_MAX_LENGTH} Zeichen lang sein.")
+        settings["name"] = name
+    if "orientation" in data:
+        if data["orientation"] not in ORIENTATIONS:
+            raise ValueError("Unbekannte Ausrichtung.")
+        settings["orientation"] = data["orientation"]
+    if "time_format" in data:
+        if data["time_format"] not in TIME_FORMATS:
+            raise ValueError("Unbekanntes Zeitformat.")
+        settings["time_format"] = data["time_format"]
+    if "timezone" in data:
+        if data["timezone"] not in timezones:
+            raise ValueError(f"„{data['timezone']}“ ist keine bekannte Zeitzone. Wähle eine aus der Liste, z. B. Europe/Berlin.")
+        settings["timezone"] = data["timezone"]
+    for key in ("inverted_image", "log_system_stats"):
+        if key in data:
+            settings[key] = bool(data[key])
+    if not settings:
+        raise ValueError("Keine Einstellung übergeben.")
+    return settings
+
+@settings_bp.route('/settings/geraet', methods=['POST'])
+def save_device_settings():
+    """Speichert einzelne Geräteeinstellungen sofort (JSON, z. B. {"orientation": "vertical"})."""
+    device_config = current_app.config['DEVICE_CONFIG']
     try:
-        form_data = request.form.to_dict()
+        settings = validate_device_settings(request.get_json(silent=True) or {}, pytz.all_timezones_set)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
-        unit, interval, time_format = form_data.get('unit'), form_data.get("interval"), form_data.get("timeFormat")
-        if not unit or unit not in ["minute", "hour"]:
-            return jsonify({"error": "Einheit des Plugin-Wechselintervalls fehlt"}), 400
-        if not interval or not interval.isnumeric():
-            return jsonify({"error": "Wechselintervall fehlt"}), 400
-        if not form_data.get("timezoneName"):
-            return jsonify({"error": "Zeitzone fehlt"}), 400
-        if not time_format or time_format not in ["12h", "24h"]:
-            return jsonify({"error": "Zeitformat fehlt"}), 400
-        previous_interval_seconds = device_config.get_config("plugin_cycle_interval_seconds")
-        previous_timezone = device_config.get_config("timezone", default=None)
-        plugin_cycle_interval_seconds = calculate_seconds(int(interval), unit)
-        if plugin_cycle_interval_seconds > 86400 or plugin_cycle_interval_seconds <= 0:
-            return jsonify({"error": "Das Plugin-Wechselintervall muss kürzer als 24 Stunden sein"}), 400
-
-        settings = {
-            "name": form_data.get("deviceName"),
-            "orientation": form_data.get("orientation"),
-            "inverted_image": form_data.get("invertImage"),
-            "log_system_stats": form_data.get("logSystemStats"),
-            "timezone": form_data.get("timezoneName"),
-            "time_format": form_data.get("timeFormat"),
-            "plugin_cycle_interval_seconds": plugin_cycle_interval_seconds,
-            "image_settings": {
-                "saturation": float(form_data.get("saturation", "1.0")),
-                "brightness": float(form_data.get("brightness", "1.0")),
-                "sharpness": float(form_data.get("sharpness", "1.0")),
-                "contrast": float(form_data.get("contrast", "1.0"))
-            }
-        }
-        device_config.update_config(settings)
-
-        if plugin_cycle_interval_seconds != previous_interval_seconds or settings["timezone"] != previous_timezone:
-            # wake the background thread up to signal interval or timezone change
-            refresh_task = current_app.config['REFRESH_TASK']
-            refresh_task.signal_config_change()
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"error": f"Ein Fehler ist aufgetreten: {str(e)}"}), 500
-    return jsonify({"success": True, "message": "Einstellungen gespeichert."})
-
-IMAGE_SETTING_KEYS = ("saturation", "contrast", "sharpness", "brightness")
-IMAGE_SETTING_LIMITS = (0.0, 3.0)
+    timezone_changed = "timezone" in settings and settings["timezone"] != device_config.get_config("timezone", default=None)
+    device_config.update_config(settings)
+    if timezone_changed:
+        # Hintergrund-Task wecken, damit der Zeitplan mit der neuen Zeitzone rechnet
+        current_app.config['REFRESH_TASK'].signal_config_change()
+    return jsonify({"success": True, "message": "Gesichert"})
 
 @settings_bp.route('/image_settings', methods=['GET'])
 def get_image_settings():

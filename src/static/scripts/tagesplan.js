@@ -75,7 +75,7 @@
     const phoneTime = pad(now.getHours()) + ":" + pad(now.getMinutes());
     const button = phoneTimezone
       ? '<button type="button" class="z-btn z-primary" data-tp="set-tz">„' + esc(phoneTimezone) + '“ übernehmen</button>'
-      : '<a class="z-btn" href="/settings">Zu den Einstellungen</a>';
+      : '<a class="z-btn" href="/settings/geraet">Zeitzone einstellen</a>';
     box.innerHTML = '<div class="z-banner tp-tz"><span class="z-grow"><strong>Die Uhrzeit von InkyPi stimmt nicht mit deinem Handy überein.</strong> ' +
       "InkyPi rechnet mit der Zeitzone „" + esc(plan.timezone) + "“ (" + esc(plan.device_time) + " Uhr), dein Handy " +
       (phoneTimezone ? "mit „" + esc(phoneTimezone) + "“ " : "") + "(" + phoneTime + " Uhr). Davon hängen der Zeitplan und alle Uhrzeiten auf dem Display ab.</span>" + button + "</div>";

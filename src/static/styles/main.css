@@ -1280,3 +1280,158 @@ input, select, textarea {
         animation: none;
     }
 }
+
+/* Einstellungszeilen: Beschriftung links, Bedienelement rechts */
+.list-field {
+    cursor: default;
+    flex-wrap: wrap;
+}
+
+.list-field:hover {
+    background: none;
+}
+
+.list-field > label,
+.list-field > .list-label {
+    flex: 1 0 auto;
+    max-width: 100%;
+}
+
+.list-field input[type="text"] {
+    flex: 1 1 140px;
+    min-width: 0;
+    border: 0;
+    background: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    text-align: right;
+    padding: 6px 0;
+    outline: none;
+}
+
+.list-field input[type="text"]:focus {
+    color: var(--text-primary);
+}
+
+.list-field .segmented {
+    flex: 0 1 200px;
+    margin-left: auto;
+}
+
+.list-field .segmented button {
+    font-size: 0.88rem;
+}
+
+.list-value {
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.list-stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-block: 12px;
+}
+
+.list-stack .list-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.list-footer {
+    margin: 6px 16px 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+/* Schieberegler */
+.slider {
+    width: 100%;
+    accent-color: var(--accent-primary);
+    min-height: 28px;
+}
+
+/* Schalter wie in iOS */
+.switch {
+    position: relative;
+    width: 51px;
+    height: 31px;
+    flex: none;
+}
+
+.switch input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 1;
+}
+
+.switch span {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background-color: var(--button-bg);
+    transition: background-color 0.2s ease;
+}
+
+.switch span::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease;
+}
+
+.switch input:checked + span {
+    background-color: var(--success-color);
+}
+
+.switch input:checked + span::after {
+    transform: translateX(20px);
+}
+
+.switch input:focus-visible + span {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Kurze Bestätigung („Gesichert“) über der Tab-Leiste */
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--tabbar-height) + 16px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 1100;
+    max-width: calc(100% - 32px);
+    padding: 9px 16px;
+    border-radius: 999px;
+    background-color: var(--text-primary);
+    color: var(--bg-primary);
+    font-size: 0.9rem;
+    text-align: center;
+    pointer-events: none;
+}
+
+.toast.toast-error {
+    background-color: var(--failure-color);
+    color: #fff;
+}
+
+@media (min-width: 900px) {
+    .toast {
+        bottom: 24px;
+        margin-left: calc(var(--sidebar-width) / 2);
+    }
+}
