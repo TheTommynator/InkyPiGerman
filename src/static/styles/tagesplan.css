@@ -52,3 +52,6 @@
 .tp-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82em; color: var(--text-secondary); }
 .tp-foot .z-btn { font-size: 1.05em; }
 .tp-empty { padding: 16px; color: var(--text-secondary); }
+.tp-tz { flex-wrap: wrap; margin-top: 0; border-color: var(--failure-color); line-height: 1.45; color: var(--text-primary); }
+.tp-tz strong { color: var(--text-primary); }
+.tp-tz .z-grow { flex-basis: 220px; }
