@@ -1,0 +1,175 @@
+<style>
+    .ik-hinweis { font-size: 0.85rem; opacity: 0.75; margin: 0.25rem 0 0.75rem; line-height: 1.4; }
+    .ik-hinweis summary { cursor: pointer; }
+    .ik-hinweis ol { margin: 0.4rem 0 0 1.2rem; }
+    .ik-kalender { display: flex; gap: 0.5rem; align-items: center; }
+    .ik-kalender .ik-name { flex: 0 1 9rem; min-width: 6rem; }
+    .ik-kalender .ik-url { flex: 1 1 auto; min-width: 0; }
+</style>
+
+<div class="form-group">
+    <label class="form-label">Kalender:</label>
+    <div id="ikKalenderListe"></div>
+    <button type="button" class="form-input collapsible" onclick="ikKalenderHinzufuegen()">Kalender hinzufügen</button>
+    <details class="ik-hinweis">
+        <summary>Wo finde ich den Link zu meinem iCloud-Kalender?</summary>
+        <ol>
+            <li>Auf dem iPhone die App <b>Kalender</b> öffnen und unten auf <b>Kalender</b> tippen.</li>
+            <li>Beim gewünschten Kalender auf das <b>ⓘ</b> tippen.</li>
+            <li><b>Öffentlicher Kalender</b> einschalten und <b>Link teilen … → Kopieren</b>.</li>
+            <li>Den Link (beginnt mit <code>webcal://</code>) hier einfügen.</li>
+        </ol>
+        Am Mac: Kalender-App → Rechtsklick auf den Kalender → <b>Teilen</b> → „Öffentlicher Kalender“.
+        Jeder andere iCal-Link (z. B. Google oder Outlook) funktioniert ebenfalls.
+    </details>
+</div>
+
+<div class="form-group">
+    <label class="form-label">Ansicht:</label>
+    <div class="button-group" id="ikAnsichtWahl">
+        <button type="button" data-value="tag" onclick="ikAnsichtWaehlen(this.dataset.value)">Tag</button>
+        <button type="button" data-value="woche" onclick="ikAnsichtWaehlen(this.dataset.value)">Woche</button>
+        <button type="button" data-value="monat" onclick="ikAnsichtWaehlen(this.dataset.value)">Monat</button>
+    </div>
+    <input type="hidden" name="ansicht" id="ansicht" value="woche">
+</div>
+
+<div class="form-group nowrap" data-ansichten="tag,woche">
+    <label class="form-label">Zeitraum (Stunden):</label>
+    <input type="number" id="vonStunde" name="vonStunde" class="form-input" min="0" max="23" value="7">
+    –
+    <input type="number" id="bisStunde" name="bisStunde" class="form-input" min="1" max="24" value="21">
+</div>
+<div class="ik-hinweis" data-ansichten="tag,woche">Termine außerhalb des Zeitraums erweitern ihn automatisch.</div>
+
+<div class="form-group nowrap" data-ansichten="woche,monat">
+    <label for="wochenstart" class="form-label">Woche beginnt am:</label>
+    <select id="wochenstart" name="wochenstart" class="form-input">
+        <option value="0">Montag</option>
+        <option value="6">Sonntag</option>
+    </select>
+</div>
+
+<div class="form-group" data-ansichten="woche,monat">
+    <input type="hidden" name="wochenende" id="wochenende" value="true">
+    <input type="checkbox" id="wochenendeBox" checked onchange="ikCheckbox(this, 'wochenende')">
+    <span>Wochenende anzeigen</span>
+</div>
+
+<div class="form-group">
+    <input type="hidden" name="legende" id="legende" value="true">
+    <input type="checkbox" id="legendeBox" checked onchange="ikCheckbox(this, 'legende')">
+    <span>Legende mit Kalendernamen anzeigen</span>
+</div>
+
+<div class="form-group nowrap">
+    <label for="stil" class="form-label">Termine:</label>
+    <select id="stil" name="stil" class="form-input">
+        <option value="gefuellt">Gefüllt (kräftig, ideal für E-Ink)</option>
+        <option value="dezent">Dezent (heller Hintergrund mit Farbbalken)</option>
+    </select>
+</div>
+
+<div class="form-group nowrap">
+    <label for="thema" class="form-label">Thema:</label>
+    <select id="thema" name="thema" class="form-input">
+        <option value="hell">Hell</option>
+        <option value="dunkel">Dunkel</option>
+    </select>
+</div>
+
+<div class="form-group nowrap">
+    <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt):</label>
+    <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
+</div>
+
+<div class="form-group nowrap">
+    <label for="schriftgroesse" class="form-label">Schriftgröße:</label>
+    <select id="schriftgroesse" name="schriftgroesse" class="form-input">
+        <option value="klein">Klein</option>
+        <option value="normal" selected>Normal</option>
+        <option value="gross">Groß</option>
+        <option value="sehr_gross">Sehr groß</option>
+    </select>
+</div>
+
+<script>
+    const IK_FARBEN = ['#2f6fde', '#e0393e', '#1f9d55', '#f08c00', '#8e44ad', '#111418'];
+
+    function ikAnsichtWaehlen(ansicht) {
+        document.getElementById('ansicht').value = ansicht;
+        document.querySelectorAll('#ikAnsichtWahl button').forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.value === ansicht));
+        document.querySelectorAll('[data-ansichten]').forEach(el => {
+            el.style.display = el.dataset.ansichten.split(',').includes(ansicht) ? '' : 'none';
+        });
+    }
+
+    function ikCheckbox(box, feld) {
+        document.getElementById(feld).value = box.checked ? 'true' : 'false';
+    }
+
+    function ikKalenderHinzufuegen(url = '', name = '', farbe = null) {
+        const liste = document.getElementById('ikKalenderListe');
+        if (!farbe) farbe = IK_FARBEN[liste.children.length % IK_FARBEN.length];
+
+        const zeile = document.createElement('div');
+        zeile.className = 'form-group ik-kalender';
+
+        const farbFeld = document.createElement('input');
+        farbFeld.type = 'color';
+        farbFeld.name = 'kalenderFarben[]';
+        farbFeld.className = 'color-picker';
+        farbFeld.value = farbe;
+
+        const nameFeld = document.createElement('input');
+        nameFeld.type = 'text';
+        nameFeld.name = 'kalenderNamen[]';
+        nameFeld.placeholder = 'Name, z. B. Privat';
+        nameFeld.className = 'form-input ik-name';
+        nameFeld.value = name;
+
+        const urlFeld = document.createElement('input');
+        urlFeld.type = 'text';
+        urlFeld.name = 'kalenderURLs[]';
+        urlFeld.placeholder = 'webcal://p…-caldav.icloud.com/published/…';
+        urlFeld.required = true;
+        urlFeld.className = 'form-input ik-url';
+        urlFeld.value = url;
+
+        const entfernen = document.createElement('button');
+        entfernen.type = 'button';
+        entfernen.innerText = '✕';
+        entfernen.title = 'Kalender entfernen';
+        entfernen.className = 'remove-btn';
+        entfernen.onclick = () => zeile.remove();
+
+        zeile.append(farbFeld, nameFeld, urlFeld, entfernen);
+        liste.appendChild(zeile);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const s = loadPluginSettings ? pluginSettings : {};
+        const alsListe = wert => Array.isArray(wert) ? wert : (wert ? [wert] : []);
+
+        const urls = alsListe(s['kalenderURLs[]']);
+        const namen = alsListe(s['kalenderNamen[]']);
+        const farben = alsListe(s['kalenderFarben[]']);
+        if (urls.length) {
+            urls.forEach((url, i) => ikKalenderHinzufuegen(url, namen[i] || '', farben[i] || null));
+        } else {
+            ikKalenderHinzufuegen();
+        }
+
+        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
+            if (s[feld]) document.getElementById(feld).value = s[feld];
+        });
+        ['wochenende', 'legende'].forEach(feld => {
+            const an = s[feld] !== 'false';
+            document.getElementById(feld).value = an ? 'true' : 'false';
+            document.getElementById(feld + 'Box').checked = an;
+        });
+
+        ikAnsichtWaehlen(s.ansicht || 'woche');
+    });
+</script>

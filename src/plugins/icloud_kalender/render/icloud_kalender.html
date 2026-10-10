@@ -1,0 +1,197 @@
+{% extends "plugin.html" %}
+
+{% macro termin_karte(t) -%}
+<div class="karte {{ stil }}"
+     style="top: {{ t.oben }}%; height: {{ t.hoehe }}%; left: {{ t.links }}%; width: {{ t.breite }}%;
+            --farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};">
+  <div class="karte-innen">
+    <span class="karte-titel">{{ t.titel }}</span>
+    <span class="karte-zeit">{{ t.zeit }}<span class="bis"> – {{ t.zeit_bis }}</span></span>
+    {% if t.ort %}<span class="karte-ort">{{ t.ort }}</span>{% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro ganztag_chip(t) -%}
+<div class="chip {{ stil }}" style="--farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};">{{ t.titel }}</div>
+{%- endmacro %}
+
+{% macro stundenlinien(stunden) -%}
+{% for s in stunden %}<div class="linie" style="top: {{ s.oben }}%"></div>{% endfor %}
+{%- endmacro %}
+
+{% macro zeitachse(stunden) -%}
+<div class="zeitachse">
+  {% for s in stunden %}<div class="stunde" style="top: {{ s.oben }}%">{% if not loop.first %}{{ s.label }}{% endif %}</div>{% endfor %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div lang="de" class="kal thema-{{ thema }} ansicht-{{ ansicht }}{% if hochformat %} hochformat{% endif %}"
+     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};">
+
+  <header class="kopf">
+    <div class="titelblock">
+      <h1>{{ daten.titel }}</h1>
+      <div class="untertitel">{{ daten.untertitel }}</div>
+    </div>
+    <div class="meta">
+      {% if legende and kalender %}
+      <ul class="legende">
+        {% for k in kalender %}<li><span class="punkt" style="background: {{ k.farbe }}"></span>{{ k.name }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <div class="stand">
+        {% if fehler %}<span class="warnung">{{ fehler }} Kalender nicht erreichbar</span> · {% endif %}Stand {{ stand }}
+      </div>
+    </div>
+  </header>
+
+  {% if ansicht == "tag" %}
+  <main class="tag-layout">
+    <section class="tag-raster">
+      {% if daten.ganztag %}
+      <div class="ganztag-zeile tag"><div class="ganztag-label">ganztägig</div>
+        <div class="ganztag-zelle">{% for t in daten.ganztag %}{{ ganztag_chip(t) }}{% endfor %}</div>
+      </div>
+      {% endif %}
+      <div class="raster">
+        {{ zeitachse(daten.stunden) }}
+        <div class="spalten">
+          <div class="spalte">
+            {{ stundenlinien(daten.stunden) }}
+            {% for t in daten.bloecke %}{{ termin_karte(t) }}{% endfor %}
+            {% if daten.jetzt is not none %}<div class="jetzt" style="top: {{ daten.jetzt }}%"></div>{% endif %}
+          </div>
+        </div>
+        {% if daten.leer %}<div class="leer">Heute keine Termine</div>{% endif %}
+      </div>
+    </section>
+
+    <aside class="vorschau">
+      <h2>Demnächst</h2>
+      <div class="vorschau-liste ueberlauf" data-mehr="weitere Termine">
+        {% for gruppe in daten.vorschau %}
+          <div class="vorschau-tag eintrag">{{ gruppe.label }}</div>
+          {% for t in gruppe.termine %}
+          <div class="vorschau-termin eintrag" style="--farbe: {{ t.farbe }}">
+            <span class="balken"></span>
+            <span class="v-zeit">{{ t.zeit or "ganztägig" }}</span>
+            <span class="v-titel">{{ t.titel }}</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="vorschau-leer">Keine weiteren Termine in den nächsten Tagen</div>
+        {% endfor %}
+      </div>
+    </aside>
+  </main>
+
+  {% elif ansicht == "woche" %}
+  <main class="woche-layout">
+    <div class="wochen-kopf">
+      <div class="achsen-platz"></div>
+      {% for s in daten.spalten %}
+      <div class="tageskopf{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
+        <span class="wt">{{ s.kurz }}</span><span class="nr">{{ s.nummer }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% if daten.hat_ganztag %}
+    <div class="ganztag-zeile">
+      <div class="achsen-platz"></div>
+      {% for s in daten.spalten %}
+      <div class="ganztag-zelle ueberlauf{% if s.heute %} heute{% endif %}" data-mehr="weitere">
+        {% for t in s.ganztag %}<div class="eintrag">{{ ganztag_chip(t) }}</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div class="raster">
+      {{ zeitachse(daten.stunden) }}
+      <div class="spalten">
+        {% for s in daten.spalten %}
+        <div class="spalte{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
+          {{ stundenlinien(daten.stunden) }}
+          {% for t in s.bloecke %}{{ termin_karte(t) }}{% endfor %}
+          {% if s.heute and daten.jetzt is not none %}<div class="jetzt" style="top: {{ daten.jetzt }}%"></div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+
+  {% else %}
+  <main class="monat-layout" style="--wochen: {{ daten.wochen | length }}; --tage: {{ daten.kopf | length }};">
+    <div class="monat-kopf">
+      {% for k in daten.kopf %}<div>{{ k }}</div>{% endfor %}
+    </div>
+    <div class="monat-raster">
+      {% for woche in daten.wochen %}{% for z in woche %}
+      <div class="zelle{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}{% if z.vergangen %} vergangen{% endif %}{% if z.wochenende %} we{% endif %}">
+        <div class="zelle-nr"><span>{{ z.nummer }}</span></div>
+        <div class="zelle-termine ueberlauf" data-mehr="weitere">
+          {% for t in z.termine %}
+            {% if t.ganztag %}
+            <div class="eintrag">{{ ganztag_chip(t) }}</div>
+            {% else %}
+            <div class="eintrag m-termin" style="--farbe: {{ t.farbe }}">
+              <span class="punkt"></span><span class="m-zeit">{{ t.zeit }}</span><span class="m-titel">{{ t.titel }}</span>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}{% endfor %}
+    </div>
+  </main>
+  {% endif %}
+</div>
+
+<script>
+  // Erst nach dem Laden (inkl. Schriften) messen; der Screenshot folgt danach.
+  window.addEventListener('load', function () {
+    // Terminkarten an den Platz anpassen: erst Ort, dann Uhrzeit weglassen, dann
+    // den Titel kürzen; ist auch für zwei Titelzeilen kein Platz, wird die Karte einzeilig.
+    function laeuftUeber(el) { return el.scrollHeight > el.clientHeight + 1; }
+    document.querySelectorAll('.karte-innen').forEach(function (k) {
+      var titel = k.querySelector('.karte-titel');
+      var zeit = k.querySelector('.karte-zeit');
+      var ort = k.querySelector('.karte-ort');
+      if (ort && laeuftUeber(k)) ort.style.display = 'none';
+      if (laeuftUeber(k)) zeit.style.display = 'none';
+      if (!laeuftUeber(k)) return;
+      var zeile = parseFloat(getComputedStyle(titel).lineHeight) || titel.offsetHeight;
+      var zeilen = Math.floor((k.clientHeight - 4) / zeile);
+      if (zeilen >= 2) {
+        titel.style.webkitLineClamp = zeilen;
+        return;
+      }
+      zeit.style.display = '';
+      k.parentNode.classList.add('kurz');
+      if (zeit.scrollWidth > zeit.clientWidth + 1) zeit.style.display = 'none';
+    });
+
+    // Was nicht in eine Zelle passt, wird ausgeblendet und als „+N weitere“ zusammengefasst.
+    document.querySelectorAll('.ueberlauf').forEach(function (box) {
+      var eintraege = Array.prototype.slice.call(box.querySelectorAll(':scope > .eintrag'));
+      if (box.scrollHeight <= box.clientHeight + 1) return;
+      var mehr = document.createElement('div');
+      mehr.className = 'mehr';
+      box.appendChild(mehr);
+      var versteckt = 0;
+      for (var i = eintraege.length - 1; i >= 0 && box.scrollHeight > box.clientHeight + 1; i--) {
+        eintraege[i].style.display = 'none';
+        if (!eintraege[i].classList.contains('vorschau-tag')) versteckt++;
+        mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
+      }
+      // Keine verwaiste Tagesüberschrift am Ende der Vorschau stehen lassen
+      for (var j = i; j >= 0; j--) {
+        if (eintraege[j].style.display === 'none') continue;
+        if (eintraege[j].classList.contains('vorschau-tag')) eintraege[j].style.display = 'none';
+        break;
+      }
+    });
+  });
+</script>
+{% endblock %}
