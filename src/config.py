@@ -3,7 +3,7 @@ import json
 import logging
 import shutil
 from datetime import datetime
-from dotenv import load_dotenv
+from dotenv import dotenv_values, find_dotenv, load_dotenv, set_key, unset_key
 from model import PlaylistManager, RefreshInfo
 from zeitplan import Schedule, migrate_from_playlists
 
@@ -101,8 +101,35 @@ class Config:
 
     def load_env_key(self, key):
         """Loads an environment variable using dotenv and returns its value."""
-        load_dotenv(override=True)
+        load_dotenv(self.env_file(), override=True)
         return os.getenv(key)
+
+    def env_file(self):
+        """Pfad der .env, die load_env_key liest (bzw. anlegen würde: im InkyPi-Ordner)."""
+        return find_dotenv() or os.path.join(os.path.dirname(self.BASE_DIR), ".env")
+
+    def env_keys_set(self):
+        """Namen aller Einträge der .env, die einen Wert haben (die Werte selbst bleiben verborgen)."""
+        path = self.env_file()
+        if not os.path.isfile(path):
+            return set()
+        return {key for key, value in dotenv_values(path).items() if value}
+
+    def set_env_key(self, key, value):
+        """Schreibt einen Eintrag in die .env und übernimmt ihn sofort."""
+        path = self.env_file()
+        if not os.path.isfile(path):
+            open(path, "a").close()
+        os.chmod(path, 0o600)  # nur für InkyPi (root) lesbar
+        set_key(path, key, value)
+        os.environ[key] = value
+
+    def remove_env_key(self, key):
+        """Löscht einen Eintrag aus der .env und aus der laufenden Umgebung."""
+        path = self.env_file()
+        if os.path.isfile(path) and key in dotenv_values(path):
+            unset_key(path, key)
+        os.environ.pop(key, None)
 
     def load_playlist_manager(self):
         """Loads the playlist manager object from the config."""

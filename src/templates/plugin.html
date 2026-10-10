@@ -285,7 +285,9 @@
         <div class="app-header">
             <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="Symbol für {{ plugin.display_name }}" class="app-icon">
             <h1 class="app-title">{{ plugin.display_name }}</h1>
-            {% if api_key and api_key.required %}<span class="api-key-label" title="{{api_key.service}} ({{api_key.expected_key}} in .env setzen)">API-Schlüssel erforderlich</span>{% endif %}
+            {% if api_key and api_key.required %}<a class="api-key-label{{ ' api-key-ok' if api_key_gesetzt else ' api-key-fehlt' }}" style="text-decoration: none;"
+               href="{{ url_for('zugangsdaten.zugangsdaten_page', schluessel=api_key.expected_key) }}"
+               title="{{ api_key.service }}: {{ 'hinterlegt – zum Ändern klicken' if api_key_gesetzt else 'unter Zugangsdaten eintragen' }}">{{ 'API-Schlüssel hinterlegt ✓' if api_key_gesetzt else 'API-Schlüssel fehlt – jetzt eintragen' }}</a>{% endif %}
             <div id="loadingIndicator" class="loading-indicator"></div>
         </div>
         <div class="separator"></div>

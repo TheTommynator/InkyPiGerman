@@ -269,6 +269,16 @@
             <button type="button" onclick="handleAction()" class="action-button">Speichern</button>
         </div>
 
+        <!-- Zugangsdaten -->
+        <div class="separator"></div>
+        <div class="updates-section">
+            <h2 class="updates-title">Zugangsdaten</h2>
+            <div class="updates-row">
+                <a href="{{ url_for('zugangsdaten.zugangsdaten_page') }}">API-Schlüssel und Passwörter verwalten →</a>
+            </div>
+            <p class="updates-muted" style="margin-top: 8px;">Für Wetter, KI, NASA, iCloud-Kalender und Co. – ohne SSH und ohne die .env von Hand zu bearbeiten.</p>
+        </div>
+
         <!-- Neuer Zeitplan (Beta) -->
         <div class="separator"></div>
         <div class="updates-section">
