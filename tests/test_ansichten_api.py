@@ -223,3 +223,34 @@ def test_tagesplan_zeigt_von_hand_angezeigtes_bild(env):
     assert now["manual"]["name"] == "Uhr" and now["manual"]["since"] == "08:02"
     config.refresh_info = RefreshInfo("Ansicht", "weather", "2026-10-10T08:02:00+00:00", "abc", plugin_instance="Wetter")
     assert "manual" not in client.get("/api/zeitplan/tag").get_json()["now"]
+
+
+def test_jetzt_anzeigen_von_der_plugin_seite(env):
+    client, config, task, path = env
+    einschalten(client)
+    response = client.post("/api/jetzt-anzeigen", data={"plugin_id": "clock", "format": "24h", "bis": "immer"})
+    assert response.status_code == 200, response.get_json()
+    override = config.get_schedule().override
+    assert override.until is None and override.view.name == "Uhr (Vorschau)"
+    assert override.view.settings == {"format": "24h"}
+    assert task.shown[-1].view is override.view
+    assert response.get_json()["override"]["view"]["name"] == "Uhr (Vorschau)"
+    assert "settings" not in response.get_json()["override"]["view"]
+
+    # bleibt nach dem Speichern erhalten und taucht im Tagesplan auf
+    saved = json.loads(path.read_text())["schedule"]["override"]
+    assert saved["view"]["settings"] == {"format": "24h"}
+    plan = client.get("/api/zeitplan/tag").get_json()
+    assert plan["now"]["kind"] == "override" and plan["now"]["view_name"] == "Uhr (Vorschau)"
+    assert plan["now"]["open_end"] is True
+
+    assert client.post("/api/jetzt-anzeigen", data={"plugin_id": "gibtsnicht", "bis": "1h"}).status_code == 400
+    assert client.post("/api/jetzt-anzeigen", data={"plugin_id": "clock", "bis": "egal"}).status_code == 400
+
+
+def test_jetzt_anzeigen_von_der_plugin_seite_mit_fehler(env):
+    client, config, task, _ = env
+    einschalten(client)
+    task.fail = True
+    assert client.post("/api/jetzt-anzeigen", data={"plugin_id": "clock", "bis": "1h"}).status_code == 500
+    assert config.get_schedule().override is None

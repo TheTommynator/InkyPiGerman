@@ -54,6 +54,9 @@ def plugin_page(plugin_id):
             plugin_instance_name = request.args.get('instance')
             schedule_active = device_config.is_schedule_active()
             template_params["schedule_active"] = schedule_active
+            if schedule_active:
+                quiet = device_config.get_schedule().quiet
+                template_params["morning_time"] = quiet.end if quiet.enabled else "06:00"
             view_id = request.args.get('ansicht')
             if view_id and schedule_active:
                 # Einstellungen einer Ansicht aus dem neuen Zeitplan bearbeiten

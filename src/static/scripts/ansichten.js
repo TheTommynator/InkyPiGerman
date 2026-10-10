@@ -214,7 +214,7 @@
     document.getElementById("zLead").textContent = schedule.views.length + " Ansichten · " + rot.length + " in der Rotation";
 
     const o = schedule.override;
-    const ov = o && schedule.views.find((v) => v.id === o.view_id);
+    const ov = o && (schedule.views.find((v) => v.id === o.view_id) || o.view);
     document.getElementById("zBanner").innerHTML = ov
       ? '<div class="z-banner"><span class="z-grow">„' + esc(ov.name) + "“ wird manuell angezeigt " +
         (o.until ? "bis " + new Date(o.until).toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" }) : "bis du es beendest") +

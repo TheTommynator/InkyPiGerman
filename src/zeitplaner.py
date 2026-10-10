@@ -99,7 +99,7 @@ def _at(day, minute):
 def _override_at(schedule, day, minute):
     """Ende (in Minuten, höchstens 1440) einer manuellen Anzeige zu dieser Minute, sonst None."""
     override = schedule.override
-    if not override or not schedule.get_view(override.view_id):
+    if not override or not schedule.override_view():
         return None
     moment = _at(day, minute)
     start = to_local(override.start)
@@ -164,7 +164,7 @@ def plan_day(schedule, day):
     while minute < MINUTES_PER_DAY:
         end = _override_at(schedule, day, minute)
         if end is not None:
-            push(KIND_OVERRIDE, minute, end, schedule.get_view(schedule.override.view_id))
+            push(KIND_OVERRIDE, minute, end, schedule.override_view())
             minute = end
             continue
 

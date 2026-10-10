@@ -311,3 +311,13 @@ def test_tagesplan_ist_schnell_genug_fuer_den_pi():
     segments = plan_day(schedule, FREITAG)
     assert time.perf_counter() - started < 1.0
     assert_covers_day(segments, FREITAG)
+
+
+def test_vorschau_ohne_ansicht_im_zeitplan():
+    vorschau = view("_jetzt", "Uhr (Vorschau)", plugin_id="clock")
+    schedule = Schedule(views=[view("w", "Wetter", 30)],
+                        override=Override("_jetzt", "2026-10-09T10:00:00", "2026-10-09T11:00:00", view=vorschau))
+    assert (KIND_OVERRIDE, "10:00", "11:00", "Uhr (Vorschau)") in summary(plan_day(schedule, FREITAG))
+    # übersteht Speichern und Laden
+    restored = Schedule.from_dict(schedule.to_dict())
+    assert restored.override_view().name == "Uhr (Vorschau)"
