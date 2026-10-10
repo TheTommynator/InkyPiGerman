@@ -22,6 +22,9 @@ class Config:
     # Directory path for storing plugin instance images
     plugin_image_dir = os.path.join(BASE_DIR, "static", "images", "plugins")
 
+    # Zeitplan im Speicher (wird bei Bedarf geladen, siehe get_schedule)
+    _schedule = None
+
     def __init__(self):
         self.config = self.read_config()
         self.plugins_list = self.read_plugins_list()
@@ -60,6 +63,8 @@ class Config:
         logger.debug(f"Writing device config to {self.config_file}")
         self.update_value("playlist_config", self.playlist_manager.to_dict())
         self.update_value("refresh_info", self.refresh_info.to_dict())
+        if self._schedule is not None and "schedule" in self.config:
+            self.update_value("schedule", self._schedule.to_dict())
         with open(self.config_file, 'w') as outfile:
             json.dump(self.config, outfile, indent=4)
 
@@ -129,12 +134,31 @@ class Config:
             self.get_config("plugin_cycle_interval_seconds", default=3600),
         )
 
+    def get_schedule(self):
+        """Der aktuelle Zeitplan (einmal geladen und dann im Speicher gehalten)."""
+        if self._schedule is None:
+            self._schedule = self.load_schedule()
+        return self._schedule
+
     def save_schedule(self, schedule):
         """Speichert den Zeitplan zusätzlich zu den Playlists (playlist_config bleibt erhalten).
         Vor dem allerersten Speichern wird device.json gesichert."""
         if "schedule" not in self.config:
             self.backup_config("vor-zeitplan")
+        self._schedule = schedule
         self.update_value("schedule", schedule.to_dict(), write=True)
+
+    def is_schedule_active(self):
+        """Ist der neue Zeitplan (Beta) eingeschaltet? Sonst gelten die Playlists."""
+        return bool(self.get_config("zeitplan_beta", default=False))
+
+    def set_schedule_active(self, enabled):
+        """Schaltet den neuen Zeitplan ein oder aus. Beim ersten Einschalten werden die
+        Playlists übernommen und gespeichert; die Playlists selbst bleiben unverändert."""
+        if enabled and "schedule" not in self.config:
+            self._schedule = None  # frisch aus den aktuellen Playlists übernehmen
+            self.save_schedule(self.get_schedule())
+        self.update_value("zeitplan_beta", bool(enabled), write=True)
 
     def backup_config(self, label):
         """Kopiert device.json nach device.json.bak-<label>-<Zeitstempel> und gibt den Pfad zurück."""

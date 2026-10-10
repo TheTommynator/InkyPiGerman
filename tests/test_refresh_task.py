@@ -34,6 +34,9 @@ class FakeConfig:
     def write_config(self):
         self.writes += 1
 
+    def is_schedule_active(self):
+        return False
+
 
 class FakePlugin:
     config = {}
@@ -127,3 +130,114 @@ def test_displayfehler_setzt_den_bildstand_zurueck(task):
     t.stop()
     # Beim nächsten Mal wird das Bild erneut gesendet statt übersprungen
     assert t.device_config.refresh_info.image_hash is None
+
+
+# --- Zeitplan (Beta) ---------------------------------------------------------
+
+from datetime import datetime  # noqa: E402
+from zeitplan import FixedTime, Refresh, Schedule, View  # noqa: E402
+
+JETZT = datetime(2026, 10, 10, 8, 5)  # Samstag
+
+
+class ScheduleConfig(FakeConfig):
+    def __init__(self, tmp_path, schedule):
+        super().__init__()
+        self.schedule = schedule
+        self.plugin_image_dir = str(tmp_path)
+
+    def is_schedule_active(self):
+        return True
+
+    def get_schedule(self):
+        return self.schedule
+
+
+class FailingPlugin(FakePlugin):
+    def generate_image(self, settings, device_config):
+        raise RuntimeError("Wetterdienst nicht erreichbar")
+
+
+def wetter_zeitplan(latest=None):
+    wetter = View("w", "weather", "Wetter Berlin", settings={"farbe": "blue"}, rotation=False,
+                  refresh=Refresh("interval", minutes=15), latest_refresh_time=latest,
+                  fixed_times=[FixedTime("f", "08:00", "10:00", days=[5])])
+    kalender = View("k", "calendar", "Kalender", settings={"farbe": "red"}, duration_minutes=30)
+    return Schedule(views=[kalender, wetter])
+
+
+@pytest.fixture
+def schedule_task(monkeypatch, tmp_path):
+    def make(schedule, plugin=None, now=JETZT):
+        monkeypatch.setattr(rt, "get_plugin_instance", lambda config: plugin or FakePlugin())
+        t = rt.RefreshTask(ScheduleConfig(tmp_path, schedule), SlowDisplay())
+        t.display_manager.release.set()
+        monkeypatch.setattr(t, "_get_current_datetime", lambda: now)
+        return t
+    return make
+
+
+def test_zeitplan_bestimmt_die_ansicht(schedule_task):
+    t = schedule_task(wetter_zeitplan())
+    action = t._determine_view_refresh(JETZT)
+    assert action.view.name == "Wetter Berlin"
+    assert action.segment.kind == "fixed"
+
+
+def test_zeitplan_ruhezeit_zeigt_nichts(schedule_task):
+    schedule = wetter_zeitplan()
+    schedule.quiet.enabled = True
+    night = datetime(2026, 10, 10, 2, 0)
+    t = schedule_task(schedule, now=night)
+    assert t._determine_view_refresh(night) is None
+
+
+def test_zeitplan_wartet_bis_zur_naechsten_aktualisierung(schedule_task):
+    t = schedule_task(wetter_zeitplan(latest="2026-10-10T08:00:00"))
+    # Wetter aktualisiert alle 15 Minuten: nächste Prüfung um 08:15 (+1 s Puffer)
+    assert t._sleep_seconds() == 10 * 60 + 1
+
+
+def test_zeitplan_holt_daten_nur_wenn_faellig(schedule_task, tmp_path):
+    schedule = wetter_zeitplan()
+    t = schedule_task(schedule)
+    action = t._determine_view_refresh(JETZT)
+    action.execute(FakePlugin(), t.device_config, JETZT)
+    assert schedule.get_view("w").latest_refresh_time == JETZT.isoformat()
+    assert (tmp_path / "weather_Wetter_Berlin.png").exists()
+
+    # fünf Minuten später: vorhandenes Bild, keine neuen Daten
+    later = datetime(2026, 10, 10, 8, 10)
+    t._determine_view_refresh(later).execute(FailingPlugin(), t.device_config, later)
+    assert schedule.get_view("w").latest_refresh_time == JETZT.isoformat()
+
+
+def test_zeitplan_im_hintergrund_zeigt_die_ansicht(schedule_task):
+    t = schedule_task(wetter_zeitplan())
+    t.start()
+    try:
+        t.signal_config_change()
+        assert t.display_manager.started.wait(5)
+    finally:
+        t.stop()
+    assert t.display_manager.shown == [(0, 0, 255)]
+    assert t.device_config.refresh_info.plugin_instance == "Wetter Berlin"
+
+
+def test_zeitplan_fehler_laesst_letztes_bild_stehen(schedule_task):
+    t = schedule_task(wetter_zeitplan(), plugin=FailingPlugin())
+    t.start()
+    try:
+        t.signal_config_change()
+        for _ in range(50):
+            if t.schedule_failure:
+                break
+            threading.Event().wait(0.1)
+    finally:
+        t.stop()
+    assert t.display_manager.shown == []
+    view_id, _, retry = t.schedule_failure
+    assert view_id == "w" and retry == datetime(2026, 10, 10, 8, 10)
+    # bis zum neuen Versuch wird gewartet statt sofort erneut zu probieren
+    assert t._sleep_seconds() == 5 * 60 + 1
+    assert t._determine_view_refresh(JETZT) is None

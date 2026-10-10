@@ -26,7 +26,8 @@
     <script>
         const pluginSettings = {{ plugin_settings | tojson if plugin_settings else {} }};
         const pluginInstanceName ='{{ plugin_instance }}';
-        const loadPluginSettings = pluginInstanceName != '';
+        const viewId = {{ (view_id or '') | tojson }};
+        const loadPluginSettings = pluginInstanceName != '' || viewId != '';
         const styleSettings = {{ style_settings | default(false) | tojson }};
 
         let uploadedFiles = {};
@@ -65,12 +66,26 @@
             } else if (action == "update_instance") {
                 url = "{{ url_for('plugin.update_plugin_instance', instance_name='') }}" + pluginInstanceName,
                 method = 'PUT'
+            } else if (action == "add_view") {
+                url = "{{ url_for('ansichten.create_view') }}";
+                formData.append("view_name", document.getElementById('viewName').value);
+            } else if (action == "update_view") {
+                url = "/api/ansicht/" + encodeURIComponent(viewId) + "/einstellungen";
+                method = 'PUT';
             }
 
             // Send data to the server
             try {
                 const response = await fetch(url, {method: method, body: formData});
                 const result = await response.json();
+                // Neuer Zeitplan: nach dem Sichern zurück zu den Ansichten
+                if (response.ok && (action == "add_view" || action == "update_view")) {
+                    window.location.href = result.url || "{{ url_for('ansichten.ansichten_page') }}";
+                    return;
+                }
+                if (action == "add_view") {
+                    closeModal('viewModal');
+                }
                 // Handle the response
                 if (response.ok) {
                     showResponseModal('success', `Erfolg! ${result.message}`);
@@ -114,9 +129,11 @@
     
         // Close modal if the user clicks outside the modal content
         window.onclick = function (event) {
-            const modal = document.getElementById('scheduleModal');
-            if (event.target === modal) {
-                modal.style.display = 'none';
+            for (const id of ['scheduleModal', 'viewModal']) {
+                const modal = document.getElementById(id);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
             }
         };
 
@@ -237,7 +254,7 @@
                 }
 
                 let selectedFrameOption = document.querySelector(`.image-option[data-face-name="${pluginSettings.selectedFrame}"]`);
-                selectedFrame(selectedFrameOption);
+                selectedFrame(selectedFrameOption || document.querySelector('.image-option'));
             } else {
                 // set default values
                 let selectedFrameOption = document.querySelector('.image-option');
@@ -355,8 +372,14 @@
             <input type="hidden" name="plugin_id" value="{{ plugin.id }}">
 
             <div class="buttons-container">
-                {% if plugin_instance %}
+                {% if view_id %}
+                    <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
+                    <button type="button" onclick="handleAction('update_view')" class="action-button right">Speichern</button>
+                {% elif plugin_instance %}
                     <button type="button" onclick="handleAction('update_instance')" class="action-button">Speichern</button>
+                {% elif schedule_active %}
+                    <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
+                    <button type="button" onclick="openModal('viewModal')" class="action-button right">Als Ansicht hinzufügen</button>
                 {% else %}
                     <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
                     <button type="button" onclick="openModal('scheduleModal')" class="action-button right">Zur Playlist hinzufügen</button>
@@ -367,6 +390,25 @@
 
     <!-- Success/Error Modal -->
     {% include 'response_modal.html' %}
+
+    <!-- Neuer Zeitplan: als Ansicht hinzufügen -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('viewModal')">×</span>
+            <h2>Als Ansicht hinzufügen</h2>
+            <div class="separator"></div>
+            <div class="settings-form">
+                <div class="form-group">
+                    <label for="viewName" class="form-label">Name:</label>
+                    <input type="text" id="viewName" placeholder="z. B. {{ plugin.display_name }} Küche" maxlength="60" class="form-input" value="{{ plugin.display_name }}">
+                </div>
+                <p style="margin: 8px 0 0; color: var(--text-secondary);">Die Ansicht läuft danach in der Rotation. Anzeigedauer, feste Zeiten und Aktualisierung stellst du anschließend unter „Ansichten“ ein.</p>
+            </div>
+            <div class="buttons-container">
+                <button type="button" onclick="handleAction('add_view')" class="action-button">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Schedule Configuration Modal -->
     <div id="scheduleModal" class="modal">

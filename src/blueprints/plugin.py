@@ -52,7 +52,18 @@ def plugin_page(plugin_id):
 
             # retrieve plugin instance from the query parameters if updating existing plugin instance
             plugin_instance_name = request.args.get('instance')
-            if plugin_instance_name:
+            schedule_active = device_config.is_schedule_active()
+            template_params["schedule_active"] = schedule_active
+            view_id = request.args.get('ansicht')
+            if view_id and schedule_active:
+                # Einstellungen einer Ansicht aus dem neuen Zeitplan bearbeiten
+                view = device_config.get_schedule().get_view(view_id)
+                if not view or view.plugin_id != plugin_id:
+                    return "Ansicht nicht gefunden", 404
+                template_params["plugin_settings"] = view.settings
+                template_params["view_id"] = view.id
+                template_params["view_name"] = view.name
+            elif plugin_instance_name:
                 plugin_instance = playlist_manager.find_plugin(plugin_id, plugin_instance_name)
                 if not plugin_instance:
                     return jsonify({"error": f"Plugin-Instanz {plugin_instance_name} existiert nicht"}), 500
