@@ -32,7 +32,7 @@
 
         let uploadedFiles = {};
 
-        async function handleAction(action) {
+        async function handleAction(action, until) {
             const loadingIndicator = document.getElementById('loadingIndicator');
             loadingIndicator.style.display = 'block';
 
@@ -69,15 +69,28 @@
             } else if (action == "add_view") {
                 url = "{{ url_for('ansichten.create_view') }}";
                 formData.append("view_name", document.getElementById('viewName').value);
-            } else if (action == "update_view") {
+            } else if (action == "update_view" || action == "show_view") {
                 url = "/api/ansicht/" + encodeURIComponent(viewId) + "/einstellungen";
                 method = 'PUT';
+            } else if (action == "show_now") {
+                // Neuer Zeitplan: wie „Jetzt anzeigen“ in den Ansichten, mit gewählter Dauer
+                url = "{{ url_for('ansichten.show_plugin_now') }}";
+                formData.append("bis", until);
+            }
+            if (action == "show_view" || action == "show_now") {
+                closeModal('showModal');
             }
 
             // Send data to the server
             try {
-                const response = await fetch(url, {method: method, body: formData});
-                const result = await response.json();
+                let response = await fetch(url, {method: method, body: formData});
+                let result = await response.json();
+                if (response.ok && action == "show_view") {
+                    // Einstellungen sind gesichert, jetzt die Ansicht anzeigen
+                    response = await fetch("/api/ansicht/" + encodeURIComponent(viewId) + "/anzeigen", {
+                        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({bis: until})});
+                    result = await response.json();
+                }
                 // Neuer Zeitplan: nach dem Sichern zurück zu den Ansichten
                 if (response.ok && (action == "add_view" || action == "update_view")) {
                     window.location.href = result.url || "{{ url_for('ansichten.ansichten_page') }}";
@@ -129,7 +142,7 @@
     
         // Close modal if the user clicks outside the modal content
         window.onclick = function (event) {
-            for (const id of ['scheduleModal', 'viewModal']) {
+            for (const id of ['scheduleModal', 'viewModal', 'showModal']) {
                 const modal = document.getElementById(id);
                 if (event.target === modal) {
                     modal.style.display = 'none';
@@ -373,12 +386,12 @@
 
             <div class="buttons-container">
                 {% if view_id %}
-                    <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
+                    <button type="button" onclick="openModal('showModal')" class="action-button left">Jetzt anzeigen</button>
                     <button type="button" onclick="handleAction('update_view')" class="action-button right">Speichern</button>
                 {% elif plugin_instance %}
                     <button type="button" onclick="handleAction('update_instance')" class="action-button">Speichern</button>
                 {% elif schedule_active %}
-                    <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
+                    <button type="button" onclick="openModal('showModal')" class="action-button left">Jetzt anzeigen</button>
                     <button type="button" onclick="openModal('viewModal')" class="action-button right">Als Ansicht hinzufügen</button>
                 {% else %}
                     <button type="button" onclick="handleAction()" class="action-button left">Jetzt anzeigen</button>
@@ -390,6 +403,24 @@
 
     <!-- Success/Error Modal -->
     {% include 'response_modal.html' %}
+
+    {% if schedule_active %}
+    <!-- Neuer Zeitplan: „Jetzt anzeigen“ mit Dauer, genau wie in den Ansichten -->
+    <div id="showModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal('showModal')">×</span>
+            <h2>„{{ view_name or plugin.display_name }}“ jetzt anzeigen</h2>
+            <div class="separator"></div>
+            <p style="margin: 0 0 12px; color: var(--text-secondary);">Danach geht es automatisch mit dem Zeitplan weiter.{% if view_id %} Deine Einstellungen werden dabei gesichert.{% endif %}</p>
+            <div style="display: grid; gap: 8px;">
+                {% set show_action = 'show_view' if view_id else 'show_now' %}
+                <button type="button" class="action-button" onclick="handleAction('{{ show_action }}', '1h')">Für 1 Stunde</button>
+                <button type="button" class="action-button" onclick="handleAction('{{ show_action }}', 'morgen')">Bis morgen früh ({{ morning_time }})</button>
+                <button type="button" class="action-button" onclick="handleAction('{{ show_action }}', 'immer')">Bis ich es beende</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Neuer Zeitplan: als Ansicht hinzufügen -->
     <div id="viewModal" class="modal">

@@ -100,7 +100,8 @@
     const left = n.minutes_left >= 60 ? Math.floor(n.minutes_left / 60) + " Std" + (n.minutes_left % 60 ? " " + (n.minutes_left % 60) + " Min" : "") : n.minutes_left + " Min";
     const kinds = { rotation: "Rotation", fixed: "Feste Zeit", quiet: "Ruhezeit", override: "Manuell", idle: "Nichts geplant" };
     let title, meta;
-    if (n.view_name) { title = n.view_name; meta = kinds[n.kind] + " bis " + n.end + " · noch " + left; }
+    if (n.view_name && n.open_end) { title = n.view_name; meta = "Manuell, bis du es beendest"; }
+    else if (n.view_name) { title = n.view_name; meta = kinds[n.kind] + " bis " + n.end + " · noch " + left; }
     else if (n.kind === "quiet") { title = "Ruhezeit"; meta = "Das Display wird bis " + n.end + " nicht aktualisiert"; }
     else { title = "Keine Ansicht geplant"; meta = "Das letzte Bild bleibt bis " + n.end + " stehen"; }
     let data = "";

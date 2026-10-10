@@ -9,7 +9,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, sen
 
 from refresh_task import ViewRefresh
 from utils.app_utils import handle_request_files, parse_form
-from zeitplan import Override, View, parse_hm
+from zeitplan import REFRESH_ON_SHOW, Override, Refresh, View, parse_hm
 from zeitplan_bearbeiten import (
     ScheduleError, apply_update, check_view_name, day_plan_for_page, new_id, schedule_for_page,
 )
@@ -207,19 +207,15 @@ def delete_view(view_id):
     return jsonify({"success": True, "message": f"„{view.name}“ gelöscht."})
 
 
-@ansichten_bp.route("/api/ansicht/<view_id>/anzeigen", methods=["POST"])
-def show_view(view_id):
-    """„Jetzt anzeigen“: für 1 Stunde, bis morgen früh oder bis zur nächsten Änderung."""
-    device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
-    schedule = device_config.get_schedule()
-    view = schedule.get_view(view_id)
-    if not view:
-        return _error("Diese Ansicht gibt es nicht mehr.", 404)
+TEMP_VIEW_ID = "_jetzt"
 
-    duration = (request.get_json(silent=True) or {}).get("bis", "1h")
+
+def _show_now(device_config, refresh_task, schedule, view, duration, temporary=False):
+    """„Jetzt anzeigen“ für eine Ansicht: für 1 Stunde, bis morgen früh oder bis man es beendet.
+
+    Gleiches Verhalten für die Ansichten-Seite, den Tagesplan und die Plugin-Seite.
+    `temporary`: die Ansicht steht nicht im Zeitplan (Plugin-Seite ohne gespeicherte Ansicht).
+    """
     now = _now(refresh_task)
     if duration == "1h":
         until = now + timedelta(hours=1)
@@ -232,7 +228,8 @@ def show_view(view_id):
         return _error("Unbekannte Dauer.")
 
     previous = schedule.override
-    schedule.override = Override(view.id, now.isoformat(), until.isoformat() if until else None)
+    schedule.override = Override(view.id, now.isoformat(), until.isoformat() if until else None,
+                                 view=view if temporary else None)
     with refresh_task.condition:
         device_config.save_schedule(schedule)
     try:
@@ -242,12 +239,48 @@ def show_view(view_id):
         # nichts angezeigt: es geht weiter wie vorher
         schedule.override = previous
         _save(device_config, refresh_task, schedule)
-        return _error(f"Die Ansicht konnte nicht erzeugt werden: {e}", 500)
+        return _error(f"Das Bild konnte nicht erzeugt werden: {e}", 500)
     if display_started is False:
         message = f"„{view.name}“ ist schon zu sehen."
     else:
         message = f"„{view.name}“ wird jetzt angezeigt. Den Fortschritt siehst du auf der Startseite."
-    return jsonify({"success": True, "message": message, "override": schedule.override.to_dict()})
+    return jsonify({"success": True, "message": message, "override": schedule_for_page(schedule)["override"]})
+
+
+@ansichten_bp.route("/api/ansicht/<view_id>/anzeigen", methods=["POST"])
+def show_view(view_id):
+    """„Jetzt anzeigen“ für eine Ansicht aus dem Zeitplan."""
+    device_config, refresh_task = _deps()
+    inactive = _require_active(device_config)
+    if inactive:
+        return inactive
+    schedule = device_config.get_schedule()
+    view = schedule.get_view(view_id)
+    if not view:
+        return _error("Diese Ansicht gibt es nicht mehr.", 404)
+    duration = (request.get_json(silent=True) or {}).get("bis", "1h")
+    return _show_now(device_config, refresh_task, schedule, view, duration)
+
+
+@ansichten_bp.route("/api/jetzt-anzeigen", methods=["POST"])
+def show_plugin_now():
+    """„Jetzt anzeigen“ von der Plugin-Seite, ohne dass daraus eine Ansicht wird
+    (Formular mit Plugin-Einstellungen und „bis“)."""
+    device_config, refresh_task = _deps()
+    inactive = _require_active(device_config)
+    if inactive:
+        return inactive
+    settings = parse_form(request.form)
+    plugin_id = settings.pop("plugin_id", None)
+    duration = settings.pop("bis", "1h")
+    plugin = device_config.get_plugin(plugin_id) if plugin_id else None
+    if not plugin:
+        return _error("Unbekanntes Plugin.")
+    settings.update(handle_request_files(request.files))
+    # eigener Name, damit das Bild keine gleichnamige Ansicht überschreibt
+    view = View(TEMP_VIEW_ID, plugin_id, f"{plugin.get('display_name', plugin_id)} (Vorschau)",
+                settings=settings, refresh=Refresh(REFRESH_ON_SHOW))
+    return _show_now(device_config, refresh_task, device_config.get_schedule(), view, duration, temporary=True)
 
 
 @ansichten_bp.route("/api/zeitplan/manuell", methods=["DELETE"])

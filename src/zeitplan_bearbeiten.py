@@ -210,6 +210,8 @@ def schedule_for_page(schedule):
     data = schedule.to_dict()
     for view in data["views"]:
         view.pop("settings", None)
+    if data["override"] and data["override"].get("view"):
+        data["override"]["view"].pop("settings", None)
     return data
 
 
@@ -260,6 +262,8 @@ def day_plan_for_page(schedule, day, now, manual=None):
         end = following.pop(0).end
     info = {"kind": current.kind, "end": end.strftime("%H:%M"),
             "minutes_left": max(0, int((end - now).total_seconds() // 60))}
+    if current.kind == "override" and schedule.override and schedule.override.until is None:
+        info["open_end"] = True  # „Jetzt anzeigen … bis ich es beende“
     if current.view:
         view = current.view
         last = to_local(view.latest_refresh_time)

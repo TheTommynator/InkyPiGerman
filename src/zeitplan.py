@@ -281,21 +281,30 @@ class QuietTime:
 
 
 class Override:
-    """„Jetzt anzeigen“: Ansicht ab `start` bis `until` (ISO-Zeitpunkte, `until` None = unbegrenzt)."""
+    """„Jetzt anzeigen“: Ansicht ab `start` bis `until` (ISO-Zeitpunkte, `until` None = unbegrenzt).
 
-    def __init__(self, view_id, start, until=None):
+    `view` ist gesetzt, wenn etwas angezeigt wird, das (noch) keine Ansicht im Zeitplan ist,
+    z. B. ein Plugin direkt von der Plugin-Seite. Sonst verweist `view_id` auf eine Ansicht.
+    """
+
+    def __init__(self, view_id, start, until=None, view=None):
         self.view_id = view_id
         self.start = start
         self.until = until
+        self.view = view
 
     def to_dict(self):
-        return {"view_id": self.view_id, "start": self.start, "until": self.until}
+        data = {"view_id": self.view_id, "start": self.start, "until": self.until}
+        if self.view:
+            data["view"] = self.view.to_dict()
+        return data
 
     @classmethod
     def from_dict(cls, data):
         if not data:
             return None
-        return cls(data["view_id"], data["start"], data.get("until"))
+        view = View.from_dict(data["view"]) if data.get("view") else None
+        return cls(data["view_id"], data["start"], data.get("until"), view)
 
 
 class Schedule:
@@ -310,6 +319,12 @@ class Schedule:
 
     def get_view(self, view_id):
         return next((v for v in self.views if v.id == view_id), None)
+
+    def override_view(self):
+        """Die Ansicht, die gerade über „Jetzt anzeigen“ läuft (oder None)."""
+        if not self.override:
+            return None
+        return self.override.view or self.get_view(self.override.view_id)
 
     def find_view(self, plugin_id, name):
         return next((v for v in self.views if v.plugin_id == plugin_id and v.name == name), None)
