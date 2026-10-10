@@ -241,3 +241,38 @@ def test_zeitplan_fehler_laesst_letztes_bild_stehen(schedule_task):
     # bis zum neuen Versuch wird gewartet statt sofort erneut zu probieren
     assert t._sleep_seconds() == 5 * 60 + 1
     assert t._determine_view_refresh(JETZT) is None
+
+
+def test_zeitplan_haelt_von_hand_angezeigtes_bild_bis_abschnittsende(schedule_task):
+    # 08:05: Wetter (feste Zeit 08:00–10:00) ist überfällig und würde sofort neu geholt
+    t = schedule_task(wetter_zeitplan(latest="2026-10-10T06:00:00"))
+    t.start()
+    try:
+        assert t.manual_update(rt.ManualRefresh("bild", {"farbe": "green"})) is True
+    finally:
+        t.stop()
+    assert t.manual_hold_until == datetime(2026, 10, 10, 10, 0)
+    assert t._determine_view_refresh(JETZT) is None
+    assert t._sleep_seconds() == erwartete_wartezeit_bis_10_uhr(t)
+
+    # nach Abschnittsende übernimmt wieder der Zeitplan
+    later = datetime(2026, 10, 10, 10, 0)
+    assert t._determine_view_refresh(later).view.name == "Kalender"
+    assert t.manual_hold_until is None
+
+
+def test_ansicht_von_hand_hebt_festhalten_auf(schedule_task):
+    schedule = wetter_zeitplan()
+    t = schedule_task(schedule)
+    t.manual_hold_until = datetime(2026, 10, 10, 10, 0)
+    t.start()
+    try:
+        t.manual_update(rt.ViewRefresh(schedule.get_view("k")))
+    finally:
+        t.stop()
+    assert t.manual_hold_until is None
+
+
+def erwartete_wartezeit_bis_10_uhr(t):
+    """Erwartete Wartezeit bis 10:00 (+1 s), begrenzt auf eine Stunde."""
+    return min(rt.MAX_SCHEDULE_SLEEP, (datetime(2026, 10, 10, 10, 0) - JETZT).total_seconds() + 1)

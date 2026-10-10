@@ -274,7 +274,13 @@ def day_plan():
         day = date.fromisoformat(request.args["datum"]) if request.args.get("datum") else now.date()
     except ValueError:
         return _error("Ungültiges Datum.")
-    plan = day_plan_for_page(device_config.get_schedule(), day, now)
+    # Von Hand angezeigtes Bild (Plugin-Seite „Jetzt anzeigen“), das der Zeitplan nicht kennt
+    manual = None
+    info = device_config.get_refresh_info()
+    if info.refresh_type == "Manual Update" and info.refresh_time:
+        plugin = device_config.get_plugin(info.plugin_id) or {}
+        manual = (info.refresh_time, plugin.get("display_name", info.plugin_id))
+    plan = day_plan_for_page(device_config.get_schedule(), day, now, manual)
     # Zeitzone des Geräts: die Seite vergleicht sie mit der des Handys
     aware_now = refresh_task._get_current_datetime()
     plan["timezone"] = device_config.get_config("timezone", default=None) or "UTC"

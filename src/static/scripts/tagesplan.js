@@ -104,12 +104,19 @@
     else if (n.kind === "quiet") { title = "Ruhezeit"; meta = "Das Display wird bis " + n.end + " nicht aktualisiert"; }
     else { title = "Keine Ansicht geplant"; meta = "Das letzte Bild bleibt bis " + n.end + " stehen"; }
     let data = "";
-    if (n.view_name) {
+    if (n.manual) {
+      // Von Hand angezeigt (Plugin-Seite): steht bis zur nächsten Planänderung auf dem Display
+      title = n.manual.name;
+      meta = "Von Hand angezeigt seit " + n.manual.since + " · bis " + n.manual.until + ", dann geht es nach Zeitplan weiter";
+      data = n.view_name ? "Laut Zeitplan gerade: " + n.view_name : "";
+    } else if (n.view_name) {
       data = n.data_from ? "Daten von " + n.data_from : "Daten werden geholt";
       if (n.next_refresh) data += " · nächste Aktualisierung " + n.next_refresh;
     }
-    const icon = n.plugin_id && PLUGINS[n.plugin_id] ? '<img class="z-icon" alt="" src="' + esc(PLUGINS[n.plugin_id].icon) + '">' : "";
-    const action = n.kind === "override"
+    const icon = !n.manual && n.plugin_id && PLUGINS[n.plugin_id] ? '<img class="z-icon" alt="" src="' + esc(PLUGINS[n.plugin_id].icon) + '">' : "";
+    const action = n.manual
+      ? '<span class="tp-kind tp-override">Von Hand</span>'
+      : n.kind === "override"
       ? '<button type="button" class="z-btn" data-tp="end-override">Beenden</button>'
       : '<span class="tp-kind tp-' + n.kind + '">' + kinds[n.kind] + "</span>";
     let next = "–";

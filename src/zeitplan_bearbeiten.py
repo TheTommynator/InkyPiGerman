@@ -233,11 +233,14 @@ def _same_segment(a, b):
             and (a.fixed_time.id if a.fixed_time else None) == (b.fixed_time.id if b.fixed_time else None))
 
 
-def day_plan_for_page(schedule, day, now):
+def day_plan_for_page(schedule, day, now, manual=None):
     """Tagesplan für die Startseite: Abschnitte in Minuten seit Mitternacht.
 
     Für den heutigen Tag kommen „Jetzt“ (mit Datenstand) und „Als Nächstes“ dazu.
     `now` ist die aktuelle Ortszeit als naive datetime.
+    `manual` = (Zeitpunkt, Name), wenn zuletzt etwas außerhalb des Zeitplans angezeigt
+    wurde (z. B. „Jetzt anzeigen“ auf der Plugin-Seite). Liegt das im aktuellen
+    Abschnitt, steht es bis zur nächsten Planänderung auf dem Display.
     """
     now = to_local(now)
     result = {
@@ -268,6 +271,16 @@ def day_plan_for_page(schedule, day, now):
             "data_from": last.strftime("%H:%M") if last and last.date() == now.date() else None,
             "next_refresh": upcoming.strftime("%H:%M") if upcoming else None,
         })
+    if manual:
+        shown_at = to_local(manual[0])
+        # `now` ist auf die Minute gerundet, daher eine Minute Spielraum
+        if shown_at and current.start <= shown_at < now + timedelta(minutes=1):
+            info["manual"] = {
+                "name": manual[1],
+                "since": shown_at.strftime("%H:%M"),
+                # so lange hält der Refresh-Task das Bild fest (siehe RefreshTask._remember_manual)
+                "until": current.end.strftime("%H:%M"),
+            }
     result["now"] = info
 
     if following:

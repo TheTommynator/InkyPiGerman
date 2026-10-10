@@ -31,6 +31,8 @@ class RefreshTask:
         self.manual_update_request = None
         # Fehlgeschlagene Ansicht im Zeitplan: (Ansicht-ID, Abschnittsbeginn, nächster Versuch)
         self.schedule_failure = None
+        # Von Hand angezeigtes Bild (Plugin-Seite) bleibt im Zeitplan-Betrieb bis zu diesem Zeitpunkt stehen
+        self.manual_hold_until = None
 
     def start(self):
         """Starts the background thread for refreshing the display."""
@@ -123,6 +125,8 @@ class RefreshTask:
                         image = refresh_action.execute(plugin, self.device_config, current_dt)
                         if isinstance(refresh_action, ViewRefresh):
                             self.schedule_failure = None
+                        if request:
+                            self._remember_manual(refresh_action, current_dt)
                         image_hash = compute_image_hash(image)
 
                         refresh_info = refresh_action.get_refresh_info()
@@ -208,6 +212,8 @@ class RefreshTask:
             now = self._get_current_datetime().replace(tzinfo=None)
             schedule = self.device_config.get_schedule()
             wakeup = next_wakeup(schedule, now)
+            if self.manual_hold_until and now < self.manual_hold_until:
+                wakeup = self.manual_hold_until
             failure = self._current_failure(schedule, now)
             if failure:
                 segment, retry = failure
@@ -236,12 +242,29 @@ class RefreshTask:
         when = retry.strftime('%H:%M') if retry else "beim nächsten Abschnitt"
         logger.warning(f"Zeitplan: Ansicht '{action.view.name}' fehlgeschlagen, das letzte Bild bleibt. Neuer Versuch: {when}")
 
+    def _remember_manual(self, action, current_dt):
+        """„Jetzt anzeigen“ auf der Plugin-Seite: Das Bild bleibt bis zum Ende des aktuellen
+        Abschnitts stehen, statt beim nächsten Aufwachen gleich wieder ersetzt zu werden.
+        Eine Ansicht aus dem Zeitplan („Jetzt anzeigen“ in den Ansichten) hebt das auf."""
+        if not self.device_config.is_schedule_active():
+            return
+        if isinstance(action, ManualRefresh):
+            now = current_dt.replace(tzinfo=None)
+            self.manual_hold_until = current_segment(self.device_config.get_schedule(), now).end
+        else:
+            self.manual_hold_until = None
+
     def _determine_view_refresh(self, current_dt):
         """Bestimmt anhand des Zeitplans, welche Ansicht jetzt angezeigt wird."""
         now = current_dt.replace(tzinfo=None)
         schedule = self.device_config.get_schedule()
         segment = current_segment(schedule, now)
         logger.info(f"Zeitplan: {segment} | current_time: {now:%Y-%m-%d %H:%M:%S}")
+        if self.manual_hold_until:
+            if now < self.manual_hold_until:
+                logger.info(f"Zeitplan: von Hand angezeigtes Bild bleibt bis {self.manual_hold_until:%H:%M}")
+                return None
+            self.manual_hold_until = None
         if segment.view is None:
             return None
         failure = self._current_failure(schedule, now)

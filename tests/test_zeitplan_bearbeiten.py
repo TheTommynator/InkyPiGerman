@@ -183,3 +183,19 @@ def test_tagesplan_naechstes_ist_morgen():
     assert plan["now"]["kind"] == "quiet" and "view_name" not in plan["now"]
     assert plan["now"]["end"] == "06:00" and plan["now"]["minutes_left"] == 390
     assert plan["next"] == {"kind": "rotation", "start": "06:00", "tomorrow": True, "view_name": "Wetter"}
+
+
+def test_tagesplan_von_hand_angezeigt():
+    schedule = tages_zeitplan()
+    now = datetime(2026, 10, 9, 8, 10)  # Wetter läuft in der Rotation 08:00–08:30
+    plan = day_plan_for_page(schedule, date(2026, 10, 9), now, manual=("2026-10-09T08:05:00+02:00", "Bild-Upload"))
+    assert plan["now"]["view_name"] == "Wetter"
+    assert plan["now"]["manual"] == {"name": "Bild-Upload", "since": "08:05", "until": "08:30"}
+
+    # vor Beginn des aktuellen Abschnitts angezeigt: inzwischen hat der Zeitplan übernommen
+    plan = day_plan_for_page(schedule, date(2026, 10, 9), now, manual=("2026-10-09T07:50:00", "Bild-Upload"))
+    assert "manual" not in plan["now"]
+
+    # in derselben Minute angezeigt, in der der Plan abgefragt wird
+    plan = day_plan_for_page(schedule, date(2026, 10, 9), now, manual=("2026-10-09T08:10:23", "Bild-Upload"))
+    assert plan["now"]["manual"]["since"] == "08:10"
