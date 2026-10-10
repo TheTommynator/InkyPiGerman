@@ -74,35 +74,39 @@ def env(tmp_path):
     return app.test_client(), config, task, path
 
 
-def einschalten(client):
-    return client.post("/api/zeitplan/beta", json={"enabled": True})
-
-
-def test_ausgeschaltet_sind_aenderungen_gesperrt(env):
-    client, config, _, path = env
-    assert client.put("/api/zeitplan", json={"views": []}).status_code == 409
-    assert "schedule" not in json.loads(path.read_text())
-
-
-def test_einschalten_uebernimmt_playlists_und_sichert(env):
+def test_playlists_werden_beim_ersten_zugriff_uebernommen(env):
     client, config, task, path = env
-    response = einschalten(client)
-    assert response.status_code == 200
+    assert "schedule" not in json.loads(path.read_text())
+    schedule = config.get_schedule()
     saved = json.loads(path.read_text())
-    assert saved["zeitplan_beta"] is True
+    assert [v.name for v in schedule.views] == ["Wetter"]
     assert [v["name"] for v in saved["schedule"]["views"]] == ["Wetter"]
     assert saved["playlist_config"]["playlists"][0]["plugins"][0]["name"] == "Wetter"
     assert len(list(path.parent.glob("device.json.bak-vor-zeitplan-*"))) == 1
-    assert task.signals == 1
 
-    client.post("/api/zeitplan/beta", json={"enabled": False})
-    assert json.loads(path.read_text())["zeitplan_beta"] is False
-    assert not config.is_schedule_active()
+    # Neu geladen: keine zweite Übernahme und keine zweite Sicherung
+    config._schedule = None
+    assert [v.name for v in config.get_schedule().views] == ["Wetter"]
+    assert len(list(path.parent.glob("device.json.bak-vor-zeitplan-*"))) == 1
+
+
+def test_plugins_werden_nach_gruppen_sortiert():
+    from blueprints.plugin import group_plugins
+    groups = group_plugins([
+        {"id": "weather", "display_name": "Wetter", "category": "Wetter & Nachrichten"},
+        {"id": "clock", "display_name": "Uhr", "category": "Kalender & Zeit"},
+        {"id": "countdown", "display_name": "Countdown", "category": "Kalender & Zeit"},
+        {"id": "neu", "display_name": "Neu"},
+    ])
+    assert [(name, [p["id"] for p in plugins]) for name, plugins in groups] == [
+        ("Kalender & Zeit", ["countdown", "clock"]),
+        ("Wetter & Nachrichten", ["weather"]),
+        ("Weitere", ["neu"]),
+    ]
 
 
 def test_zeitplan_sichern(env):
     client, config, task, path = env
-    einschalten(client)
     view = config.get_schedule().views[0]
     (Path(config.plugin_image_dir) / view.get_image_path()).write_bytes(b"png")
     data = ansichten.schedule_for_page(config.get_schedule())
@@ -120,7 +124,6 @@ def test_zeitplan_sichern(env):
 
 def test_zeitplan_mit_fehler_wird_nicht_gesichert(env):
     client, config, _, path = env
-    einschalten(client)
     data = ansichten.schedule_for_page(config.get_schedule())
     data["views"][0]["duration_minutes"] = 0
     response = client.put("/api/zeitplan", json=data)
@@ -131,7 +134,6 @@ def test_zeitplan_mit_fehler_wird_nicht_gesichert(env):
 
 def test_ansicht_anlegen_einstellungen_und_loeschen(env):
     client, config, _, path = env
-    einschalten(client)
     response = client.post("/api/ansicht", data={"plugin_id": "clock", "view_name": "Küchenuhr", "format": "24h"})
     assert response.status_code == 200, response.get_json()
     view = config.get_schedule().find_view("clock", "Küchenuhr")
@@ -153,7 +155,6 @@ def test_ansicht_anlegen_einstellungen_und_loeschen(env):
 
 def test_jetzt_anzeigen_und_beenden(env):
     client, config, task, path = env
-    einschalten(client)
     view = config.get_schedule().views[0]
     response = client.post(f"/api/ansicht/{view.id}/anzeigen", json={"bis": "1h"})
     assert response.status_code == 200
@@ -172,7 +173,6 @@ def test_jetzt_anzeigen_und_beenden(env):
 
 def test_bild_einer_ansicht(env):
     client, config, _, _ = env
-    einschalten(client)
     view = config.get_schedule().views[0]
     assert client.get(f"/api/ansicht/{view.id}/bild").status_code == 404
     (Path(config.plugin_image_dir) / view.get_image_path()).write_bytes(b"\x89PNG")
@@ -181,7 +181,6 @@ def test_bild_einer_ansicht(env):
 
 def test_jetzt_anzeigen_mit_fehler_aendert_nichts(env):
     client, config, task, path = env
-    einschalten(client)
     view = config.get_schedule().views[0]
     task.fail = True
     response = client.post(f"/api/ansicht/{view.id}/anzeigen", json={"bis": "1h"})
@@ -193,8 +192,6 @@ def test_jetzt_anzeigen_mit_fehler_aendert_nichts(env):
 
 def test_tagesplan_endpunkt(env):
     client, config, _, _ = env
-    assert client.get("/api/zeitplan/tag").status_code == 409
-    einschalten(client)
     plan = client.get("/api/zeitplan/tag").get_json()
     assert plan["date"] == "2026-10-10" and plan["today"]
     assert plan["segments"][0]["view_name"] == "Wetter"
@@ -204,7 +201,6 @@ def test_tagesplan_endpunkt(env):
 
 def test_zeitzone_im_tagesplan_und_uebernehmen(env):
     client, config, task, path = env
-    einschalten(client)
     plan = client.get("/api/zeitplan/tag").get_json()
     assert plan["timezone"] == "UTC" and plan["utc_offset_minutes"] == 0 and plan["device_time"] == "08:05"
     signals = task.signals
@@ -217,7 +213,6 @@ def test_zeitzone_im_tagesplan_und_uebernehmen(env):
 
 def test_tagesplan_zeigt_von_hand_angezeigtes_bild(env):
     client, config, _, _ = env
-    einschalten(client)
     config.refresh_info = RefreshInfo("Manual Update", "clock", "2026-10-10T08:02:00+00:00", "abc")
     now = client.get("/api/zeitplan/tag").get_json()["now"]
     assert now["manual"]["name"] == "Uhr" and now["manual"]["since"] == "08:02"
@@ -227,7 +222,6 @@ def test_tagesplan_zeigt_von_hand_angezeigtes_bild(env):
 
 def test_jetzt_anzeigen_von_der_plugin_seite(env):
     client, config, task, path = env
-    einschalten(client)
     response = client.post("/api/jetzt-anzeigen", data={"plugin_id": "clock", "format": "24h", "bis": "immer"})
     assert response.status_code == 200, response.get_json()
     override = config.get_schedule().override
@@ -250,7 +244,6 @@ def test_jetzt_anzeigen_von_der_plugin_seite(env):
 
 def test_jetzt_anzeigen_von_der_plugin_seite_mit_fehler(env):
     client, config, task, _ = env
-    einschalten(client)
     task.fail = True
     assert client.post("/api/jetzt-anzeigen", data={"plugin_id": "clock", "bis": "1h"}).status_code == 500
     assert config.get_schedule().override is None

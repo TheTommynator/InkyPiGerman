@@ -1,5 +1,7 @@
 {
     "display_name": "RSS-Feed",
     "id": "rss",
-    "class": "Rss"
+    "class": "Rss",
+    "category": "Wetter & Nachrichten",
+    "description": "Schlagzeilen aus einem RSS-Feed"
 }

@@ -1,21 +1,7 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zugangsdaten</title>
-    <script>
-        (function() {
-            const theme = localStorage.getItem('inkypi-theme') ||
-                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
-    </script>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
-    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
-    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Zugangsdaten{% endblock %}
+{% block head %}
     <style>
         .zd-lead { color: var(--text-secondary); line-height: 1.5; margin: 0 0 20px; }
         .zd-gruppe { margin-bottom: 26px; }
@@ -48,19 +34,13 @@
         .zd-kalender span { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
         .zd-sicherheit { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; border-top: 1px solid var(--border-color); padding-top: 14px; }
     </style>
-</head>
-<body>
+{% endblock %}
+{% block content %}
     <div class="frame">
-        <a href="{{ url_for('settings.settings_page') }}" class="back-button" style="text-decoration: none;">← Einstellungen</a>
-        <div class="app-header">
-            <div class="header-content">
-                <div class="title-container">
-                    <img src="{{ url_for('static', filename='icons/settings.png') }}" alt="" class="app-icon">
-                    <h1 class="app-title">Zugangsdaten</h1>
-                </div>
-            </div>
-        </div>
-        <div class="separator"></div>
+        <a href="{{ url_for('settings.settings_page') }}" class="back-button">Einstellungen</a>
+        <header class="header">
+            <h1>Zugangsdaten</h1>
+        </header>
 
         <p class="zd-lead">
             API-Schlüssel und Passwörter für Plugins. Gespeicherte Werte werden hier nie wieder angezeigt –
@@ -190,5 +170,4 @@
             ziel.querySelector('input').focus();
         }
     </script>
-</body>
-</html>
+{% endblock %}

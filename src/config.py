@@ -162,9 +162,13 @@ class Config:
         )
 
     def get_schedule(self):
-        """Der aktuelle Zeitplan (einmal geladen und dann im Speicher gehalten)."""
+        """Der aktuelle Zeitplan (einmal geladen und dann im Speicher gehalten).
+        Gibt es noch keinen, werden die Playlists einmalig übernommen und gespeichert."""
         if self._schedule is None:
-            self._schedule = self.load_schedule()
+            schedule = self.load_schedule()
+            if "schedule" not in self.config:
+                self.save_schedule(schedule)
+            self._schedule = schedule
         return self._schedule
 
     def save_schedule(self, schedule):
@@ -176,16 +180,8 @@ class Config:
         self.update_value("schedule", schedule.to_dict(), write=True)
 
     def is_schedule_active(self):
-        """Ist der neue Zeitplan (Beta) eingeschaltet? Sonst gelten die Playlists."""
-        return bool(self.get_config("zeitplan_beta", default=False))
-
-    def set_schedule_active(self, enabled):
-        """Schaltet den neuen Zeitplan ein oder aus. Beim ersten Einschalten werden die
-        Playlists übernommen und gespeichert; die Playlists selbst bleiben unverändert."""
-        if enabled and "schedule" not in self.config:
-            self._schedule = None  # frisch aus den aktuellen Playlists übernehmen
-            self.save_schedule(self.get_schedule())
-        self.update_value("zeitplan_beta", bool(enabled), write=True)
+        """Es gibt nur noch den Zeitplan mit Ansichten; Playlists werden nicht mehr abgespielt."""
+        return True
 
     def backup_config(self, label):
         """Kopiert device.json nach device.json.bak-<label>-<Zeitstempel> und gibt den Pfad zurück."""

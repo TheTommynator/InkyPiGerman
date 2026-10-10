@@ -1,5 +1,7 @@
 {
     "display_name": "Screenshot",
     "id": "screenshot",
-    "class": "Screenshot"
+    "class": "Screenshot",
+    "category": "Werkzeuge",
+    "description": "Bildschirmfoto einer Webseite"
 }

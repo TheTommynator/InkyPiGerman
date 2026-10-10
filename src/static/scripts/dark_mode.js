@@ -1,104 +1,45 @@
 /**
- * Dark Mode Toggle Script
- * Handles switching between light and dark themes with localStorage persistence
+ * Erscheinungsbild: folgt standardmäßig dem Gerät (hell/dunkel).
+ * In den Einstellungen lässt sich „Hell“ oder „Dunkel“ fest wählen (localStorage).
  */
-
-(function initDarkMode() {
+(function initTheme() {
     const THEME_KEY = 'inkypi-theme';
-    const DARK_THEME = 'dark';
-    const LIGHT_THEME = 'light';
+    const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
-    /**
-     * Get the current theme preference
-     * @returns {string} The current theme ('light' or 'dark')
-     */
-    function getCurrentTheme() {
-        // Check localStorage first
-        const stored = localStorage.getItem(THEME_KEY);
-        if (stored) {
-            return stored;
+    function stored() {
+        try {
+            const value = localStorage.getItem(THEME_KEY);
+            return value === 'light' || value === 'dark' ? value : 'auto';
+        } catch (e) {
+            return 'auto';
         }
-
-        // Check system preference
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return DARK_THEME;
-        }
-
-        return LIGHT_THEME;
     }
 
-    /**
-     * Set the theme and update DOM
-     * @param {string} theme - The theme to set ('light' or 'dark')
-     */
-    function setTheme(theme) {
-        const html = document.documentElement;
-
-        if (theme === DARK_THEME) {
-            html.setAttribute('data-theme', DARK_THEME);
+    function apply() {
+        const choice = stored();
+        const dark = choice === 'dark' || (choice === 'auto' && media && media.matches);
+        if (dark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
         } else {
-            html.removeAttribute('data-theme');
-        }
-
-        localStorage.setItem(THEME_KEY, theme);
-        updateToggleButtonText(theme);
-    }
-
-    /**
-     * Update the toggle button hover text based on current theme
-     * @param {string} theme - The current theme
-     */
-    function updateToggleButtonText(theme) {
-        const toggleButton = document.querySelector('.dark-mode-toggle');
-        if (toggleButton) {
-            const hoverText = theme === DARK_THEME ? 'Hellmodus aktivieren' : 'Dunkelmodus aktivieren';
-            toggleButton.setAttribute('data-hover-text', hoverText);
+            document.documentElement.removeAttribute('data-theme');
         }
     }
 
-    /**
-     * Toggle between light and dark themes
-     */
-    function toggleTheme() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const newTheme = current === DARK_THEME ? LIGHT_THEME : DARK_THEME;
-        setTheme(newTheme);
+    function set(choice) {
+        try {
+            if (choice === 'light' || choice === 'dark') {
+                localStorage.setItem(THEME_KEY, choice);
+            } else {
+                localStorage.removeItem(THEME_KEY);
+            }
+        } catch (e) {}
+        apply();
     }
 
-    /**
-     * Initialize dark mode on page load
-     */
-    function initialize() {
-        const theme = getCurrentTheme();
-        setTheme(theme);
-
-        // Add click listener to the dark mode toggle button
-        const toggleButton = document.querySelector('.dark-mode-toggle');
-        if (toggleButton) {
-            toggleButton.addEventListener('click', function (e) {
-                e.preventDefault();
-                toggleTheme();
-            });
-        }
-
-        // Listen for system theme changes
-        if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-                // Only auto-switch if user hasn't set a preference
-                if (!localStorage.getItem(THEME_KEY)) {
-                    setTheme(e.matches ? DARK_THEME : LIGHT_THEME);
-                }
-            });
-        }
+    apply();
+    if (media) {
+        media.addEventListener('change', apply);
     }
 
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initialize);
-    } else {
-        initialize();
-    }
-
-    // Expose toggle function globally for manual calls
-    window.toggleDarkMode = toggleTheme;
+    window.InkyTheme = { get: stored, set };
 })();

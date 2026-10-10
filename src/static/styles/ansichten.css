@@ -1,7 +1,7 @@
 /* Seite „Ansichten“ (neuer Zeitplan). Nutzt die Farbvariablen aus main.css,
    damit Hell- und Dunkelmodus automatisch passen. Alle Klassen mit z-Präfix. */
 
-.z-page { max-width: 680px; margin: 0 auto; }
+.z-page { width: 100%; }
 .z-lead { color: var(--text-secondary); margin: 4px 0 8px; }
 
 .z-ghead { font-size: 0.8em; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin: 24px 14px 6px; }
@@ -61,7 +61,7 @@ button.z-row:hover { background: var(--button-bg); }
 
 .z-notice { border-radius: 10px; padding: 12px 14px; margin-top: 12px; font-size: 0.95em; line-height: 1.4; }
 .z-notice.z-warn { background: rgba(196, 81, 91, 0.12); color: var(--text-primary); border: 1px solid var(--accent-warn); }
-.z-notice.z-info { background: rgba(26, 188, 156, 0.12); color: var(--text-primary); }
+.z-notice.z-info { background: var(--accent-soft); color: var(--text-primary); }
 .z-resolve { display: grid; gap: 8px; margin-top: 10px; }
 .z-resolve button { border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); border-radius: 10px; padding: 10px 12px; text-align: left; font: inherit; font-size: 0.95em; cursor: pointer; }
 .z-resolve button:hover { border-color: var(--accent-primary); }
@@ -71,7 +71,7 @@ button.z-row:hover { background: var(--button-bg); }
 
 /* Sheets */
 .z-scrim { position: fixed; inset: 0; background: var(--modal-overlay); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
-.z-sheet { background: var(--bg-primary); color: var(--text-primary); width: 100%; max-width: 600px; max-height: calc(100% - 24px); border-radius: 16px 16px 0 0; overflow: auto; padding: 0 16px 28px; overscroll-behavior: contain; animation: z-up .25s ease; }
+.z-sheet { background: var(--bg-primary); color: var(--text-primary); width: 100%; max-width: 600px; max-height: calc(100% - 24px); border-radius: 16px 16px 0 0; overflow: auto; padding: 0 16px calc(28px + env(safe-area-inset-bottom, 0px)); overscroll-behavior: contain; animation: z-up .25s ease; }
 @media (min-width: 700px) { .z-scrim { align-items: center; } .z-sheet { border-radius: 16px; max-height: 88%; } }
 .z-sheet-head { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 14px 0 10px; background: var(--bg-primary); }
 .z-sheet-head h2 { margin: 0; font-size: 1em; font-weight: 600; text-align: center; max-width: 50vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -92,7 +92,7 @@ button.z-row:hover { background: var(--button-bg); }
 .z-gitem { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); text-decoration: none; font-weight: 500; }
 .z-gitem:hover { border-color: var(--accent-primary); }
 
-.z-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text-primary); color: var(--bg-primary); padding: 9px 16px; border-radius: 999px; font-size: 0.9em; z-index: 1100; max-width: calc(100% - 32px); text-align: center; }
+.z-toast { position: fixed; left: 50%; bottom: calc(var(--tabbar-height) + 16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--text-primary); color: var(--bg-primary); padding: 9px 16px; border-radius: 999px; font-size: 0.9em; z-index: 1100; max-width: calc(100% - 32px); text-align: center; }
 
 .z-intro { padding: 18px; display: grid; gap: 12px; line-height: 1.5; }
 .z-intro ul { padding-left: 20px; display: grid; gap: 4px; }

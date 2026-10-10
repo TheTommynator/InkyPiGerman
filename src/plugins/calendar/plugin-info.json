@@ -1,5 +1,7 @@
 {
     "display_name": "Kalender",
     "id": "calendar",
-    "class": "Calendar"
+    "class": "Calendar",
+    "category": "Kalender & Zeit",
+    "description": "Termine aus Kalendern per ICS-Link"
 }

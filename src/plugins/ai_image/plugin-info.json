@@ -1,5 +1,7 @@
 {
     "display_name": "KI-Bild",
     "id": "ai_image",
-    "class": "AIImage"
+    "class": "AIImage",
+    "category": "KI",
+    "description": "Ein Bild, das eine KI nach deiner Beschreibung malt"
 }

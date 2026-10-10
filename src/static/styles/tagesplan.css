@@ -6,7 +6,7 @@
 .tp-now .z-meta { white-space: normal; }
 .tp-kind { font-size: 0.75em; font-weight: 600; border-radius: 999px; padding: 3px 9px; white-space: nowrap; flex: none; background: var(--button-bg); color: var(--text-secondary); }
 .tp-kind.tp-fixed { background: var(--accent-primary); color: #fff; }
-.tp-kind.tp-rotation { background: rgba(26, 188, 156, 0.15); color: var(--accent-hover); }
+.tp-kind.tp-rotation { background: var(--accent-soft); color: var(--accent-hover); }
 .tp-kind.tp-override { background: #5654d0; color: #fff; }
 
 .tp-dayhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }

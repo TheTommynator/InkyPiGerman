@@ -1,5 +1,7 @@
 {
     "display_name": "Bildordner",
     "id": "image_folder",
-    "class": "ImageFolder"
+    "class": "ImageFolder",
+    "category": "Bilder",
+    "description": "Bilder aus einem Ordner auf dem Gerät"
 }

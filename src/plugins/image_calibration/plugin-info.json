@@ -2,5 +2,7 @@
     "display_name": "Bildkalibrierung",
     "id": "image_calibration",
     "class": "ImageCalibration",
-    "image_settings": ["skip-enhancement"]
+    "image_settings": ["skip-enhancement"],
+    "category": "Werkzeuge",
+    "description": "Bildeinstellungen auf dem Display vergleichen"
 }

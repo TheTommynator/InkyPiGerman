@@ -1,4 +1,4 @@
-"""Seite „Ansichten“ und API für den neuen Zeitplan (Beta)."""
+"""Seite „Ansichten“ und API für den Zeitplan."""
 
 import logging
 import os
@@ -17,9 +17,6 @@ from zeitplaner import AUTO_REFRESH_MINUTES, DEFAULT_AUTO_REFRESH_MINUTES
 
 logger = logging.getLogger(__name__)
 ansichten_bp = Blueprint("ansichten", __name__)
-
-INACTIVE_ERROR = "Der neue Zeitplan ist ausgeschaltet. Du kannst ihn in den Einstellungen einschalten."
-
 
 def _deps():
     return current_app.config["DEVICE_CONFIG"], current_app.config["REFRESH_TASK"]
@@ -41,12 +38,6 @@ def _error(message, status=400):
     return jsonify({"success": False, "error": message}), status
 
 
-def _require_active(device_config):
-    if not device_config.is_schedule_active():
-        return _error(INACTIVE_ERROR, 409)
-    return None
-
-
 def _plugin_list(device_config):
     plugins = []
     for plugin in device_config.get_plugins():
@@ -61,14 +52,11 @@ def _plugin_list(device_config):
 
 def page_data(device_config, open_view=""):
     """Daten für ansichten.js (Seite „Ansichten“ und Tagesplan auf der Startseite)."""
-    active = device_config.is_schedule_active()
     return {
-        "active": active,
-        "schedule": schedule_for_page(device_config.get_schedule()) if active else None,
+        "schedule": schedule_for_page(device_config.get_schedule()),
         "plugins": _plugin_list(device_config),
         "openView": open_view,
         "urls": {
-            "beta": url_for("ansichten.set_beta"),
             "schedule": url_for("ansichten.update_schedule"),
             "override": url_for("ansichten.end_override"),
             "day": url_for("ansichten.day_plan"),
@@ -85,35 +73,13 @@ def ansichten_page():
     device_config, _ = _deps()
     return render_template(
         "ansichten.html",
-        active=device_config.is_schedule_active(),
         zdata=page_data(device_config, request.args.get("ansicht", "")),
     )
-
-
-@ansichten_bp.route("/api/zeitplan/beta", methods=["POST"])
-def set_beta():
-    device_config, refresh_task = _deps()
-    enabled = bool((request.get_json(silent=True) or {}).get("enabled"))
-    try:
-        with refresh_task.condition:
-            device_config.set_schedule_active(enabled)
-        refresh_task.signal_config_change()
-    except Exception as e:
-        logger.exception("Zeitplan konnte nicht umgeschaltet werden")
-        return _error(f"Ein Fehler ist aufgetreten: {e}", 500)
-    if enabled:
-        message = "Der neue Zeitplan ist eingeschaltet. Deine Playlists wurden als Ansichten übernommen."
-    else:
-        message = "Der neue Zeitplan ist ausgeschaltet. Es gelten wieder die Playlists."
-    return jsonify({"success": True, "enabled": enabled, "message": message})
 
 
 @ansichten_bp.route("/api/zeitplan", methods=["PUT"])
 def update_schedule():
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     try:
         schedule, renames = apply_update(device_config.get_schedule(), request.get_json(silent=True) or {})
     except ScheduleError as e:
@@ -134,9 +100,6 @@ def update_schedule():
 def create_view():
     """Neue Ansicht aus der Plugin-Seite (Formular mit den Plugin-Einstellungen)."""
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     try:
         settings = parse_form(request.form)
         plugin_id = settings.pop("plugin_id", None)
@@ -166,9 +129,6 @@ def create_view():
 def update_view_settings(view_id):
     """Plugin-Einstellungen einer Ansicht ändern (aus der Plugin-Seite)."""
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     schedule = device_config.get_schedule()
     view = schedule.get_view(view_id)
     if not view:
@@ -190,9 +150,6 @@ def update_view_settings(view_id):
 @ansichten_bp.route("/api/ansicht/<view_id>", methods=["DELETE"])
 def delete_view(view_id):
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     schedule = device_config.get_schedule()
     view = schedule.get_view(view_id)
     if not view:
@@ -251,9 +208,6 @@ def _show_now(device_config, refresh_task, schedule, view, duration, temporary=F
 def show_view(view_id):
     """„Jetzt anzeigen“ für eine Ansicht aus dem Zeitplan."""
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     schedule = device_config.get_schedule()
     view = schedule.get_view(view_id)
     if not view:
@@ -267,9 +221,6 @@ def show_plugin_now():
     """„Jetzt anzeigen“ von der Plugin-Seite, ohne dass daraus eine Ansicht wird
     (Formular mit Plugin-Einstellungen und „bis“)."""
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     settings = parse_form(request.form)
     plugin_id = settings.pop("plugin_id", None)
     duration = settings.pop("bis", "1h")
@@ -286,9 +237,6 @@ def show_plugin_now():
 @ansichten_bp.route("/api/zeitplan/manuell", methods=["DELETE"])
 def end_override():
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     schedule = device_config.get_schedule()
     schedule.override = None
     _save(device_config, refresh_task, schedule)
@@ -299,9 +247,6 @@ def end_override():
 def day_plan():
     """Tagesplan für die Startseite (?datum=JJJJ-MM-TT, sonst heute)."""
     device_config, refresh_task = _deps()
-    inactive = _require_active(device_config)
-    if inactive:
-        return inactive
     now = _now(refresh_task)
     try:
         day = date.fromisoformat(request.args["datum"]) if request.args.get("datum") else now.date()

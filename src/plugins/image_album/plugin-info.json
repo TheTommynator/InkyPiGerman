@@ -1,5 +1,7 @@
 {
     "display_name": "Bildalbum",
     "id": "image_album",
-    "class": "ImageAlbum"
+    "class": "ImageAlbum",
+    "category": "Bilder",
+    "description": "Fotos aus einem Online-Album"
 }

@@ -1,5 +1,7 @@
 {
     "display_name": "Wetter",
     "id": "weather",
-    "class": "Weather"
+    "class": "Weather",
+    "category": "Wetter & Nachrichten",
+    "description": "Aktuelles Wetter und Vorhersage"
 }

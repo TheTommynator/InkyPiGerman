@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, render_template
+from flask import Blueprint, request, jsonify, current_app, redirect, url_for
 from utils.time_utils import calculate_seconds
 import json
 from datetime import datetime, timedelta
@@ -69,16 +69,8 @@ def add_plugin():
 
 @playlist_bp.route('/playlist')
 def playlists():
-    device_config = current_app.config['DEVICE_CONFIG']
-    playlist_manager = device_config.get_playlist_manager()
-    refresh_info = device_config.get_refresh_info()
-
-    return render_template(
-        'playlist.html',
-        playlist_config=playlist_manager.to_dict(),
-        refresh_info=refresh_info.to_dict(),
-        schedule_active=device_config.is_schedule_active()
-    )
+    # Playlists gibt es in der Oberfläche nicht mehr, alles läuft über Ansichten
+    return redirect(url_for('ansichten.ansichten_page'))
 
 @playlist_bp.route('/create_playlist', methods=['POST'])
 def create_playlist():

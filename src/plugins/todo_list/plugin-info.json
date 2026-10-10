@@ -1,5 +1,7 @@
 {
   "display_name": "To-do-Liste",
   "id": "todo_list",
-  "class": "TodoList"
+  "class": "TodoList",
+  "category": "Werkzeuge",
+  "description": "Deine Aufgabenliste"
 }

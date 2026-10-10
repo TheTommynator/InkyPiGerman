@@ -1,21 +1,7 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Einstellungen</title>
-    <script>
-        (function() {
-            const theme = localStorage.getItem('inkypi-theme') || 
-                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
-    </script>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='styles/main.css') }}">
-    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
-    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Einstellungen{% endblock %}
+{% block head %}
     <script>
         async function handleAction() {
             const form = document.querySelector('.settings-form');
@@ -96,26 +82,12 @@
         }
         document.addEventListener('DOMContentLoaded', populateIntervalFields);
     </script>
-</head>
-<body>
+{% endblock %}
+{% block content %}
     <div class="frame">
-        <!-- Back Button -->
-        <button onclick="history.back()" class="back-button">← Zurück</button>
-        <!-- Settings Header -->
-        <div class="app-header">
-            <div class="header-content">
-                <div class="title-container">
-                    <img src="{{ url_for('static', filename='icons/settings.png') }}" alt="Einstellungen-Symbol" class="app-icon">
-                    <h1 class="app-title">Einstellungen</h1>
-                </div>
-                <div>
-                    <a class="header-button" style="text-decoration: none; background-color: #2c66b1; color: #fff;" href="{{ url_for('settings.download_logs', hours=24) }}" download>Logs herunterladen</a>
-                    <button class="header-button" style="background-color: #FFD600; color: #333;" onclick="handleShutdown(true)">Neustart</button>
-                    <button class="header-button" style="background-color: #E53935; color: #fff;" onclick="handleShutdown(false)">Herunterfahren</button>
-                </div>
-            </div>
-        </div>
-        <div class="separator"></div>
+        <header class="header">
+            <h1>Einstellungen</h1>
+        </header>
         <!-- Settings Content -->
         <form class="settings-form">
             <div id="settings-container">
@@ -279,40 +251,29 @@
             <p class="updates-muted" style="margin-top: 8px;">Für Wetter, KI, NASA, iCloud-Kalender und Co. – ohne SSH und ohne die .env von Hand zu bearbeiten.</p>
         </div>
 
-        <!-- Neuer Zeitplan (Beta) -->
+        <!-- Erscheinungsbild (nur in diesem Browser gespeichert) -->
         <div class="separator"></div>
         <div class="updates-section">
-            <h2 class="updates-title">Neuer Zeitplan (Beta)</h2>
-            <div class="updates-row">
-                <label class="form-label" for="scheduleBetaToggle">Ansichten statt Playlists</label>
-                <div class="toggle-container">
-                    <input type="checkbox" id="scheduleBetaToggle" class="toggle-checkbox" onchange="setScheduleBeta(this)" {% if device_settings.zeitplan_beta %}checked{% endif %}>
-                    <label for="scheduleBetaToggle" class="toggle-label"></label>
-                </div>
-                <a id="scheduleBetaLink" href="{{ url_for('ansichten.ansichten_page') }}" {% if not device_settings.zeitplan_beta %}hidden{% endif %}>Zu den Ansichten →</a>
+            <h2 class="updates-title">Erscheinungsbild</h2>
+            <div class="segmented" role="group" aria-label="Erscheinungsbild" id="themeChoice">
+                <button type="button" data-theme-choice="auto">Automatisch</button>
+                <button type="button" data-theme-choice="light">Hell</button>
+                <button type="button" data-theme-choice="dark">Dunkel</button>
             </div>
-            <p class="updates-muted" style="margin-top: 8px;">Jede Ansicht hat ihre eigene Anzeigedauer, feste Zeiten und eine Ruhezeit. Beim ersten Einschalten werden deine Playlists übernommen. Die Playlists bleiben erhalten: Schaltest du wieder aus, gilt alles wie vorher. Änderungen im neuen Zeitplan landen aber nicht in den Playlists.</p>
+            <p class="updates-muted" style="margin-top: 8px;">„Automatisch“ folgt der Einstellung deines Geräts.</p>
         </div>
         <script>
-            async function setScheduleBeta(toggle) {
-                toggle.disabled = true;
-                try {
-                    const response = await fetch("{{ url_for('ansichten.set_beta') }}", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ enabled: toggle.checked }),
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error);
-                    document.getElementById("scheduleBetaLink").hidden = !toggle.checked;
-                    showResponseModal("success", result.message);
-                } catch (e) {
-                    toggle.checked = !toggle.checked;
-                    showResponseModal("failure", `Fehler: ${e.message}`);
-                } finally {
-                    toggle.disabled = false;
+            (function() {
+                const buttons = document.querySelectorAll('[data-theme-choice]');
+                function mark() {
+                    const current = window.InkyTheme.get();
+                    buttons.forEach(function(b) { b.setAttribute('aria-pressed', String(b.dataset.themeChoice === current)); });
                 }
-            }
+                buttons.forEach(function(b) {
+                    b.addEventListener('click', function() { window.InkyTheme.set(b.dataset.themeChoice); mark(); });
+                });
+                mark();
+            })();
         </script>
 
         <!-- Updates (scripts/deploy.sh) -->
@@ -348,7 +309,37 @@
                 <ul id="updHistory" class="updates-history"></ul>
             </div>
         </div>
+
+        <!-- System -->
+        <div class="separator"></div>
+        <div class="updates-section">
+            <h2 class="updates-title">System</h2>
+            <div class="list-group">
+                <a class="list-row" href="{{ url_for('settings.download_logs', hours=24) }}" download>
+                    <span class="list-text"><span class="list-title">Protokolle herunterladen</span><span class="list-subtitle">Die letzten 24 Stunden</span></span>
+                </a>
+                <button type="button" class="list-row list-action" data-confirm="Wirklich neu starten? Nochmal tippen" onclick="confirmShutdown(this, true)">Neu starten</button>
+                <button type="button" class="list-row list-action list-danger" data-confirm="Wirklich herunterfahren? Nochmal tippen" onclick="confirmShutdown(this, false)">Herunterfahren</button>
+            </div>
+            <p class="updates-muted" style="margin-top: 8px;">Nach dem Herunterfahren musst du das Gerät von Hand wieder einschalten.</p>
+        </div>
     </div>
+    <script>
+        // Erst beim zweiten Tippen ausführen, die Rückfrage steht im Button selbst
+        function confirmShutdown(button, reboot) {
+            if (!button.dataset.armed) {
+                button.dataset.armed = '1';
+                button.dataset.label = button.textContent;
+                button.textContent = button.dataset.confirm;
+                setTimeout(function() {
+                    delete button.dataset.armed;
+                    button.textContent = button.dataset.label;
+                }, 4000);
+                return;
+            }
+            handleShutdown(reboot);
+        }
+    </script>
 
     <style>
         .updates-section { margin-top: 10px; }
@@ -541,5 +532,4 @@
     </script>
     <!-- Success/Error Modal -->
     {% include 'response_modal.html' %}
-</body>
-</html>
+{% endblock %}

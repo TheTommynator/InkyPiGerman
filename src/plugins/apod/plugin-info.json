@@ -1,5 +1,7 @@
 {
   "display_name": "NASA-Astronomiebild des Tages",
   "id": "apod",
-  "class": "Apod"
+  "class": "Apod",
+  "category": "Bilder",
+  "description": "Das Astronomiebild des Tages der NASA"
 }
