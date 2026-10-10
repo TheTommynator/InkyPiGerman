@@ -22,7 +22,7 @@
 </div>
 <div id="ikIcloud">
     <div class="form-group">
-        <label for="icloudKalender" class="form-label">iCloud-Kalender:</label>
+        <label for="icloudKalender" class="form-label">iCloud-Kalender</label>
         <input type="text" id="icloudKalender" name="icloudKalender" class="form-input" placeholder="leer = alle, sonst z. B. Privat, Arbeit">
     </div>
     <div class="ik-hinweis" id="ikKonto">Prüfe Zugangsdaten …</div>
@@ -31,7 +31,7 @@
 </div>
 
 <div class="form-group">
-    <label class="form-label">Kalender über Link:</label>
+    <label class="form-label">Kalender über Link</label>
     <div id="ikKalenderListe"></div>
     <button type="button" class="form-input collapsible" onclick="ikKalenderHinzufuegen()">Kalender hinzufügen</button>
     <details class="ik-hinweis">
@@ -49,7 +49,7 @@
 </div>
 
 <div class="form-group">
-    <label class="form-label">Ansicht:</label>
+    <label class="form-label">Ansicht</label>
     <div class="button-group" id="ikAnsichtWahl">
         <button type="button" data-value="tag" onclick="ikAnsichtWaehlen(this.dataset.value)">Tag</button>
         <button type="button" data-value="woche" onclick="ikAnsichtWaehlen(this.dataset.value)">Woche</button>
@@ -59,7 +59,7 @@
 </div>
 
 <div class="form-group nowrap" data-ansichten="tag,woche">
-    <label class="form-label">Zeitraum (Stunden):</label>
+    <label class="form-label">Zeitraum (Stunden)</label>
     <input type="number" id="vonStunde" name="vonStunde" class="form-input" min="0" max="23" value="7">
     –
     <input type="number" id="bisStunde" name="bisStunde" class="form-input" min="1" max="24" value="21">
@@ -67,7 +67,7 @@
 <div class="ik-hinweis" data-ansichten="tag,woche">Termine außerhalb des Zeitraums erweitern ihn automatisch.</div>
 
 <div class="form-group nowrap" data-ansichten="woche,monat">
-    <label for="wochenstart" class="form-label">Woche beginnt am:</label>
+    <label for="wochenstart" class="form-label">Woche beginnt am</label>
     <select id="wochenstart" name="wochenstart" class="form-input">
         <option value="0">Montag</option>
         <option value="6">Sonntag</option>
@@ -87,7 +87,7 @@
 </div>
 
 <div class="form-group nowrap">
-    <label for="stil" class="form-label">Termine:</label>
+    <label for="stil" class="form-label">Termine</label>
     <select id="stil" name="stil" class="form-input">
         <option value="gefuellt">Gefüllt (kräftig, ideal für E-Ink)</option>
         <option value="dezent">Dezent (heller Hintergrund mit Farbbalken)</option>
@@ -95,7 +95,7 @@
 </div>
 
 <div class="form-group nowrap">
-    <label for="thema" class="form-label">Thema:</label>
+    <label for="thema" class="form-label">Thema</label>
     <select id="thema" name="thema" class="form-input">
         <option value="eink">E-Ink (7 Farben)</option>
         <option value="hell">Hell</option>
@@ -104,14 +104,14 @@
 </div>
 
 <div class="form-group nowrap">
-    <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt):</label>
+    <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt)</label>
     <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
 </div>
 
 <div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ wird jede Farbe auf die nächste reine Displayfarbe gesetzt (Schwarz, Rot, Grün, Blau, Gelb, Orange) und es gibt keine Grautöne – so bleibt alles ohne Punktraster scharf.</div>
 
 <div class="form-group nowrap">
-    <label for="schriftgroesse" class="form-label">Schriftgröße:</label>
+    <label for="schriftgroesse" class="form-label">Schriftgröße</label>
     <select id="schriftgroesse" name="schriftgroesse" class="form-input">
         <option value="klein">Klein</option>
         <option value="normal" selected>Normal</option>

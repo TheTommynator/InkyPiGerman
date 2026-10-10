@@ -415,8 +415,9 @@ small {
 .toggle-container {
     display: inline-block;
     position: relative;
-    width: 50px;
-    height: 24px;
+    width: 51px;
+    height: 31px;
+    flex: none;
 }
 
 /* Hide Checkbox */
@@ -430,35 +431,36 @@ small {
 .toggle-label {
     position: absolute;
     cursor: pointer;
-    background-color: var(--border-subtle);
-    border-radius: 15px;
+    background-color: var(--button-bg);
+    border-radius: 999px;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    transition: 0.3s;
+    transition: background-color 0.2s;
 }
 
 /* Toggle Knob */
 .toggle-label::before {
     position: absolute;
     content: "";
-    height: 18px;
-    width: 18px;
+    height: 27px;
+    width: 27px;
     background-color: white;
     border-radius: 50%;
-    top: 3px;
-    left: 3px;
-    transition: 0.3s;
+    top: 2px;
+    left: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s;
 }
 
 /* When Checked */
 .toggle-checkbox:checked + .toggle-label {
-    background-color: var(--accent-primary);
+    background-color: var(--success-color);
 }
 
 .toggle-checkbox:checked + .toggle-label::before {
-    transform: translateX(26px);
+    transform: translateX(20px);
 }
 
 /* Style the custom file upload button */
@@ -516,8 +518,6 @@ small {
     width: auto;
     height: auto;
     max-width: 100px;
-    filter: var(--image-filter);
-    transition: filter 0.3s ease;
 }
 
 .image-option.selected {
@@ -719,6 +719,12 @@ small {
     transition: filter 0.3s ease;
 }
 
+.action-icon {
+    width: 20px;
+    height: 20px;
+    filter: var(--image-filter);
+}
+
 .title-container {
     display: flex;
     align-items: center;
@@ -746,50 +752,34 @@ small {
     display: none;
 }
 
-.api-key-label {
-    background-color: var(--label-bg);
-    color: white;
-    font-style: italic;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8em;
-    text-align: center;
-    transition: background-color 0.3s ease;
-}
-
-.api-key-label.api-key-fehlt {
-    background-color: var(--failure-color);
-    font-style: normal;
-}
-
-.api-key-label.api-key-ok {
-    background-color: var(--success-color);
-    font-style: normal;
-}
-
 .collapsible {
     width: 100%;
 }
 
 .collapsible-header {
-    background-color: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
     border: none;
-    border-radius: 12px;
     cursor: pointer;
     min-height: 48px;
-    padding: 12px 16px;
+    padding: 0;
     width: 100%;
     text-align: left;
     font-size: 1rem;
-    margin: 12px 0 6px;
     color: var(--text-primary);
 }
 
 .collapsible-icon {
-    float: right;
-    opacity: 50%;
-    filter: var(--image-filter);
-    transition: filter 0.3s ease;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+    transform: rotate(45deg);
+    opacity: 0.6;
+    transition: transform 0.2s ease;
 }
 
 .collapsible-content {
@@ -804,41 +794,37 @@ small {
 }
 
 .button-group {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
-    gap: 0;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 9px;
+    background-color: var(--button-bg);
 }
 
 .button-group button {
-    padding: 0.5rem 1rem;
-    border: 1px solid var(--button-group-border);
-    background-color: var(--button-group-bg);
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
     cursor: pointer;
-    font-size: 14px;
-    border-radius: 0;
-    margin-left: -1px;
-    position: relative;
-    z-index: 1;
+    font-size: 0.9rem;
     color: var(--text-primary);
-    transition: all 0.3s ease;
 }
 
 .button-group button:first-child {
-    border-top-left-radius: 4px;
-    border-bottom-left-radius: 4px;
     margin-left: 0;
 }
 
 .button-group button:last-child {
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
+    margin-right: 0;
 }
 
 .button-group button.active {
-    background-color: var(--accent-primary);
-    color: white;
-    border-color: var(--accent-primary);
-    z-index: 2;
+    background-color: var(--bg-secondary);
+    box-shadow: 0 1px 3px var(--shadow-medium);
+    font-weight: 600;
 }
 
 .font-weight-normal {
@@ -1434,4 +1420,220 @@ input, select, textarea {
         bottom: 24px;
         margin-left: calc(var(--sidebar-width) / 2);
     }
+}
+
+.collapsible-header.active .collapsible-icon {
+    transform: rotate(-135deg);
+}
+
+/* Plugin-Seite: Kopf, Hinweis auf den API-Schlüssel, Aktionsleiste */
+.plugin-header .app-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    padding: 6px;
+    flex: none;
+}
+
+.plugin-header .loading-indicator {
+    flex: none;
+}
+
+.plugin-subtitle {
+    margin: -10px 0 16px;
+    color: var(--text-secondary);
+}
+
+.plugin-key {
+    margin-bottom: 20px;
+}
+
+.key-dot {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    border-radius: 50%;
+    background-color: var(--failure-color);
+}
+
+.key-dot.key-ok {
+    background-color: var(--success-color);
+}
+
+.plugin-actions {
+    position: sticky;
+    bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px));
+    z-index: 5;
+    display: flex;
+    gap: 10px;
+    margin: 20px -16px -32px;
+    padding: 12px 16px calc(12px + 0px);
+    background-color: var(--bar-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-top: 0.5px solid var(--separator);
+}
+
+.plugin-actions .action-button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 10px;
+}
+
+.action-button.secondary {
+    background-color: var(--accent-soft);
+    color: var(--accent-hover);
+}
+
+@media (min-width: 900px) {
+    .plugin-actions {
+        bottom: 0;
+    }
+}
+
+/* Plugin-Formulare als gruppierte Liste: jede Zeile ein Eintrag mit Trennlinie.
+   Die Vorlagen der Plugins bleiben unverändert (Feldnamen, Skripte), nur die Optik wechselt. */
+#settingsForm > .settings-container {
+    padding: 0;
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+}
+
+#settingsForm > .settings-container > :not(script):not(style):not(link):not(.modal):not([type="hidden"]) {
+    padding: 10px 16px;
+    margin: 0;
+}
+
+#settingsForm > .settings-container > :not(script):not(style):not(link):not(.modal) ~ :not(script):not(style):not(link):not(.modal) {
+    box-shadow: inset 0 0.5px 0 var(--separator);
+}
+
+#settingsForm .form-group {
+    gap: 8px 12px;
+    margin: 4px 0;
+    min-height: 36px;
+}
+
+#settingsForm .form-label,
+#settingsForm .form-group label {
+    font-weight: 400;
+    color: var(--text-primary);
+}
+
+#settingsForm .form-input,
+#settingsForm input[type="text"],
+#settingsForm input[type="number"],
+#settingsForm input[type="url"],
+#settingsForm input[type="date"],
+#settingsForm input[type="time"],
+#settingsForm textarea {
+    background-color: var(--bg-primary);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+#settingsForm .form-input:focus,
+#settingsForm textarea:focus {
+    border-color: var(--accent-primary);
+    box-shadow: none;
+}
+
+#settingsForm .collapsible-content {
+    padding: 0 0 8px;
+}
+
+#settingsForm .collapsible-content.settings-container {
+    padding: 0;
+}
+
+/* Checkboxen sehen aus wie iOS-Schalter (Wert und Klicklogik bleiben die der Checkbox) */
+#settingsForm input[type="checkbox"]:not(.toggle-checkbox),
+.modal input[type="checkbox"]:not(.toggle-checkbox) {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    width: 51px;
+    height: 31px;
+    margin: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: radial-gradient(circle at 15.5px 50%, #fff 0 13.5px, transparent 14px), var(--button-bg);
+    box-shadow: inset 0 0 0 0.5px var(--separator);
+    transition: background-color 0.2s ease;
+}
+
+#settingsForm input[type="checkbox"]:not(.toggle-checkbox):checked,
+.modal input[type="checkbox"]:not(.toggle-checkbox):checked {
+    background: radial-gradient(circle at 35.5px 50%, #fff 0 13.5px, transparent 14px), var(--success-color);
+}
+
+#settingsForm input[type="checkbox"]:not(.toggle-checkbox):focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+#settingsForm input[type="checkbox"]:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+#settingsForm input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    accent-color: var(--accent-primary);
+}
+
+#settingsForm input[type="range"] {
+    accent-color: var(--accent-primary);
+}
+
+/* Schalterzeilen: Beschriftung links, Schalter rechts – egal in welcher Reihenfolge die Vorlage sie schreibt */
+#settingsForm .form-group:has(> input[type="checkbox"] + span:last-child):not(:has(> select, > input[type="text"])),
+#settingsForm .form-group:has(> input[type="checkbox"] + label:last-child):not(:has(> select, > input[type="text"])) {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+}
+
+#settingsForm .form-group:has(> .toggle-container:last-child),
+#settingsForm .form-group:has(> label + input[type="checkbox"]:last-child),
+#settingsForm .form-group:has(> select + input[type="checkbox"]:last-child) {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+}
+
+/* Trennlinien der Vorlagen braucht es nicht mehr, die Zeilen trennen sich selbst */
+#settingsForm hr,
+#settingsForm .settings-container > .separator {
+    display: none;
+}
+
+#settingsForm .form-group:has(> select + input[type="checkbox"]:last-child) > label {
+    flex: 1;
+}
+
+#settingsForm .form-group:has(> select + input[type="checkbox"]:last-child) > select {
+    flex: 0 1 120px;
+}
+
+/* Zwischenüberschrift innerhalb eines Formulars */
+#settingsForm .form-section-title {
+    padding-top: 18px !important;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+/* Gruppen mit Unterzeilen (z. B. „Anzeigen“ mit mehreren Schaltern) stehen untereinander */
+#settingsForm .settings-container > .form-group:has(> .form-group) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+}
+
+#settingsForm .settings-container > .form-group:has(> .form-group) > .form-group {
+    width: 100%;
 }

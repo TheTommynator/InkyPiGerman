@@ -15,7 +15,7 @@
 </div>
 
 <div class="form-group">
-    <label class="form-label" for="source">Motiv:</label>
+    <label class="form-label" for="source">Motiv</label>
     <select id="source" name="source" class="form-input">
         <option value="pattern" selected>Testbild (Farben, Verläufe, feine Linien)</option>
         <option value="upload">Eigenes Bild</option>
@@ -35,7 +35,7 @@
 </div>
 
 <div class="form-group">
-    <label class="form-label" for="base">Übrige Werte:</label>
+    <label class="form-label" for="base">Übrige Werte</label>
     <select id="base" name="base" class="form-input">
         <option value="current" selected>Aktuelle Einstellungen übernehmen</option>
         <option value="neutral">Neutral (alle 1.0)</option>
@@ -45,7 +45,7 @@
 <hr />
 
 <div class="form-group">
-    <label class="form-label" for="primaryParameter">Vergleichen:</label>
+    <label class="form-label" for="primaryParameter">Vergleichen</label>
     <select id="primaryParameter" name="primaryParameter" class="form-input">
         {% for p in calibration_parameters %}
         <option value="{{ p.id }}" data-from="{{ p.from }}" data-to="{{ p.to }}">{{ p.name }}</option>
@@ -53,16 +53,16 @@
     </select>
 </div>
 <div class="form-group">
-    <label class="form-label" for="primaryFrom">Von:</label>
+    <label class="form-label" for="primaryFrom">Von</label>
     <input type="number" id="primaryFrom" name="primaryFrom" class="form-input" min="0" max="3" step="0.05">
-    <label class="form-label" for="primaryTo">Bis:</label>
+    <label class="form-label" for="primaryTo">Bis</label>
     <input type="number" id="primaryTo" name="primaryTo" class="form-input" min="0" max="3" step="0.05">
-    <label class="form-label" for="primarySteps">Stufen:</label>
+    <label class="form-label" for="primarySteps">Stufen</label>
     <input type="number" id="primarySteps" name="primarySteps" class="form-input" min="1" max="6" step="1" value="4">
 </div>
 
 <div class="form-group">
-    <label class="form-label" for="secondaryParameter">Zusätzlich kombinieren mit:</label>
+    <label class="form-label" for="secondaryParameter">Zusätzlich kombinieren mit</label>
     <select id="secondaryParameter" name="secondaryParameter" class="form-input">
         <option value="none" selected>– nichts –</option>
         {% for p in calibration_parameters %}
@@ -71,11 +71,11 @@
     </select>
 </div>
 <div class="form-group" id="secondaryRange" style="display: none;">
-    <label class="form-label" for="secondaryFrom">Von:</label>
+    <label class="form-label" for="secondaryFrom">Von</label>
     <input type="number" id="secondaryFrom" name="secondaryFrom" class="form-input" min="0" max="3" step="0.05">
-    <label class="form-label" for="secondaryTo">Bis:</label>
+    <label class="form-label" for="secondaryTo">Bis</label>
     <input type="number" id="secondaryTo" name="secondaryTo" class="form-input" min="0" max="3" step="0.05">
-    <label class="form-label" for="secondarySteps">Stufen:</label>
+    <label class="form-label" for="secondarySteps">Stufen</label>
     <input type="number" id="secondarySteps" name="secondarySteps" class="form-input" min="1" max="6" step="1" value="3">
 </div>
 
@@ -86,7 +86,7 @@
 <hr />
 
 <div class="form-group">
-    <label class="form-label" for="bestTile">Beste Kachel:</label>
+    <label class="form-label" for="bestTile">Beste Kachel</label>
     <select id="bestTile" class="form-input"></select>
     <button type="button" id="applyBestTile" class="action-button">Übernehmen</button>
 </div>

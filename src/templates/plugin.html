@@ -124,10 +124,8 @@
 
         function toggleCollapsible(button) {
             const content = button.nextElementSibling;
-            const icon = button.querySelector(".collapsible-icon");
             button.classList.toggle("active");
             content.style.display = content.style.display === "block" ? "none" : "block";
-            icon.textContent = content.style.display === "block" ? "▲" : "▼";
         }
 
         function selectedFrame(element) {
@@ -256,16 +254,25 @@
         <a href="{{ url_for('plugin.plugins_page') }}" class="back-button">Plugins</a>
         {% endif %}
 
-        <!-- Plugin Title and Icon -->
-        <div class="app-header">
-            <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="Symbol für {{ plugin.display_name }}" class="app-icon">
-            <h1 class="app-title">{{ plugin.display_name }}</h1>
-            {% if api_key and api_key.required %}<a class="api-key-label{{ ' api-key-ok' if api_key_gesetzt else ' api-key-fehlt' }}" style="text-decoration: none;"
-               href="{{ url_for('zugangsdaten.zugangsdaten_page', schluessel=api_key.expected_key) }}"
-               title="{{ api_key.service }}: {{ 'hinterlegt – zum Ändern klicken' if api_key_gesetzt else 'unter Zugangsdaten eintragen' }}">{{ 'API-Schlüssel hinterlegt ✓' if api_key_gesetzt else 'API-Schlüssel fehlt – jetzt eintragen' }}</a>{% endif %}
-            <div id="loadingIndicator" class="loading-indicator"></div>
+        <header class="header plugin-header">
+            <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="" class="app-icon">
+            <h1>{{ view_name or plugin.display_name }}</h1>
+            <div id="loadingIndicator" class="loading-indicator small"></div>
+        </header>
+        {% if view_name %}<p class="plugin-subtitle">{{ plugin.display_name }}</p>{% endif %}
+
+        {% if api_key and api_key.required %}
+        <div class="list-group plugin-key">
+            <a class="list-row" href="{{ url_for('zugangsdaten.zugangsdaten_page', schluessel=api_key.expected_key) }}">
+                <span class="key-dot{{ ' key-ok' if api_key_gesetzt else '' }}" aria-hidden="true"></span>
+                <span class="list-text">
+                    <span class="list-title">{{ 'API-Schlüssel hinterlegt' if api_key_gesetzt else 'API-Schlüssel fehlt' }}</span>
+                    <span class="list-subtitle">{{ api_key.service }} · {{ 'Zum Ändern tippen' if api_key_gesetzt else 'Jetzt unter Zugangsdaten eintragen' }}</span>
+                </span>
+                <span class="list-chevron" aria-hidden="true"></span>
+            </a>
         </div>
-        <div class="separator"></div>
+        {% endif %}
 
         <!-- Include plugin settings -->
         <form id = "settingsForm" class="settings-form" onsubmit="return false;">
@@ -276,13 +283,13 @@
                 {% if style_settings %}
                 <div class="collapsible">
                     <button type="button" class="collapsible-header" onclick="toggleCollapsible(this)">
-                        Darstellung <span class="collapsible-icon">▼</span>
+                        Darstellung <span class="collapsible-icon" aria-hidden="true"></span>
                     </button>
                     <div class="settings-container collapsible-content">
                         <div class="form-group">
                             
                             <div class="form-group nowrap">
-                                <label for="selected-frame" class="form-label">Rahmen:</label>
+                                <label for="selected-frame" class="form-label">Rahmen</label>
                                 <div id="frame-selection" class="image-grid">
                                     {% for frame in frame_styles %}
                                     <div
@@ -301,7 +308,7 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="margin" class="form-label">Ränder:</label>
+                                <label for="margin" class="form-label">Ränder</label>
                                 <div class="form-group nowrap">
                                     <label for="topMargin" class="form-label">Oben</label>
                                     <input type="number" class="form-input" id="topMargin" name="topMargin" min="0" max="100" step="5"><span>px</span>
@@ -323,7 +330,7 @@
                         
                         <!-- Background Color Option -->
                         <div class="form-group">
-                            <label class="form-label">Hintergrund:</label>
+                            <label class="form-label">Hintergrund</label>
                             <div class="form-group nowrap">
                                 <label>
                                     <input type="radio" name="backgroundOption" value="color" checked>
@@ -350,7 +357,7 @@
                         
                         <!-- Text Color Picker -->
                         <div class="form-group">
-                            <label for="textColor" class="form-label">Textfarbe:</label>
+                            <label for="textColor" class="form-label">Textfarbe</label>
                             <input type="color" id="textColor" name="textColor" class="color-picker" value="#000000">
                         </div>
                     </div>
@@ -361,15 +368,15 @@
             <!-- Hidden input to pass plugin id -->
             <input type="hidden" name="plugin_id" value="{{ plugin.id }}">
 
-            <div class="buttons-container">
+            <div class="plugin-actions">
                 {% if view_id %}
-                    <button type="button" onclick="openModal('showModal')" class="action-button left">Jetzt anzeigen</button>
-                    <button type="button" onclick="handleAction('update_view')" class="action-button right">Speichern</button>
+                    <button type="button" onclick="openModal('showModal')" class="action-button secondary">Jetzt anzeigen</button>
+                    <button type="button" onclick="handleAction('update_view')" class="action-button">Speichern</button>
                 {% elif plugin_instance %}
                     <button type="button" onclick="handleAction('update_instance')" class="action-button">Speichern</button>
                 {% else %}
-                    <button type="button" onclick="openModal('showModal')" class="action-button left">Jetzt anzeigen</button>
-                    <button type="button" onclick="openModal('viewModal')" class="action-button right">Als Ansicht hinzufügen</button>
+                    <button type="button" onclick="openModal('showModal')" class="action-button secondary">Jetzt anzeigen</button>
+                    <button type="button" onclick="openModal('viewModal')" class="action-button">Als Ansicht hinzufügen</button>
                 {% endif %}
             </div>
         </form>
@@ -402,7 +409,7 @@
             <div class="separator"></div>
             <div class="settings-form">
                 <div class="form-group">
-                    <label for="viewName" class="form-label">Name:</label>
+                    <label for="viewName" class="form-label">Name</label>
                     <input type="text" id="viewName" placeholder="z. B. {{ plugin.display_name }} Küche" maxlength="60" class="form-input" value="{{ plugin.display_name }}">
                 </div>
                 <p style="margin: 8px 0 0; color: var(--text-secondary);">Die Ansicht läuft danach in der Rotation. Anzeigedauer, feste Zeiten und Aktualisierung stellst du anschließend unter „Ansichten“ ein.</p>

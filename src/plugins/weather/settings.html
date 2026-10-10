@@ -2,7 +2,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <div class="form-group">
-    <label class="form-label">Standort: </label>
+    <label class="form-label">Standort</label>
     <div class="form-group">
         <span>Breitengrad </span>
         <input readonly type="text" id="latitude" name="latitude" class="form-input" />
@@ -15,13 +15,13 @@
 </div>
 
 <div class="form-group">
-    <label for="weatherProvider" class="form-label">Wetterdienst:</label>
+    <label for="weatherProvider" class="form-label">Wetterdienst</label>
     <select id="weatherProvider" name="weatherProvider" class="form-input" onchange="updateTitleOptions(this.value)">
         <option value="OpenMeteo">Open-Meteo</option>
         <option value="OpenWeatherMap">OpenWeatherMap</option>
     </select>
 
-    <label for="units" class="form-label">Einheiten:</label>
+    <label for="units" class="form-label">Einheiten</label>
     <select id="units" name="units" class="form-input">
         <option value="imperial">Imperial (°F)</option>
         <option value="metric">Metrisch (°C)</option>
@@ -30,7 +30,7 @@
 </div>
 
 <div class="form-group" id="titleOptionWrapper">
-    <label class="form-label">Titel:</label>
+    <label class="form-label">Titel</label>
 
     <div class="form-group">
         <input type="radio" id="title-location" name="titleSelection" value="location">
@@ -42,53 +42,49 @@
     </div>
 </div>
 
+<div class="form-section-title">Anzeigen</div>
+
 <div class="form-group">
-    <label for="displayMetrics" class="form-label">Anzeige: </label>
+    <label for="displayRefreshTime">Aktualisierungszeit</label>
+    <input type="checkbox" id="displayRefreshTime" name="displayRefreshTime" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-      <input type="checkbox" id="displayRefreshTime" name="displayRefreshTime" onclick="this.value=this.checked ? 'true' : 'false';">
-      <span>Aktualisierungszeit</span>
-    </div>
+<div class="form-group">
+    <label for="displayMetrics">Messwerte</label>
+    <input type="checkbox" id="displayMetrics" name="displayMetrics" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-        <input type="checkbox" id="displayMetrics" name="displayMetrics" onclick="this.value=this.checked ? 'true' : 'false';">
-        <span>Messwerte</span>
-    </div>
+<div class="form-group">
+    <label for="displayGraph">Wetterdiagramm</label>
+    <input type="checkbox" id="displayGraph" name="displayGraph" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-        <input type="checkbox" id="displayGraph" name="displayGraph" onclick="this.value=this.checked ? 'true' : 'false';">
-        <span>Wetterdiagramm</span>
-    </div>
+<div class="form-group">
+    <label for="displayRain">Regenmenge</label>
+    <input type="checkbox" id="displayRain" name="displayRain" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-        <input type="checkbox" id="displayRain" name="displayRain" onclick="this.value=this.checked ? 'true' : 'false';">
-        <span>Regenmenge</span>
-    </div>
+<div class="form-group">
+    <label for="moonPhase">Mondphase</label>
+    <input type="checkbox" id="moonPhase" name="moonPhase" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-        <input type="checkbox" id="moonPhase" name="moonPhase" onclick="this.value=this.checked ? 'true' : 'false';">
-        <span>Mondphase</span>
-    </div>
+<div class="form-group">
+    <label for="displayForecast">Vorhersage</label>
+    <select id="forecastDays" name="forecastDays" class="form-input" aria-label="Tage der Vorhersage">
+        <option value=3>3 Tage</option>
+        <option value=5>5 Tage</option>
+        <option value=7>7 Tage</option>
+    </select>
+    <input type="checkbox" id="displayForecast" name="displayForecast" onclick="this.value=this.checked ? 'true' : 'false';">
+</div>
 
-    <div class="form-group">
-        <input type="checkbox" id="displayForecast" name="displayForecast" onclick="this.value=this.checked ? 'true' : 'false';">
-        <span>Vorhersage</span>
-        <select id="forecastDays" name="forecastDays" class="form-input">
-            <option value=3>3</option>
-            <option value=5>5</option>
-            <option value=7>7</option>
-        </select>
-        <span>Tage</span>
-    </div>
-
-    <div class="form-group">
-        <label for="weatherTimeZone" class="form-label">Zeitzone:</label>
-        <select id="weatherTimeZone" name="weatherTimeZone" class="form-input">
-            <option value="locationTimeZone">Zeitzone des Standorts verwenden</option>
-            <option value="localTimeZone">Lokale Zeitzone verwenden</option>
-        </select>
-    </div>
-
+<div class="form-group">
+    <label for="weatherTimeZone" class="form-label">Zeitzone</label>
+    <select id="weatherTimeZone" name="weatherTimeZone" class="form-input">
+        <option value="locationTimeZone">Zeitzone des Standorts</option>
+        <option value="localTimeZone">Zeitzone des Geräts</option>
+    </select>
 </div>
 
 <div id="mapModal" class="modal">
@@ -109,8 +105,9 @@
         const titleCustomRadio = document.getElementById('title-custom');
         const customTitleInput = document.getElementById('customTitle');
         const titleTimeZone = document.getElementById('weatherTimeZone');
-        const titleTimeZoneLabel = document.querySelector('label[for="weatherTimeZone"]');
-        const apiKeyLabel = document.querySelector('.api-key-label');
+        // ganze Zeile ein- und ausblenden, nicht nur die Beschriftung
+        const titleTimeZoneLabel = titleTimeZone.closest('.form-group');
+        const apiKeyLabel = document.querySelector('.plugin-key');
 
         if (provider === 'OpenMeteo') {
             // Hide or disable "Location" radio option
