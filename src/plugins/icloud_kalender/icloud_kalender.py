@@ -1,8 +1,11 @@
 """iCloud-Kalender: mehrere (iCloud-)Kalender als Tages-, Wochen- oder Monatsansicht.
 
-Die Kalender werden über ihren öffentlichen iCal-Link abgerufen (in der
-Kalender-App: Kalender teilen → „Öffentlicher Kalender“). Funktioniert ebenso
-mit jedem anderen iCal-/ICS-Link, z. B. von Google oder Outlook.
+Zwei Quellen, auch gemischt:
+  - öffentliche iCal-Links (Kalender-App: Kalender teilen → „Öffentlicher
+    Kalender“; ebenso jeder andere iCal-Link, z. B. von Google oder Outlook)
+  - private Kalender direkt aus dem iCloud-Konto per CalDAV. Apple-ID und
+    app-spezifisches Passwort stehen in der .env (ICLOUD_APPLE_ID,
+    ICLOUD_APP_PASSWORT), nicht in den Plugin-Einstellungen.
 """
 
 import logging
@@ -14,9 +17,10 @@ import recurring_ical_events
 import requests
 
 from plugins.base_plugin.base_plugin import BasePlugin
+from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV, waehle_kalender
 from plugins.icloud_kalender.kalender_daten import (
-    ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, normalisiere_url,
-    parse_stunde, tagesbeginn, zeitraum,
+    ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, eink_palette,
+    naechste_farbe, normalisiere_url, parse_stunde, tagesbeginn, zeitraum,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 STANDARD_FARBE = "#2f6fde"
 SCHRIFTGROESSEN = {"klein": 0.85, "normal": 1.0, "gross": 1.15, "sehr_gross": 1.3}
 ABRUF_TIMEOUT = 20
+STANDARD_AKZENT = "#e0393e"
 
 
 class ICloudKalender(BasePlugin):
@@ -38,8 +43,9 @@ class ICloudKalender(BasePlugin):
             raise RuntimeError("Ungültige Ansicht")
 
         kalender = self.kalender_liste(settings)
-        if not kalender:
-            raise RuntimeError("Bitte mindestens einen Kalender-Link angeben")
+        icloud_aktiv = settings.get("icloudAktiv") == "true"
+        if not kalender and not icloud_aktiv:
+            raise RuntimeError("Bitte einen Kalender-Link angeben oder das iCloud-Konto aktivieren")
 
         dimensions = device_config.get_resolution()
         if device_config.get_config("orientation") == "vertical":
@@ -55,8 +61,28 @@ class ICloudKalender(BasePlugin):
         wochenende = settings.get("wochenende", "true") != "false"
 
         von, bis = zeitraum(ansicht, jetzt.date(), wochenstart)
-        termine, fehler = self.lade_termine(kalender, tz, von, bis)
-        if fehler and len(fehler) == len(kalender):
+        start, ende = tagesbeginn(von, tz), tagesbeginn(bis, tz)
+
+        fehler = []
+        if icloud_aktiv:
+            try:
+                kalender += self.icloud_kalender(settings, device_config, start, ende)
+            except Exception as e:
+                logger.error(f"iCloud-Konto fehlgeschlagen: {e}")
+                fehler.append(str(e))
+
+        thema = settings.get("thema") or "eink"
+        akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
+        if thema == "eink":
+            # Nur Farben, die das Display ohne Rastern darstellen kann
+            palette = eink_palette(device_config.get_config("display_type", default=""))
+            for k in kalender:
+                k["farbe"] = naechste_farbe(k["farbe"], palette)
+            akzent = naechste_farbe(akzent, palette)
+
+        termine, ladefehler = self.lade_termine(kalender, tz, von, bis)
+        fehler += ladefehler
+        if fehler and not termine and len(ladefehler) == len(kalender):
             raise RuntimeError(f"Kalender konnte nicht abgerufen werden: {fehler[0]}")
 
         if ansicht == "tag":
@@ -74,8 +100,8 @@ class ICloudKalender(BasePlugin):
             "kalender": [k for k in kalender if k["name"]],
             "legende": settings.get("legende", "true") != "false",
             "stil": settings.get("stil") or "gefuellt",
-            "thema": settings.get("thema") or "hell",
-            "akzent": settings.get("akzentfarbe") or "#e0393e",
+            "thema": thema,
+            "akzent": akzent,
             "basis_px": round((breite + hoehe) / 1280 * 15 * skala, 2),
             "hochformat": hoehe > breite,
             "fehler": len(fehler),
@@ -119,17 +145,38 @@ class ICloudKalender(BasePlugin):
             })
         return liste
 
+    def icloud_kalender(self, settings, device_config, start, ende):
+        """Kalender aus dem iCloud-Konto; jeder bekommt eine Funktion, die seine Termine lädt."""
+        apple_id = device_config.load_env_key("ICLOUD_APPLE_ID")
+        passwort = device_config.load_env_key("ICLOUD_APP_PASSWORT")
+        if not apple_id or not passwort:
+            raise RuntimeError("ICLOUD_APPLE_ID und ICLOUD_APP_PASSWORT fehlen in der .env")
+
+        client = ICloudCalDAV(requests.Session(), apple_id.strip(), passwort.strip())
+        ausgewaehlt = waehle_kalender(client.kalender(), settings.get("icloudKalender"))
+
+        def lader(url):
+            return lambda: [icalendar.Calendar.from_ical(text) for text in client.termine_ical(url, start, ende)]
+
+        return [{
+            "url": k["url"],
+            "name": k["name"],
+            "farbe": k["farbe"] or STANDARD_FARBE,
+            "laden": lader(k["url"]),
+        } for k in ausgewaehlt]
+
     def lade_termine(self, kalender, tz, von, bis):
         """Lädt alle Kalender; ein nicht erreichbarer Kalender bricht die Anzeige nicht ab."""
         termine, fehler = [], []
         start, ende = tagesbeginn(von, tz), tagesbeginn(bis, tz)
         for k in kalender:
             try:
-                cal = self.abrufen(k["url"])
-                for event in recurring_ical_events.of(cal).between(start, ende):
-                    termin = self.zu_termin(event, k, tz)
-                    if termin:
-                        termine.append(termin)
+                kalenderdaten = k["laden"]() if "laden" in k else [self.abrufen(k["url"])]
+                for cal in kalenderdaten:
+                    for event in recurring_ical_events.of(cal).between(start, ende):
+                        termin = self.zu_termin(event, k, tz)
+                        if termin:
+                            termine.append(termin)
             except Exception as e:
                 logger.error(f"Kalender '{k['name'] or k['url']}' fehlgeschlagen: {e}")
                 fehler.append(str(e))

@@ -8,7 +8,30 @@
 </style>
 
 <div class="form-group">
-    <label class="form-label">Kalender:</label>
+    <input type="hidden" name="icloudAktiv" id="icloudAktiv" value="false">
+    <input type="checkbox" id="icloudAktivBox" onchange="ikCheckbox(this, 'icloudAktiv'); ikIcloudUmschalten()">
+    <span>Private Kalender aus meinem iCloud-Konto laden</span>
+</div>
+<div id="ikIcloud">
+    <div class="form-group">
+        <label for="icloudKalender" class="form-label">iCloud-Kalender:</label>
+        <input type="text" id="icloudKalender" name="icloudKalender" class="form-input" placeholder="leer = alle, sonst z. B. Privat, Arbeit">
+    </div>
+    <details class="ik-hinweis">
+        <summary>Einrichtung (einmalig)</summary>
+        <ol>
+            <li>Auf <b>account.apple.com</b> anmelden → <b>Anmeldung und Sicherheit</b> → <b>App-spezifische Passwörter</b> → neues Passwort erstellen (z. B. „InkyPi“).</li>
+            <li>Per SSH auf dem Pi die Datei <code>.env</code> im InkyPi-Ordner öffnen und zwei Zeilen ergänzen:<br>
+                <code>ICLOUD_APPLE_ID=deine@apple-id.de</code><br>
+                <code>ICLOUD_APP_PASSWORT=abcd-efgh-ijkl-mnop</code></li>
+        </ol>
+        Namen und Farben kommen direkt aus iCloud. Ein falsch geschriebener Kalendername wird beim Anzeigen gemeldet – zusammen mit allen vorhandenen Namen.
+        Das Passwort steht nur in der <code>.env</code>, nicht in den Plugin-Einstellungen.
+    </details>
+</div>
+
+<div class="form-group">
+    <label class="form-label">Kalender über Link:</label>
     <div id="ikKalenderListe"></div>
     <button type="button" class="form-input collapsible" onclick="ikKalenderHinzufuegen()">Kalender hinzufügen</button>
     <details class="ik-hinweis">
@@ -21,6 +44,7 @@
         </ol>
         Am Mac: Kalender-App → Rechtsklick auf den Kalender → <b>Teilen</b> → „Öffentlicher Kalender“.
         Jeder andere iCal-Link (z. B. Google oder Outlook) funktioniert ebenfalls.
+        Für Kalender aus dem eigenen iCloud-Konto ist das iCloud-Konto oben bequemer – dafür muss nichts öffentlich sein.
     </details>
 </div>
 
@@ -73,6 +97,7 @@
 <div class="form-group nowrap">
     <label for="thema" class="form-label">Thema:</label>
     <select id="thema" name="thema" class="form-input">
+        <option value="eink">E-Ink (7 Farben)</option>
         <option value="hell">Hell</option>
         <option value="dunkel">Dunkel</option>
     </select>
@@ -82,6 +107,8 @@
     <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt):</label>
     <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
 </div>
+
+<div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ wird jede Farbe auf die nächste reine Displayfarbe gesetzt (Schwarz, Rot, Grün, Blau, Gelb, Orange) und es gibt keine Grautöne – so bleibt alles ohne Punktraster scharf.</div>
 
 <div class="form-group nowrap">
     <label for="schriftgroesse" class="form-label">Schriftgröße:</label>
@@ -102,6 +129,18 @@
             btn.classList.toggle('active', btn.dataset.value === ansicht));
         document.querySelectorAll('[data-ansichten]').forEach(el => {
             el.style.display = el.dataset.ansichten.split(',').includes(ansicht) ? '' : 'none';
+        });
+    }
+
+    function ikIcloudUmschalten() {
+        document.getElementById('ikIcloud').style.display =
+            document.getElementById('icloudAktivBox').checked ? '' : 'none';
+    }
+
+    function ikThemaHinweis() {
+        const thema = document.getElementById('thema').value;
+        document.querySelectorAll('[data-thema]').forEach(el => {
+            el.style.display = el.dataset.thema === thema ? '' : 'none';
         });
     }
 
@@ -155,13 +194,10 @@
         const urls = alsListe(s['kalenderURLs[]']);
         const namen = alsListe(s['kalenderNamen[]']);
         const farben = alsListe(s['kalenderFarben[]']);
-        if (urls.length) {
-            urls.forEach((url, i) => ikKalenderHinzufuegen(url, namen[i] || '', farben[i] || null));
-        } else {
-            ikKalenderHinzufuegen();
-        }
+        urls.forEach((url, i) => ikKalenderHinzufuegen(url, namen[i] || '', farben[i] || null));
+        if (!urls.length && s.icloudAktiv !== 'true') ikKalenderHinzufuegen();
 
-        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
+        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse', 'icloudKalender'].forEach(feld => {
             if (s[feld]) document.getElementById(feld).value = s[feld];
         });
         ['wochenende', 'legende'].forEach(feld => {
@@ -170,6 +206,13 @@
             document.getElementById(feld + 'Box').checked = an;
         });
 
+        const icloud = s.icloudAktiv === 'true';
+        document.getElementById('icloudAktiv').value = icloud ? 'true' : 'false';
+        document.getElementById('icloudAktivBox').checked = icloud;
+        ikIcloudUmschalten();
+
+        document.getElementById('thema').addEventListener('change', ikThemaHinweis);
+        ikThemaHinweis();
         ikAnsichtWaehlen(s.ansicht || 'woche');
     });
 </script>

@@ -43,6 +43,68 @@ body {
     --soft: #1c1f23;
 }
 
+/* E-Ink mit 7 Farben: nur Schwarz, Weiß und reine Farben. Grau und
+   Transparenz würde das Display rastern – das ergibt unruhige Punktmuster. */
+.kal.thema-eink {
+    --bg: #ffffff;
+    --ink: #000000;
+    --muted: #000000;
+    --line: #000000;
+    --soft: #ffffff;
+}
+
+/* Hilfslinien als lockere Punktreihen: ein schwarzes Pixel alle 4 Pixel */
+.thema-eink .linie {
+    border-top: none;
+    height: 1px;
+    background: repeating-linear-gradient(to right, #000 0 1px, transparent 1px 4px);
+}
+
+.thema-eink .spalte {
+    border-left: none;
+    background-image: repeating-linear-gradient(to bottom, #000 0 1px, transparent 1px 4px);
+    background-size: 1px 100%;
+    background-repeat: no-repeat;
+}
+
+.thema-eink .tag-raster .spalte {
+    background-image: none;
+}
+
+.thema-eink .untertitel,
+.thema-eink .stunde,
+.thema-eink .stand,
+.thema-eink .tageskopf .wt,
+.thema-eink .monat-kopf,
+.thema-eink .v-zeit,
+.thema-eink .m-zeit,
+.thema-eink .ganztag-label,
+.thema-eink .mehr {
+    font-weight: normal;
+}
+
+.thema-eink .zelle.fremd .zelle-nr,
+.thema-eink .zelle.fremd .zelle-termine {
+    opacity: 1;
+}
+
+.thema-eink .zelle.fremd .zelle-nr {
+    font-weight: normal;
+}
+
+.thema-eink .dezent .karte-innen,
+.thema-eink .chip.dezent {
+    background: #ffffff;
+    color: #000000;
+    border: 2px solid var(--farbe);
+    border-left-width: 0.3em;
+}
+
+.thema-eink .karte-zeit,
+.thema-eink .karte-ort {
+    opacity: 1;
+}
+
 /* ---------- Kopfzeile ---------- */
 
 .kopf {

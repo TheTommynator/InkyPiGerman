@@ -94,3 +94,14 @@ Required for the Image Album plugin for the Immich Provider
     ```
     IMMICH_KEY=your-key
     ```
+## iCloud-Kalender (private Kalender)
+
+Für das Plugin „iCloud-Kalender“, wenn Kalender direkt aus dem iCloud-Konto geladen werden sollen (öffentliche Kalender-Links brauchen keine Zugangsdaten).
+
+- Auf [account.apple.com](https://account.apple.com) anmelden → **Anmeldung und Sicherheit** → **App-spezifische Passwörter** → neues Passwort erstellen, z. B. „InkyPi“
+- Apple-ID und das app-spezifische Passwort (nicht das normale Apple-ID-Passwort!) in der .env eintragen:
+    ```
+    ICLOUD_APPLE_ID=deine@apple-id.de
+    ICLOUD_APP_PASSWORT=abcd-efgh-ijkl-mnop
+    ```
+- Das Passwort lässt sich jederzeit auf account.apple.com widerrufen.
