@@ -1,0 +1,149 @@
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Gerät{% endblock %}
+{% block content %}
+    <div class="frame">
+        <a href="{{ url_for('settings.settings_page') }}" class="back-button">Einstellungen</a>
+        <header class="header">
+            <h1>Gerät</h1>
+        </header>
+
+        <div class="list-group">
+            <div class="list-row list-field">
+                <label for="deviceName">Name</label>
+                <input type="text" id="deviceName" value="{{ device_settings.name }}" maxlength="40" autocomplete="off" enterkeyhint="done">
+            </div>
+        </div>
+        <p class="list-footer">Steht oben auf der Startseite und im Browser-Tab.</p>
+
+        <section class="list-section">
+            <h2 class="list-header">Display</h2>
+            <div class="list-group">
+                <div class="list-row list-field">
+                    <span class="list-label">Ausrichtung</span>
+                    <div class="segmented" role="group" aria-label="Ausrichtung" data-setting="orientation">
+                        <button type="button" data-value="horizontal">Querformat</button>
+                        <button type="button" data-value="vertical">Hochformat</button>
+                    </div>
+                </div>
+                <div class="list-row list-field">
+                    <label for="invertedImage">Um 180° drehen</label>
+                    <span class="switch"><input type="checkbox" id="invertedImage" data-setting="inverted_image" {% if device_settings.inverted_image %}checked{% endif %}><span></span></span>
+                </div>
+            </div>
+            <p class="list-footer">Wirkt ab dem nächsten Bild auf dem Display. „Um 180° drehen“ hilft, wenn das Display auf dem Kopf steht.</p>
+        </section>
+
+        <section class="list-section">
+            <h2 class="list-header">Zeit</h2>
+            <div class="list-group">
+                <div class="list-row list-field">
+                    <label for="timezone">Zeitzone</label>
+                    <input type="text" id="timezone" list="timezoneList" value="{{ device_settings.timezone or '' }}" placeholder="z. B. Europe/Berlin" autocomplete="off" enterkeyhint="done">
+                    <datalist id="timezoneList">
+                        {% for timezone in timezones %}
+                        <option value="{{ timezone }}"></option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <button type="button" class="list-row list-action" id="useLocalTimezone" hidden></button>
+                <div class="list-row list-field">
+                    <span class="list-label">Zeitformat</span>
+                    <div class="segmented" role="group" aria-label="Zeitformat" data-setting="time_format">
+                        <button type="button" data-value="24h">24 Std.</button>
+                        <button type="button" data-value="12h">12 Std.</button>
+                    </div>
+                </div>
+            </div>
+            <p class="list-footer">Nach der Zeitzone richten sich der Zeitplan und alle Uhrzeiten auf dem Display.</p>
+        </section>
+
+        <section class="list-section">
+            <h2 class="list-header">Erweitert</h2>
+            <div class="list-group">
+                <div class="list-row list-field">
+                    <label for="logSystemStats">Systemwerte protokollieren</label>
+                    <span class="switch"><input type="checkbox" id="logSystemStats" data-setting="log_system_stats" {% if device_settings.log_system_stats %}checked{% endif %}><span></span></span>
+                </div>
+            </div>
+            <p class="list-footer">Schreibt bei jedem Durchlauf CPU-, Speicher- und Netzwerkwerte ins Protokoll. Nur zur Fehlersuche nötig.</p>
+        </section>
+    </div>
+
+    {% include 'response_modal.html' %}
+
+    <script>
+        const SAVE_URL = "{{ url_for('settings.save_device_settings') }}";
+        const current = {
+            name: {{ (device_settings.name or '') | tojson }},
+            orientation: {{ (device_settings.orientation or 'horizontal') | tojson }},
+            time_format: {{ (device_settings.time_format or '24h') | tojson }},
+            timezone: {{ (device_settings.timezone or '') | tojson }},
+        };
+
+        async function save(key, value) {
+            const ok = await saveNow(SAVE_URL, { [key]: value });
+            if (ok) current[key] = value;
+            return ok;
+        }
+
+        // Segment-Auswahl (Ausrichtung, Zeitformat)
+        document.querySelectorAll('.segmented[data-setting]').forEach(function(group) {
+            const key = group.dataset.setting;
+            const buttons = group.querySelectorAll('button');
+            function mark() {
+                buttons.forEach(function(b) { b.setAttribute('aria-pressed', String(b.dataset.value === current[key])); });
+            }
+            buttons.forEach(function(b) {
+                b.addEventListener('click', async function() {
+                    if (b.dataset.value === current[key]) return;
+                    await save(key, b.dataset.value);
+                    mark();
+                });
+            });
+            mark();
+        });
+
+        // Schalter
+        document.querySelectorAll('.switch input[data-setting]').forEach(function(input) {
+            input.addEventListener('change', async function() {
+                if (!await saveNow(SAVE_URL, { [input.dataset.setting]: input.checked })) {
+                    input.checked = !input.checked;
+                }
+            });
+        });
+
+        // Textfelder speichern beim Verlassen oder mit Enter
+        function textField(id, key) {
+            const input = document.getElementById(id);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') input.blur();
+            });
+            input.addEventListener('change', async function() {
+                const value = input.value.trim();
+                if (value === current[key]) return;
+                if (!await save(key, value)) input.value = current[key];
+                updateLocalTimezoneButton();
+            });
+        }
+        textField('deviceName', 'name');
+        textField('timezone', 'timezone');
+
+        // Zeitzone des Handys mit einem Tipp übernehmen, wenn sie abweicht
+        const localTimezone = (function() {
+            try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+        })();
+        const localButton = document.getElementById('useLocalTimezone');
+        function updateLocalTimezoneButton() {
+            localButton.hidden = !localTimezone || localTimezone === current.timezone;
+            localButton.textContent = `„${localTimezone}“ übernehmen (Zeitzone dieses Geräts)`;
+        }
+        localButton.addEventListener('click', async function() {
+            if (await save('timezone', localTimezone)) {
+                document.getElementById('timezone').value = localTimezone;
+                updateLocalTimezoneButton();
+            }
+        });
+        updateLocalTimezoneButton();
+    </script>
+{% endblock %}

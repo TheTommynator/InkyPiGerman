@@ -1,0 +1,243 @@
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Software-Update{% endblock %}
+{% block head %}
+    <style>
+        .updates-subtitle { margin: 18px 0 8px 0; font-size: 1.05em; }
+        .updates-muted { color: var(--text-secondary); }
+        .updates-interval { flex: 0 0 auto; width: 84px; }
+        #updLastCheck, #updPending { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+        #updPending ul { text-align: left; }
+        .updates-history { list-style: none; padding: 0; margin: 0; }
+        .updates-history > li { border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; background: var(--bg-secondary); }
+        .updates-history .upd-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+        .updates-history .upd-time { color: var(--text-secondary); font-size: 0.9em; }
+        .updates-history .upd-msg { margin-top: 4px; white-space: pre-line; }
+        .updates-history ul { margin: 6px 0 0 0; padding-left: 20px; font-size: 0.92em; list-style: disc; }
+        .updates-history ul li { border: 0; padding: 0; margin: 2px 0; background: none; }
+        .updates-history code, #updInstalled code { font-size: 0.9em; }
+        .upd-badge { font-weight: bold; }
+        .upd-ok { color: var(--success-color); }
+        .upd-bad { color: var(--failure-color); }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="frame">
+        <a href="{{ url_for('settings.settings_page') }}" class="back-button">Einstellungen</a>
+        <header class="header">
+            <h1>Software-Update</h1>
+        </header>
+        <div id="updates">
+            <p id="updatesUnavailable" class="updates-muted" hidden></p>
+
+            <div id="updatesBody" hidden>
+                <div class="list-group">
+                    <div class="list-row list-stack">
+                        <div class="list-line"><span class="list-label">Installiert</span></div>
+                        <div id="updInstalled" class="updates-muted">–</div>
+                    </div>
+                    <div class="list-row list-field">
+                        <span class="list-label">Neu auf GitHub</span>
+                        <span id="updPending" class="list-value">–</span>
+                    </div>
+                </div>
+                <div class="now-actions">
+                    <button type="button" id="updateNowButton" class="action-button" onclick="runUpdateNow()">Jetzt aktualisieren</button>
+                </div>
+
+                <section class="list-section">
+                    <h2 class="list-header">Automatisch</h2>
+                    <div class="list-group">
+                        <div class="list-row list-field">
+                            <label for="autoUpdateToggle">Automatisch aktualisieren</label>
+                            <span class="switch"><input type="checkbox" id="autoUpdateToggle" onchange="setAutoUpdate()"><span></span></span>
+                        </div>
+                        <div class="list-row list-field">
+                            <label for="autoUpdateInterval">Prüfen alle</label>
+                            <select id="autoUpdateInterval" class="form-input updates-interval" onchange="setAutoUpdate()"></select>
+                            <span class="list-value">Minuten</span>
+                        </div>
+                        <div class="list-row list-field">
+                            <span class="list-label">Letzte Prüfung</span>
+                            <span id="updLastCheck" class="list-value">–</span>
+                        </div>
+                        <div class="list-row list-field">
+                            <span class="list-label">Nächste Prüfung</span>
+                            <span id="updNextRun" class="list-value">–</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="list-section">
+                    <h2 class="list-header">Letzte Aktualisierungen</h2>
+                    <ul id="updHistory" class="updates-history"></ul>
+                </section>
+            </div>
+        </div>
+    </div>
+    {% include 'response_modal.html' %}
+    <script>
+        const UPDATE_RESULTS = {
+            success:      ["✔ Aktualisiert", "upd-ok"],
+            check_failed: ["✘ Prüfung fehlgeschlagen – nicht installiert", "upd-bad"],
+            rolled_back:  ["↩ Fehlgeschlagen – alter Stand wiederhergestellt", "upd-bad"],
+            rollback:     ["↩ Manuell zurückgesetzt", ""],
+            current:      ["✔ Bereits aktuell", "upd-ok"],
+            skipped:      ["⏸ Übersprungen", ""],
+            running:      ["⏳ Update läuft …", ""],
+            error:        ["✘ Fehler", "upd-bad"],
+        };
+        const UPDATE_TRIGGERS = { auto: "automatisch", manual: "per Befehl", web: "über die Weboberfläche" };
+        let updatePollTimer = null;
+        let lastUpdateData = null;
+        let checkTimeBeforeRun = undefined;  // gesetzt, solange auf das Ergebnis von "Jetzt aktualisieren" gewartet wird
+
+        function escapeHtml(s) {
+            return String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+        }
+
+        function formatTime(iso) {
+            if (!iso) return "–";
+            const d = new Date(iso);
+            if (isNaN(d)) return escapeHtml(iso);
+            return d.toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+        }
+
+        function resultLabel(result) {
+            const [text, cls] = UPDATE_RESULTS[result] || [result, ""];
+            return `<span class="upd-badge ${cls}">${escapeHtml(text)}</span>`;
+        }
+
+        function commitList(commits) {
+            if (!commits || !commits.length) return "";
+            return "<ul>" + commits.map(c =>
+                `<li><code>${escapeHtml(c.hash)}</code> ${escapeHtml(c.subject)} <span class="upd-time">(${escapeHtml(c.author)})</span></li>`
+            ).join("") + "</ul>";
+        }
+
+        function renderUpdates(data) {
+            lastUpdateData = data;
+            const unavailable = document.getElementById("updatesUnavailable");
+            const body = document.getElementById("updatesBody");
+            if (!data.available) {
+                unavailable.textContent = data.reason;
+                unavailable.hidden = false;
+                body.hidden = true;
+                return;
+            }
+            unavailable.hidden = true;
+            body.hidden = false;
+
+            const toggle = document.getElementById("autoUpdateToggle");
+            const select = document.getElementById("autoUpdateInterval");
+            if (!select.options.length) {
+                data.intervals.forEach(m => select.add(new Option(m, m)));
+            }
+            toggle.checked = data.auto.enabled;
+            select.value = data.auto.interval || 5;
+            select.disabled = !data.auto.enabled;
+
+            const inst = data.installed;
+            document.getElementById("updInstalled").innerHTML = inst
+                ? `<code>${escapeHtml(inst.hash)}</code> ${escapeHtml(inst.subject)} <span class="upd-time">(${formatTime(inst.date)})</span>`
+                : "–";
+
+            const lc = data.last_check;
+            document.getElementById("updLastCheck").innerHTML = lc
+                ? `${formatTime(lc.time)} · ${resultLabel(lc.result)}` + (lc.result === "error" || lc.result === "skipped" ? `<div class="updates-muted">${escapeHtml(lc.message)}</div>` : "")
+                : "noch keine";
+
+            document.getElementById("updNextRun").textContent = data.auto.enabled ? formatTime(data.auto.next_run) : "Auto-Update ist aus";
+
+            document.getElementById("updPending").innerHTML = data.pending.length
+                ? `${data.pending.length} Änderung(en) warten auf Installation` + commitList(data.pending)
+                : "nichts – alles installiert";
+
+            const history = document.getElementById("updHistory");
+            history.innerHTML = data.history.length ? data.history.map(h => `
+                <li>
+                    <div class="upd-head">${resultLabel(h.result)}
+                        <span class="upd-time">${formatTime(h.time)} · ${escapeHtml(UPDATE_TRIGGERS[h.trigger] || h.trigger || "")}</span>
+                    </div>
+                    ${h.result !== "success" && h.message ? `<div class="upd-msg">${escapeHtml(h.message)}</div>` : ""}
+                    ${commitList(h.commits)}
+                </li>`).join("") : '<li class="updates-muted">Noch keine Updates installiert.</li>';
+
+            const running = lc && lc.result === "running";
+            const waiting = checkTimeBeforeRun !== undefined && (lc ? lc.time : null) === checkTimeBeforeRun;
+            const button = document.getElementById("updateNowButton");
+            button.disabled = running || waiting;
+            button.textContent = running ? "Update läuft …" : waiting ? "Suche nach Updates …" : "Jetzt aktualisieren";
+            if (running || waiting) {
+                pollUpdates();
+            } else if (checkTimeBeforeRun !== undefined) {
+                checkTimeBeforeRun = undefined;
+                const ok = ["success", "current"].includes(lc.result);
+                showResponseModal(ok ? "success" : "failure", (UPDATE_RESULTS[lc.result] || [lc.result])[0] + (ok ? "" : ` – ${lc.message}`));
+            }
+        }
+
+        async function loadUpdates() {
+            try {
+                const response = await fetch("{{ url_for('updates.status') }}");
+                renderUpdates(await response.json());
+                return true;
+            } catch (e) {
+                // InkyPi startet gerade neu (z. B. nach einem Update)
+                return false;
+            }
+        }
+
+        // Während eines Updates alle paar Sekunden neu laden – InkyPi ist beim Neustart kurz weg
+        function pollUpdates() {
+            if (updatePollTimer) return;
+            updatePollTimer = setTimeout(async () => {
+                updatePollTimer = null;
+                const ok = await loadUpdates();
+                if (!ok) {
+                    const button = document.getElementById("updateNowButton");
+                    button.disabled = true;
+                    button.textContent = "InkyPi startet neu …";
+                    pollUpdates();
+                }
+            }, 4000);
+        }
+
+        async function setAutoUpdate() {
+            const enabled = document.getElementById("autoUpdateToggle").checked;
+            const interval = parseInt(document.getElementById("autoUpdateInterval").value || "5", 10);
+            const response = await fetch("{{ url_for('updates.set_auto') }}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled, interval }),
+            });
+            const result = await response.json();
+            if (response.ok) {
+                renderUpdates(result);
+                showToast(enabled ? `Auto-Update an, alle ${interval} Minuten` : "Auto-Update aus");
+            } else {
+                showResponseModal("failure", `Fehler: ${result.error}`);
+                loadUpdates();
+            }
+        }
+
+        async function runUpdateNow() {
+            const button = document.getElementById("updateNowButton");
+            button.disabled = true;
+            button.textContent = "Suche nach Updates …";
+            checkTimeBeforeRun = lastUpdateData && lastUpdateData.last_check ? lastUpdateData.last_check.time : null;
+            const response = await fetch("{{ url_for('updates.run_now') }}", { method: "POST" });
+            const result = await response.json();
+            if (!response.ok) {
+                showResponseModal("failure", `Fehler: ${result.error}`);
+                checkTimeBeforeRun = undefined;
+                button.disabled = false;
+                button.textContent = "Jetzt aktualisieren";
+                return;
+            }
+            pollUpdates();
+        }
+
+        document.addEventListener("DOMContentLoaded", loadUpdates);
+    </script>
+{% endblock %}
