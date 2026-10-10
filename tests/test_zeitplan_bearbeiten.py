@@ -135,3 +135,51 @@ def test_name_pruefen():
 def test_beschreibung_fester_zeiten():
     assert describe_fixed(FixedTime("a", "22:00", "00:00", days=[5, 6])) == "Sa, So 22:00–24:00"
     assert describe_fixed(FixedTime("b", "18:00", "20:00", date="2026-12-24")) == "24.12.2026 18:00–20:00"
+
+
+# --- Tagesplan für die Startseite ---------------------------------------------
+
+from datetime import date, datetime  # noqa: E402
+from zeitplan import QuietTime, Refresh  # noqa: E402
+from zeitplan_bearbeiten import day_plan_for_page  # noqa: E402
+
+
+def tages_zeitplan():
+    return Schedule(
+        views=[
+            View("w", "weather", "Wetter", duration_minutes=30, refresh=Refresh("interval", minutes=15),
+                 latest_refresh_time="2026-10-09T06:45:00+02:00"),
+            View("t", "daily_dashboard", "Tagesübersicht", rotation=False,
+                 fixed_times=[FixedTime("f1", "06:30", "07:30", days=[0, 1, 2, 3, 4])]),
+        ],
+        quiet=QuietTime(True, "23:00", "06:00"),
+    )
+
+
+def test_tagesplan_heute_mit_jetzt_und_als_naechstes():
+    schedule = tages_zeitplan()
+    schedule.views[1].latest_refresh_time = "2026-10-09T06:30:00"
+    plan = day_plan_for_page(schedule, date(2026, 10, 9), datetime(2026, 10, 9, 6, 40))
+    assert plan["today"] and plan["now_minute"] == 400
+    kinds = [(s["kind"], s["start"], s["end"], s["view_name"]) for s in plan["segments"][:3]]
+    assert kinds == [("quiet", 0, 360, None), ("rotation", 360, 390, "Wetter"), ("fixed", 390, 450, "Tagesübersicht")]
+    assert plan["segments"][2]["fixed_id"] == "f1"
+    assert plan["segments"][1]["refresh_minutes"] == 15
+    now = plan["now"]
+    assert now["view_name"] == "Tagesübersicht" and now["end"] == "07:30" and now["minutes_left"] == 50
+    assert now["data_from"] == "06:30" and now["next_refresh"] == "06:45"  # automatisch: 15 Min
+    assert plan["next"] == {"kind": "rotation", "start": "07:30", "tomorrow": False, "view_name": "Wetter"}
+
+
+def test_tagesplan_anderer_tag_ohne_jetzt():
+    plan = day_plan_for_page(tages_zeitplan(), date(2026, 10, 10), datetime(2026, 10, 9, 12, 0))
+    assert not plan["today"] and "now" not in plan
+    assert not any(s["kind"] == "fixed" for s in plan["segments"])  # Samstag
+    assert plan["segments"][-1]["end"] == 1440
+
+
+def test_tagesplan_naechstes_ist_morgen():
+    plan = day_plan_for_page(tages_zeitplan(), date(2026, 10, 9), datetime(2026, 10, 9, 23, 30))
+    assert plan["now"]["kind"] == "quiet" and "view_name" not in plan["now"]
+    assert plan["now"]["end"] == "06:00" and plan["now"]["minutes_left"] == 390
+    assert plan["next"] == {"kind": "rotation", "start": "06:00", "tomorrow": True, "view_name": "Wetter"}

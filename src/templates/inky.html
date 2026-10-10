@@ -165,6 +165,34 @@
             <div class="display-status-bar" hidden><div class="display-status-fill"></div></div>
         </div>
 
+        {% if zdata %}
+        <!-- Neuer Zeitplan (Beta): Tagesplan -->
+        <section class="tp" id="tpRoot" aria-label="Tagesplan">
+            <div class="z-group tp-now" id="tpNow" hidden></div>
+            <div class="tp-dayhead">
+                <h3 id="tpDay">Heute</h3>
+                <div class="tp-nav">
+                    <button type="button" data-tp="today" hidden>Heute</button>
+                    <button type="button" data-tp="prev" aria-label="Vorheriger Tag">‹</button>
+                    <button type="button" data-tp="next" aria-label="Nächster Tag">›</button>
+                </div>
+            </div>
+            <div class="tp-barcard">
+                <div class="tp-bar" id="tpBar" title="Antippen, um im Tagesplan dorthin zu springen"></div>
+                <div class="tp-ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>
+                <div class="tp-legend" id="tpLegend"></div>
+            </div>
+            <div class="tp-dayview" id="tpDayview"><div class="tp-day" id="tpInner"></div></div>
+            <div class="tp-foot">
+                <span>Feste Zeiten am ↕ ziehen zum Verschieben, am unteren Rand für die Dauer. Antippen zum Bearbeiten.</span>
+                <span>
+                    <button type="button" class="z-btn" data-tp="add-fixed">+ Feste Zeit</button>
+                    <a href="{{ url_for('ansichten.ansichten_page') }}">Alle Ansichten</a>
+                </span>
+            </div>
+        </section>
+        {% endif %}
+
         <!-- Separator -->
         <div class="separator"></div>
         <h2 class="plugins-title">Plugins</h2>
@@ -176,5 +204,16 @@
             {% endfor %}
         </div>
     </div>
+    {% if zdata %}
+    <div id="zSheetRoot"></div>
+    <div id="zToastRoot"></div>
+    {% include 'response_modal.html' %}
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ansichten.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/tagesplan.css') }}">
+    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+    <script id="zData" type="application/json">{{ zdata | tojson }}</script>
+    <script src="{{ url_for('static', filename='scripts/ansichten.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/tagesplan.js') }}"></script>
+    {% endif %}
 </body>
 </html>

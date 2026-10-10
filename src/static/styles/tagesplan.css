@@ -1,0 +1,54 @@
+/* Tagesplan auf der Startseite (neuer Zeitplan). Klassen mit tp-Präfix, Farben aus main.css. */
+
+.tp { margin-top: 16px; display: grid; gap: 10px; }
+.tp-now .z-row { align-items: center; }
+.tp-now .z-title { font-weight: 600; white-space: normal; }
+.tp-now .z-meta { white-space: normal; }
+.tp-kind { font-size: 0.75em; font-weight: 600; border-radius: 999px; padding: 3px 9px; white-space: nowrap; flex: none; background: var(--button-bg); color: var(--text-secondary); }
+.tp-kind.tp-fixed { background: var(--accent-primary); color: #fff; }
+.tp-kind.tp-rotation { background: rgba(26, 188, 156, 0.15); color: var(--accent-hover); }
+.tp-kind.tp-override { background: #5654d0; color: #fff; }
+
+.tp-dayhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.tp-dayhead h3 { margin: 0; font-size: 1em; font-weight: 600; color: var(--text-primary); }
+.tp-nav { display: flex; gap: 6px; align-items: center; }
+.tp-nav button { border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); border-radius: 8px; min-width: 36px; height: 32px; font: inherit; cursor: pointer; padding: 0 10px; }
+
+.tp-barcard { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 14px 10px; }
+.tp-bar { position: relative; height: 28px; border-radius: 7px; background: var(--button-bg); overflow: hidden; cursor: pointer; }
+.tp-bar > div { position: absolute; top: 0; bottom: 0; }
+.tp-bar .tp-b-rotation { opacity: .45; }
+.tp-bar .tp-b-quiet, .tp-day .tp-quiet { background: repeating-linear-gradient(135deg, var(--border-color) 0 5px, var(--button-bg) 5px 10px); }
+.tp-bar .tp-b-override { background: #5654d0; }
+.tp-bar > div + div { box-shadow: inset 1px 0 0 var(--bg-secondary); }
+.tp-bar .tp-nowline { width: 2px; margin-left: -1px; background: var(--text-primary); box-shadow: none; }
+.tp-ticks { display: flex; justify-content: space-between; font-size: 0.7em; color: var(--text-secondary); margin-top: 4px; }
+.tp-legend { display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-secondary); margin-top: 8px; }
+.tp-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.tp-legend .tp-q { border-radius: 2px; background: repeating-linear-gradient(135deg, var(--border-color) 0 3px, var(--button-bg) 3px 6px); }
+
+.tp-dayview { position: relative; height: min(520px, 65vh); overflow-y: auto; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; overscroll-behavior: contain; }
+.tp-day { position: relative; margin: 12px 0; }
+.tp-hour { position: absolute; left: 0; right: 0; border-top: 1px solid var(--border-color); pointer-events: none; }
+.tp-hour span { position: absolute; left: 8px; top: -8px; background: var(--bg-secondary); padding-right: 6px; font-size: 0.7em; color: var(--text-secondary); }
+.tp-block { position: absolute; left: 54px; right: 8px; border-radius: 6px; overflow: hidden; font-size: 0.78em; line-height: 1.25; padding: 2px 8px; cursor: pointer; color: var(--text-primary); }
+.tp-block.tp-rotation { background: color-mix(in srgb, var(--c) 22%, var(--bg-secondary)); }
+.tp-block .tp-label { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-block .tp-label i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+.tp-block.tp-fixed { background: var(--c); color: #fff; left: 48px; padding: 5px 40px 5px 10px; z-index: 2; box-shadow: 0 2px 8px var(--shadow-medium); }
+.tp-block.tp-fixed b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-block.tp-fixed .tp-sub { opacity: .92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tp-block.tp-fixed.tp-dragging { z-index: 4; box-shadow: 0 12px 30px var(--shadow-medium); }
+.tp-block.tp-fixed.tp-bad { outline: 3px solid var(--failure-color); outline-offset: 1px; }
+.tp-block.tp-override { background: #5654d0; color: #fff; z-index: 2; }
+.tp-block.tp-quiet { color: var(--text-secondary); padding-top: 6px; }
+.tp-move { position: absolute; top: 4px; right: 4px; width: 30px; height: 26px; border-radius: 6px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.22); touch-action: none; cursor: grab; font-size: 1em; }
+.tp-grip { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; display: grid; place-items: center; touch-action: none; cursor: ns-resize; }
+.tp-grip::after { content: ""; width: 28px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.85); }
+.tp-tick { position: absolute; right: 38px; width: 10px; height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.75); }
+.tp-now-line { position: absolute; left: 46px; right: 0; height: 2px; margin-top: -1px; background: var(--failure-color); z-index: 5; pointer-events: none; }
+.tp-now-line::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--failure-color); }
+
+.tp-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.82em; color: var(--text-secondary); }
+.tp-foot .z-btn { font-size: 1.05em; }
+.tp-empty { padding: 16px; color: var(--text-secondary); }

@@ -2,14 +2,16 @@
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory, url_for
 
 from refresh_task import ViewRefresh
 from utils.app_utils import handle_request_files, parse_form
 from zeitplan import Override, View, parse_hm
-from zeitplan_bearbeiten import ScheduleError, apply_update, check_view_name, new_id, schedule_for_page
+from zeitplan_bearbeiten import (
+    ScheduleError, apply_update, check_view_name, day_plan_for_page, new_id, schedule_for_page,
+)
 from zeitplaner import AUTO_REFRESH_MINUTES, DEFAULT_AUTO_REFRESH_MINUTES
 
 logger = logging.getLogger(__name__)
@@ -56,16 +58,33 @@ def _plugin_list(device_config):
     return plugins
 
 
+def page_data(device_config, open_view=""):
+    """Daten für ansichten.js (Seite „Ansichten“ und Tagesplan auf der Startseite)."""
+    active = device_config.is_schedule_active()
+    return {
+        "active": active,
+        "schedule": schedule_for_page(device_config.get_schedule()) if active else None,
+        "plugins": _plugin_list(device_config),
+        "openView": open_view,
+        "urls": {
+            "beta": url_for("ansichten.set_beta"),
+            "schedule": url_for("ansichten.update_schedule"),
+            "override": url_for("ansichten.end_override"),
+            "day": url_for("ansichten.day_plan"),
+            "ansichten": url_for("ansichten.ansichten_page"),
+            "view": "/api/ansicht/",
+            "plugin": "/plugin/",
+        },
+    }
+
+
 @ansichten_bp.route("/ansichten")
 def ansichten_page():
     device_config, _ = _deps()
-    active = device_config.is_schedule_active()
     return render_template(
         "ansichten.html",
-        active=active,
-        schedule=schedule_for_page(device_config.get_schedule()) if active else None,
-        plugins=_plugin_list(device_config),
-        open_view=request.args.get("ansicht", ""),
+        active=device_config.is_schedule_active(),
+        zdata=page_data(device_config, request.args.get("ansicht", "")),
     )
 
 
@@ -239,6 +258,23 @@ def end_override():
     schedule.override = None
     _save(device_config, refresh_task, schedule)
     return jsonify({"success": True, "message": "Es geht wieder nach Zeitplan weiter."})
+
+
+@ansichten_bp.route("/api/zeitplan/tag")
+def day_plan():
+    """Tagesplan für die Startseite (?datum=JJJJ-MM-TT, sonst heute)."""
+    device_config, refresh_task = _deps()
+    inactive = _require_active(device_config)
+    if inactive:
+        return inactive
+    now = _now(refresh_task)
+    try:
+        day = date.fromisoformat(request.args["datum"]) if request.args.get("datum") else now.date()
+    except ValueError:
+        return _error("Ungültiges Datum.")
+    response = jsonify(day_plan_for_page(device_config.get_schedule(), day, now))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @ansichten_bp.route("/api/ansicht/<view_id>/bild")

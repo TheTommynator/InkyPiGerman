@@ -9,13 +9,15 @@ Fehlermeldungen sind für die Oberfläche gedacht und daher auf Deutsch.
 """
 
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from zeitplan import (
     ALL_DAYS, REFRESH_DAILY, REFRESH_INTERVAL, REFRESH_MODES, FixedTime, Limit, QuietTime,
     Refresh, Schedule, View, Window, parse_hm,
 )
-from zeitplaner import all_conflicts
+from zeitplaner import (
+    all_conflicts, current_segment, next_refresh_at, plan_day, refresh_minutes, to_local, upcoming_segments,
+)
 
 DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 MAX_MINUTES = 24 * 60
@@ -209,3 +211,71 @@ def schedule_for_page(schedule):
     for view in data["views"]:
         view.pop("settings", None)
     return data
+
+
+def _segment_for_page(segment, day):
+    start_of_day = datetime.combine(day, datetime.min.time())
+    view = segment.view
+    return {
+        "kind": segment.kind,
+        "start": int((segment.start - start_of_day).total_seconds() // 60),
+        "end": int((segment.end - start_of_day).total_seconds() // 60),
+        "view_id": view.id if view else None,
+        "view_name": view.name if view else None,
+        "plugin_id": view.plugin_id if view else None,
+        "fixed_id": segment.fixed_time.id if segment.fixed_time else None,
+        "refresh_minutes": refresh_minutes(view) if view else None,
+    }
+
+
+def _same_segment(a, b):
+    return (a.kind == b.kind and (a.view.id if a.view else None) == (b.view.id if b.view else None)
+            and (a.fixed_time.id if a.fixed_time else None) == (b.fixed_time.id if b.fixed_time else None))
+
+
+def day_plan_for_page(schedule, day, now):
+    """Tagesplan für die Startseite: Abschnitte in Minuten seit Mitternacht.
+
+    Für den heutigen Tag kommen „Jetzt“ (mit Datenstand) und „Als Nächstes“ dazu.
+    `now` ist die aktuelle Ortszeit als naive datetime.
+    """
+    now = to_local(now)
+    result = {
+        "date": day.isoformat(),
+        "today": day == now.date(),
+        "segments": [_segment_for_page(s, day) for s in plan_day(schedule, day)],
+    }
+    if not result["today"]:
+        return result
+
+    result["now_minute"] = now.hour * 60 + now.minute
+    current = current_segment(schedule, now)
+    # Abschnitte, die über Mitternacht weiterlaufen, zählen als einer
+    following = upcoming_segments(schedule, now, 4)
+    end = current.end
+    while following and following[0].start == end and _same_segment(following[0], current):
+        end = following.pop(0).end
+    info = {"kind": current.kind, "end": end.strftime("%H:%M"),
+            "minutes_left": max(0, int((end - now).total_seconds() // 60))}
+    if current.view:
+        view = current.view
+        last = to_local(view.latest_refresh_time)
+        upcoming = next_refresh_at(view, now, current)
+        info.update({
+            "view_id": view.id,
+            "view_name": view.name,
+            "plugin_id": view.plugin_id,
+            "data_from": last.strftime("%H:%M") if last and last.date() == now.date() else None,
+            "next_refresh": upcoming.strftime("%H:%M") if upcoming else None,
+        })
+    result["now"] = info
+
+    if following:
+        nxt = following[0]
+        result["next"] = {
+            "kind": nxt.kind,
+            "start": nxt.start.strftime("%H:%M"),
+            "tomorrow": nxt.start.date() == now.date() + timedelta(days=1),
+            "view_name": nxt.view.name if nxt.view else None,
+        }
+    return result
