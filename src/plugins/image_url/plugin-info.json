@@ -1,5 +1,7 @@
 {
     "display_name": "Bild aus URL",
     "id": "image_url",
-    "class": "ImageURL"
+    "class": "ImageURL",
+    "category": "Bilder",
+    "description": "Ein Bild von einer Internetadresse"
 }

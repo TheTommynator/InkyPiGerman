@@ -1,5 +1,7 @@
 {
     "display_name": "Hello World",
     "id": "helloworld",
-    "class": "HelloWorld"
+    "class": "HelloWorld",
+    "category": "Werkzeuge",
+    "description": "Testbild mit Text und Farben"
 }

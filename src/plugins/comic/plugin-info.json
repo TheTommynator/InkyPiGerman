@@ -1,5 +1,7 @@
 {
     "display_name": "Comic des Tages",
     "id": "comic",
-    "class": "Comic"
+    "class": "Comic",
+    "category": "Bilder",
+    "description": "Ein aktueller Comic-Strip"
 }

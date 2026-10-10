@@ -1,5 +1,7 @@
 {
   "display_name": "GitHub",
   "id": "github",
-  "class": "GitHub"
+  "class": "GitHub",
+  "category": "Wetter & Nachrichten",
+  "description": "Beiträge, Sterne oder Sponsoren auf GitHub"
 }

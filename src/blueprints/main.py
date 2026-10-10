@@ -7,12 +7,9 @@ main_bp = Blueprint("main", __name__)
 @main_bp.route('/')
 def main_page():
     device_config = current_app.config['DEVICE_CONFIG']
-    # Neuer Zeitplan (Beta): Tagesplan auf der Startseite
-    zdata = None
-    if device_config.is_schedule_active():
-        from blueprints.ansichten import page_data
-        zdata = page_data(device_config)
-    return render_template('inky.html', config=device_config.get_config(), plugins=device_config.get_plugins(), zdata=zdata)
+    # Tagesplan auf der Startseite
+    from blueprints.ansichten import page_data
+    return render_template('inky.html', config=device_config.get_config(), zdata=page_data(device_config))
 
 @main_bp.route('/api/display_status')
 def get_display_status():

@@ -1,5 +1,7 @@
 {
     "display_name": "Unsplash",
     "id": "unsplash",
-    "class": "Unsplash"
+    "class": "Unsplash",
+    "category": "Bilder",
+    "description": "Fotos von Unsplash"
 }

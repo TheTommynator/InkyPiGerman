@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <title>{% block title %}InkyPi{% endblock %}</title>
+    <script>
+        // Erscheinungsbild vor dem ersten Zeichnen setzen (sonst blitzt es hell auf)
+        (function() {
+            let theme = null;
+            try { theme = localStorage.getItem('inkypi-theme'); } catch (e) {}
+            const dark = theme === 'dark' || (theme !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
+    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+    {% block head %}{% endblock %}
+</head>
+<body class="has-tabbar">
+    {% block content %}{% endblock %}
+    {% include 'tabbar.html' %}
+</body>
+</html>

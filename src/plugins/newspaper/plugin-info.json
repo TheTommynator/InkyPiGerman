@@ -2,5 +2,7 @@
     "display_name": "Titelseite des Tages",
     "id": "newspaper",
     "class": "Newspaper",
-    "image_settings": ["keep-width"]
+    "image_settings": ["keep-width"],
+    "category": "Wetter & Nachrichten",
+    "description": "Titelseite einer Tageszeitung"
 }

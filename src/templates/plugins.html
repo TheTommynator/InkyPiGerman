@@ -1,0 +1,54 @@
+{% set tab = 'plugins' %}
+{% extends 'layout.html' %}
+{% block title %}Plugins{% endblock %}
+{% block content %}
+    <div class="frame">
+        <header class="header">
+            <h1>Plugins</h1>
+        </header>
+
+        <div class="search-field">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l5 5"/></svg>
+            <input type="search" id="pluginSearch" placeholder="Suchen" aria-label="Plugins durchsuchen" autocomplete="off">
+        </div>
+
+        {% for name, plugins in groups %}
+        <section class="list-section" data-group>
+            <h2 class="list-header">{{ name }}</h2>
+            <div class="list-group">
+                {% for plugin in plugins %}
+                <a class="list-row" href="{{ url_for('plugin.plugin_page', plugin_id=plugin.id) }}"
+                   data-search="{{ (plugin.display_name ~ ' ' ~ plugin.description|default('') ~ ' ' ~ name)|lower }}">
+                    <img class="list-icon" src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="" onerror="this.style.visibility = 'hidden'">
+                    <span class="list-text">
+                        <span class="list-title">{{ plugin.display_name }}</span>
+                        {% if plugin.description %}<span class="list-subtitle">{{ plugin.description }}</span>{% endif %}
+                    </span>
+                    <span class="list-chevron" aria-hidden="true"></span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+        <p class="list-empty" id="pluginsEmpty" hidden>Kein Plugin gefunden.</p>
+    </div>
+
+    <script>
+        // Suche: blendet nicht passende Zeilen und leere Gruppen aus
+        document.getElementById('pluginSearch').addEventListener('input', function() {
+            const query = this.value.trim().toLowerCase();
+            let visible = 0;
+            document.querySelectorAll('[data-group]').forEach(function(group) {
+                let groupVisible = 0;
+                group.querySelectorAll('.list-row').forEach(function(row) {
+                    const match = !query || row.dataset.search.includes(query);
+                    row.hidden = !match;
+                    if (match) groupVisible++;
+                });
+                group.hidden = groupVisible === 0;
+                visible += groupVisible;
+            });
+            document.getElementById('pluginsEmpty').hidden = visible > 0;
+        });
+    </script>
+{% endblock %}

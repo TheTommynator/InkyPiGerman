@@ -1,17 +1,11 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config.name }}</title>
+{% set tab = 'jetzt' %}
+{% extends 'layout.html' %}
+{% block title %}{{ config.name }}{% endblock %}
+{% block head %}
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ansichten.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/tagesplan.css') }}">
+    <script src="{{ url_for('static', filename='scripts/image_modal.js') }}"></script>
     <script>
-        (function() {
-            const theme = localStorage.getItem('inkypi-theme') || 
-                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            if (theme === 'dark') {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
         let lastModified = null;
         const refreshIntervalMs = 3 * 1000;
 
@@ -83,22 +77,21 @@
                     const remaining = expected - elapsed;
                     fill.style.width = `${Math.min(100, elapsed / expected * 100)}%`;
                     text.textContent = remaining > 0
-                        ? `Display wird aktualisiert … noch ca. ${formatDuration(remaining)}`
-                        : 'Display wird aktualisiert … gleich fertig';
+                        ? `Wird aktualisiert … noch ca. ${formatDuration(remaining)}`
+                        : 'Wird aktualisiert … gleich fertig';
                 } else {
                     fill.style.width = '100%';
-                    text.textContent = `Display wird aktualisiert … seit ${formatDuration(elapsed)}`;
+                    text.textContent = `Wird aktualisiert … seit ${formatDuration(elapsed)}`;
                 }
                 box.hidden = false;
             } else if (displayStatus.error) {
                 bar.hidden = true;
-                text.textContent = `Fehler beim Aktualisieren des Displays: ${displayStatus.error}`;
+                text.textContent = `Fehler beim Aktualisieren: ${displayStatus.error}`;
                 box.hidden = false;
             } else if (displayStatus.seconds_since_update !== null) {
                 bar.hidden = true;
                 const since = displayStatus.seconds_since_update + passed;
-                text.textContent = `Display aktuell – aktualisiert vor ${formatDuration(since)}`
-                    + (expected ? ` (Bildaufbau: ${formatDuration(expected)})` : '');
+                text.textContent = `Aktuell · vor ${formatDuration(since)} aktualisiert`;
                 box.hidden = false;
             } else {
                 box.hidden = true;
@@ -131,42 +124,31 @@
             setInterval(renderDisplayStatus, 1000);
         });
     </script>
-</head>
-<link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='styles/main.css') }}">
-<script src="{{ url_for('static', filename='scripts/image_modal.js') }}"></script>
-<body>
-    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
-    <!-- Subtle frame container -->
+{% endblock %}
+{% block content %}
     <div class="frame">
-        <!-- Page Title -->
         <header class="header">
             <h1>{{ config.name }}</h1>
-            <button class="settings-button dark-mode-toggle" title="Dunkelmodus umschalten" aria-label="Dunkelmodus umschalten"></button>
-            {% if config.zeitplan_beta %}
-            <a href="{{ url_for('ansichten.ansichten_page') }}" class="settings-button">
-                <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Ansichten" alt="Ansichten" class="icon-image">
-            </a>
-            {% else %}
-            <a href="{{ url_for('playlist.playlists') }}" class="settings-button">
-                <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Playlists" alt="Playlist-Symbol" class="icon-image">
-            </a>
-            {% endif %}
-            <a href="{{ url_for('settings.settings_page') }}" class="settings-button">
-                <img src="{{ url_for('static', filename='icons/settings.png') }}" title="Einstellungen" alt="Einstellungen-Symbol" class="icon-image">
-            </a>
         </header>
 
-        <!-- Display the current image -->
-        <div class="image-container">
-            <img src="{{ url_for('static', filename='images/current_image.png') }}" alt="Aktuelles Bild">
-        </div>
-        <div id="displayStatus" class="display-status" role="status" aria-live="polite" hidden>
-            <span class="display-status-text"></span>
-            <div class="display-status-bar" hidden><div class="display-status-fill"></div></div>
+        <!-- Was gerade auf dem Display zu sehen ist -->
+        <section class="now-card" aria-label="Aktuelles Bild">
+            <div class="image-container">
+                <img src="{{ url_for('static', filename='images/current_image.png') }}" alt="Aktuelles Bild auf dem Display"
+                     onload="this.hidden = false; document.getElementById('imageEmpty').hidden = true;"
+                     onerror="this.hidden = true; document.getElementById('imageEmpty').hidden = false;">
+            </div>
+            <div class="image-empty" id="imageEmpty" hidden>Noch kein Bild auf dem Display</div>
+            <div id="displayStatus" class="display-status" role="status" aria-live="polite" hidden>
+                <span class="display-status-dot" aria-hidden="true"></span>
+                <span class="display-status-text"></span>
+                <div class="display-status-bar" hidden><div class="display-status-fill"></div></div>
+            </div>
+        </section>
+        <div class="now-actions">
+            <button type="button" class="action-button" id="showSomething">Etwas anderes zeigen …</button>
         </div>
 
-        {% if zdata %}
-        <!-- Neuer Zeitplan (Beta): Tagesplan -->
         <section class="tp" id="tpRoot" aria-label="Tagesplan">
             <div class="z-group tp-now" id="tpNow" hidden></div>
             <div class="tp-dayhead">
@@ -187,33 +169,28 @@
                 <span>Feste Zeiten am ↕ ziehen zum Verschieben, am unteren Rand für die Dauer. Antippen zum Bearbeiten.</span>
                 <span>
                     <button type="button" class="z-btn" data-tp="add-fixed">+ Feste Zeit</button>
-                    <a href="{{ url_for('ansichten.ansichten_page') }}">Alle Ansichten</a>
                 </span>
             </div>
         </section>
-        {% endif %}
-
-        <!-- Separator -->
-        <div class="separator"></div>
-        <h2 class="plugins-title">Plugins</h2>
-        <div class="button-grid">
-            {% for plugin in plugins %}
-            <a href="{{ url_for('plugin.plugin_page', plugin_id=plugin.id) }}" class="icon-button" title="{{ plugin.display_name }}" >
-                <img src="{{ url_for('plugin.image', plugin_id=plugin.id, filename='icon.png') }}" alt="Symbol für {{ plugin.display_name }}" class="icon-image">
-            </a>
-            {% endfor %}
-        </div>
     </div>
-    {% if zdata %}
+
     <div id="zSheetRoot"></div>
     <div id="zToastRoot"></div>
     {% include 'response_modal.html' %}
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ansichten.css') }}">
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/tagesplan.css') }}">
-    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
     <script id="zData" type="application/json">{{ zdata | tojson }}</script>
     <script src="{{ url_for('static', filename='scripts/ansichten.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/tagesplan.js') }}"></script>
-    {% endif %}
-</body>
-</html>
+    <script>
+        // „Etwas anderes zeigen …“: Ansicht auswählen, danach fragt der Dialog nach der Dauer
+        document.getElementById('showSomething').addEventListener('click', function() {
+            const views = window.Zeitplan.schedule().views;
+            if (!views.length) {
+                window.location.href = "{{ url_for('plugin.plugins_page') }}";
+                return;
+            }
+            window.Zeitplan.actions('Welche Ansicht soll zu sehen sein?', views.map(function(view) {
+                return { label: view.name, run: function() { window.Zeitplan.show(view.id); } };
+            }));
+        });
+    </script>
+{% endblock %}

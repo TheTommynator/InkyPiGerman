@@ -53,6 +53,9 @@ def client(tmp_path, monkeypatch):
     from config import Config
     from blueprints.settings import settings_bp
     from blueprints.zugangsdaten import zugangsdaten_bp
+    from blueprints.main import main_bp
+    from blueprints.ansichten import ansichten_bp
+    from blueprints.plugin import plugin_bp
 
     env = tmp_path / ".env"
     config = Config.__new__(Config)
@@ -63,6 +66,9 @@ def client(tmp_path, monkeypatch):
     app = flask.Flask(__name__, template_folder=str(Path(__file__).resolve().parent.parent / "src" / "templates"))
     app.register_blueprint(settings_bp)
     app.register_blueprint(zugangsdaten_bp)
+    # für die Navigation (Tab-Leiste) im Grundgerüst
+    for bp in (main_bp, ansichten_bp, plugin_bp):
+        app.register_blueprint(bp)
     app.config.update(DEVICE_CONFIG=config)
     return app.test_client(), config, env
 

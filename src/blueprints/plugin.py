@@ -38,6 +38,29 @@ def _delete_plugin_instance_images(device_config, plugin_instance_obj):
 
 # Removed module-level PLUGINS_DIR - will resolve dynamically in route handlers
 
+# Reihenfolge der Gruppen auf der Seite „Plugins“; unbekannte Gruppen landen unter „Weitere“
+PLUGIN_CATEGORIES = ["Kalender & Zeit", "Wetter & Nachrichten", "Bilder", "KI", "Werkzeuge"]
+OTHER_CATEGORY = "Weitere"
+
+
+def group_plugins(plugins):
+    """Teilt die Plugins in Gruppen auf: [(Gruppe, [Plugins …]), …], innerhalb einer Gruppe nach Name sortiert."""
+    groups = {}
+    for plugin in plugins:
+        category = plugin.get("category")
+        if category not in PLUGIN_CATEGORIES:
+            category = OTHER_CATEGORY
+        groups.setdefault(category, []).append(plugin)
+    order = PLUGIN_CATEGORIES + [OTHER_CATEGORY]
+    return [(name, sorted(groups[name], key=lambda p: p.get("display_name", p["id"]).lower()))
+            for name in order if name in groups]
+
+
+@plugin_bp.route('/plugins')
+def plugins_page():
+    device_config = current_app.config['DEVICE_CONFIG']
+    return render_template('plugins.html', groups=group_plugins(device_config.get_plugins()))
+
 @plugin_bp.route('/plugin/<plugin_id>')
 def plugin_page(plugin_id):
     device_config = current_app.config['DEVICE_CONFIG']
@@ -52,13 +75,10 @@ def plugin_page(plugin_id):
 
             # retrieve plugin instance from the query parameters if updating existing plugin instance
             plugin_instance_name = request.args.get('instance')
-            schedule_active = device_config.is_schedule_active()
-            template_params["schedule_active"] = schedule_active
-            if schedule_active:
-                quiet = device_config.get_schedule().quiet
-                template_params["morning_time"] = quiet.end if quiet.enabled else "06:00"
+            quiet = device_config.get_schedule().quiet
+            template_params["morning_time"] = quiet.end if quiet.enabled else "06:00"
             view_id = request.args.get('ansicht')
-            if view_id and schedule_active:
+            if view_id:
                 # Einstellungen einer Ansicht aus dem neuen Zeitplan bearbeiten
                 view = device_config.get_schedule().get_view(view_id)
                 if not view or view.plugin_id != plugin_id:
@@ -75,7 +95,6 @@ def plugin_page(plugin_id):
                 template_params["plugin_settings"] = plugin_instance.settings
                 template_params["plugin_instance"] = plugin_instance_name
 
-            template_params["playlists"] = playlist_manager.get_playlist_names()
             api_key = template_params.get("api_key")
             if api_key and api_key.get("expected_key"):
                 template_params["api_key_gesetzt"] = bool(device_config.load_env_key(api_key["expected_key"]))

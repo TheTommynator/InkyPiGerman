@@ -1,5 +1,7 @@
 {
   "display_name": "Jahresfortschritt",
   "id": "year_progress",
-  "class": "YearProgress"
+  "class": "YearProgress",
+  "category": "Kalender & Zeit",
+  "description": "Wie viel vom Jahr schon vorbei ist"
 }

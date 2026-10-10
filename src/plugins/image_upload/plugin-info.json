@@ -1,5 +1,7 @@
 {
     "display_name": "Bild-Upload",
     "id": "image_upload",
-    "class": "ImageUpload"
+    "class": "ImageUpload",
+    "category": "Bilder",
+    "description": "Eigene Bilder hochladen und zeigen"
 }

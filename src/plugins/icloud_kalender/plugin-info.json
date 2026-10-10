@@ -2,5 +2,7 @@
     "display_name": "iCloud-Kalender",
     "id": "icloud_kalender",
     "class": "ICloudKalender",
-    "image_settings": ["skip-enhancement"]
+    "image_settings": ["skip-enhancement"],
+    "category": "Kalender & Zeit",
+    "description": "Termine aus deinen iCloud-Kalendern"
 }

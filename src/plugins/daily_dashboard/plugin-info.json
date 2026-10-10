@@ -1,5 +1,7 @@
 {
     "display_name": "Tagesdashboard",
     "id": "daily_dashboard",
-    "class": "DailyDashboard"
+    "class": "DailyDashboard",
+    "category": "Kalender & Zeit",
+    "description": "Datum, Wetter und Nachrichten auf einen Blick"
 }

@@ -205,7 +205,6 @@
   function notify() { listeners.forEach((cb) => { try { cb(schedule); } catch (e) { console.error(e); } }); }
 
   function render() {
-    if (!DATA.active) return;
     notify();
     if (!document.getElementById("zLists")) return;
     const rot = schedule.views.filter((v) => v.rotation);
@@ -436,10 +435,6 @@
   }
 
   const A = {
-    "beta-on": async () => {
-      try { await api("POST", URLS.beta, { enabled: true }); location.reload(); }
-      catch (e) { showResponseModal("failure", e.message); }
-    },
     "add-view": () => { sheet = { mode: "gallery" }; renderSheet(); },
     "open-view": (el) => openView(el.dataset.v),
     close: () => { sheet = null; renderSheet(); },
@@ -648,6 +643,7 @@
     openFixed,
     pickViewForFixed: (start) => { sheet = { mode: "pickview", start }; renderSheet(); },
     actions: (title, items) => { sheet = { mode: "actions", title, items }; renderSheet(); },
+    show: (viewId) => { sheet = { mode: "show", viewId }; renderSheet(); },
     findConflict: (fixed, world) => findConflict(fixed, world || schedule),
     save: async (world, message) => { await saveWorld(world); render(); if (message) toast(message); },
     endOverride: () => A["override-end"](),

@@ -1,5 +1,7 @@
 {
     "display_name": "Uhr",
     "id": "clock",
-    "class": "Clock"
+    "class": "Clock",
+    "category": "Kalender & Zeit",
+    "description": "Uhrzeit als analoge oder digitale Uhr"
 }

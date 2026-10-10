@@ -1,5 +1,7 @@
 {
   "display_name": "Countdown",
   "id": "countdown",
-  "class": "Countdown"
+  "class": "Countdown",
+  "category": "Kalender & Zeit",
+  "description": "Tage bis zu einem wichtigen Datum"
 }

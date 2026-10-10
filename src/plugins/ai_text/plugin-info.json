@@ -1,5 +1,7 @@
 {
     "display_name": "KI-Text",
     "id": "ai_text",
-    "class": "AIText"
+    "class": "AIText",
+    "category": "KI",
+    "description": "Ein kurzer Text, den eine KI schreibt"
 }

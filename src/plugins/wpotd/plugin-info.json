@@ -1,5 +1,7 @@
 {
   "display_name": "Wikipedia: Bild des Tages",
   "id": "wpotd",
-  "class": "Wpotd"
+  "class": "Wpotd",
+  "category": "Bilder",
+  "description": "Das Bild des Tages der Wikipedia"
 }
