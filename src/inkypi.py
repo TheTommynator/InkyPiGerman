@@ -77,6 +77,16 @@ app.config['REFRESH_TASK'] = refresh_task
 # Set additional parameters
 app.config['MAX_FORM_PARTS'] = 10_000
 
+@app.url_defaults
+def static_version(endpoint, values):
+    """Hängt an statische Dateien ihren Änderungszeitpunkt an (?v=…), damit der
+    Browser nach einem Update nicht mit alten Stylesheets oder Skripten weitermacht."""
+    if endpoint == 'static' and 'filename' in values and 'v' not in values:
+        try:
+            values['v'] = int(os.stat(os.path.join(app.static_folder, values['filename'])).st_mtime)
+        except OSError:
+            pass
+
 # Register Blueprints
 app.register_blueprint(main_bp)
 app.register_blueprint(settings_bp)
