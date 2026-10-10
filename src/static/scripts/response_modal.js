@@ -64,3 +64,40 @@ async function saveNow(url, data) {
         return false;
     }
 }
+
+// Rückfrage als Aktionsblatt von unten (statt confirm()). Liefert ein Promise mit true/false.
+function confirmSheet(message, actionLabel, destructive) {
+    return new Promise(resolve => {
+        const scrim = document.createElement('div');
+        scrim.className = 'action-sheet-scrim';
+        scrim.innerHTML = `
+            <div class="action-sheet" role="dialog" aria-modal="true">
+                <div class="action-sheet-group">
+                    <p class="action-sheet-message"></p>
+                    <button type="button" class="action-sheet-button${destructive ? ' destructive' : ''}" data-answer="yes"></button>
+                </div>
+                <div class="action-sheet-group">
+                    <button type="button" class="action-sheet-button cancel" data-answer="no">Abbrechen</button>
+                </div>
+            </div>`;
+        scrim.querySelector('.action-sheet-message').textContent = message;
+        scrim.querySelector('[data-answer="yes"]').textContent = actionLabel;
+
+        function close(answer) {
+            document.removeEventListener('keydown', onKey);
+            scrim.remove();
+            resolve(answer);
+        }
+        function onKey(e) {
+            if (e.key === 'Escape') close(false);
+        }
+        scrim.addEventListener('click', e => {
+            if (e.target === scrim) close(false);
+            const button = e.target.closest('[data-answer]');
+            if (button) close(button.dataset.answer === 'yes');
+        });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(scrim);
+        scrim.querySelector('[data-answer="yes"]').focus();
+    });
+}

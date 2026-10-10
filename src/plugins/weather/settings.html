@@ -2,16 +2,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <div class="form-group">
-    <label class="form-label">Standort</label>
-    <div class="form-group">
-        <span>Breitengrad </span>
-        <input readonly type="text" id="latitude" name="latitude" class="form-input" />
-    </div>
-    <div class="form-group">
-        <span>Längengrad </span>
-        <input readonly type="text" id="longitude" name="longitude" class="form-input" />
-    </div>
-    <button type="button" id="openMap" class="action-button compact">Standort auswählen</button>
+    <label class="form-label" for="openMap">Standort</label>
+    <span class="location-text" id="locationText">Nicht gewählt</span>
+    <button type="button" id="openMap" class="header-button">Auf Karte wählen</button>
+    <!-- Die Koordinaten werden mitgesendet, aber nur als Text oben angezeigt -->
+    <input readonly hidden type="text" id="latitude" name="latitude" />
+    <input readonly hidden type="text" id="longitude" name="longitude" />
 </div>
 
 <div class="form-group">
@@ -152,16 +148,24 @@
         const $mapModal = document.querySelector('#mapModal');
         const $closeMap = document.querySelector('#closeMap');
 
-        let latitude = +$latitude.value;
-        let longitude = +$longitude.value;
-        let zoom = latitude && longitude ? 4.5 : 2.5;
         let selectedTitle = 'location';
         let weatherProvider = 'OpenMeteo';
 
         let map, marker;
 
+        function showLocation() {
+            const lat = parseFloat($latitude.value), lon = parseFloat($longitude.value);
+            document.getElementById('locationText').textContent = isNaN(lat) || isNaN(lon)
+                ? 'Nicht gewählt'
+                : `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+        }
+
         $openMap.addEventListener('click', () => {
             openModal('mapModal')
+            // erst beim Öffnen lesen, damit gespeicherte Koordinaten schon eingetragen sind
+            const latitude = +$latitude.value;
+            const longitude = +$longitude.value;
+            const zoom = latitude && longitude ? 8 : 2.5;
             setTimeout(() => {
                 if (!map) {
                     map = L.map('map').setView([latitude, longitude], zoom);
@@ -179,12 +183,14 @@
             const position = marker.getLatLng().wrap();
             $latitude.value = position.lat;
             $longitude.value = position.lng;
+            showLocation();
             closeModal('mapModal');
         });
 
         if (loadPluginSettings) {
             document.getElementById('latitude').value = pluginSettings.latitude;
             document.getElementById('longitude').value = pluginSettings.longitude;
+            showLocation();
 
             document.getElementById('units').value = pluginSettings.units;
 

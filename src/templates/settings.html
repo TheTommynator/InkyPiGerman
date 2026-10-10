@@ -63,8 +63,8 @@
                 <a class="list-row" href="{{ url_for('settings.download_logs', hours=24) }}" download>
                     <span class="list-text"><span class="list-title">Protokolle herunterladen</span><span class="list-subtitle">Die letzten 24 Stunden</span></span>
                 </a>
-                <button type="button" class="list-row list-action" data-confirm="Wirklich neu starten? Nochmal tippen" onclick="confirmShutdown(this, true)">Neu starten</button>
-                <button type="button" class="list-row list-action list-danger" data-confirm="Wirklich herunterfahren? Nochmal tippen" onclick="confirmShutdown(this, false)">Herunterfahren</button>
+                <button type="button" class="list-row list-action" onclick="confirmShutdown(true)">Neu starten</button>
+                <button type="button" class="list-row list-action list-danger" onclick="confirmShutdown(false)">Herunterfahren</button>
             </div>
             <p class="list-footer">Nach dem Herunterfahren musst du das Gerät von Hand wieder einschalten.</p>
         </section>
@@ -121,19 +121,11 @@
             });
         }
 
-        // Erst beim zweiten Tippen ausführen, die Rückfrage steht im Button selbst
-        function confirmShutdown(button, reboot) {
-            if (!button.dataset.armed) {
-                button.dataset.armed = '1';
-                button.dataset.label = button.textContent;
-                button.textContent = button.dataset.confirm;
-                setTimeout(function() {
-                    delete button.dataset.armed;
-                    button.textContent = button.dataset.label;
-                }, 4000);
-                return;
-            }
-            handleShutdown(reboot);
+        async function confirmShutdown(reboot) {
+            const confirmed = reboot
+                ? await confirmSheet('InkyPi ist während des Neustarts etwa eine Minute nicht erreichbar.', 'Neu starten', false)
+                : await confirmSheet('Danach musst du das Gerät von Hand wieder einschalten.', 'Herunterfahren', true);
+            if (confirmed) handleShutdown(reboot);
         }
     </script>
 {% endblock %}

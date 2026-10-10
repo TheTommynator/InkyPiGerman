@@ -95,7 +95,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Bei der Verarbeitung deiner Anfrage ist ein Fehler aufgetreten.');
+                showResponseModal('failure', 'Keine Verbindung zu InkyPi. Prüfe, ob das Gerät eingeschaltet und im WLAN ist.');
             } finally {
                 // Hide loading indicator after the action is complete
                 loadingIndicator.style.display = 'none';
