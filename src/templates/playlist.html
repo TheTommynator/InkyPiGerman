@@ -339,6 +339,13 @@
         </div>
         <div class="separator"></div>
 
+        {% if schedule_active %}
+        <div style="margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--accent-primary); border-radius: 10px; background: var(--bg-secondary);">
+            Der neue Zeitplan ist eingeschaltet, das Display folgt den <a href="{{ url_for('ansichten.ansichten_page') }}">Ansichten</a>.
+            Änderungen an den Playlists wirken erst wieder, wenn du den neuen Zeitplan in den Einstellungen ausschaltest.
+        </div>
+        {% endif %}
+
         <!-- Playlists Container -->
         <div class="playlist-list">
             {% for playlist in playlist_config.playlists %}

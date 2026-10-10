@@ -8,9 +8,14 @@ from datetime import datetime, timezone
 from plugins.plugin_registry import get_plugin_instance
 from utils.image_utils import compute_image_hash
 from model import RefreshInfo, PlaylistManager
+from zeitplaner import current_segment, needs_refresh, next_wakeup, retry_at
 from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+# Grenzen für das Warten im Zeitplan-Betrieb (Sekunden)
+MIN_SCHEDULE_SLEEP = 1
+MAX_SCHEDULE_SLEEP = 60 * 60
 
 class RefreshTask:
     """Handles the logic for refreshing the display using a backgroud thread."""
@@ -24,6 +29,8 @@ class RefreshTask:
         self.condition = threading.Condition(self.lock)
         self.running = False
         self.manual_update_request = None
+        # Fehlgeschlagene Ansicht im Zeitplan: (Ansicht-ID, Abschnittsbeginn, nächster Versuch)
+        self.schedule_failure = None
 
     def start(self):
         """Starts the background thread for refreshing the display."""
@@ -69,9 +76,10 @@ class RefreshTask:
         while True:
             request = None
             pending_display = None
+            refresh_action = None
             try:
                 with self.condition:
-                    sleep_time = self.device_config.get_config("plugin_cycle_interval_seconds", default=60*60)
+                    sleep_time = self._sleep_seconds()
 
                     # Wait for sleep_time or until notified (a request may already be waiting
                     # if it arrived while the display was busy)
@@ -98,11 +106,14 @@ class RefreshTask:
                         if self.device_config.get_config("log_system_stats"):
                             self.log_system_stats()
 
-                        # handle refresh based on playlists
-                        logger.info(f"Running interval refresh check. | current_time: {current_dt.strftime('%Y-%m-%d %H:%M:%S')}")
-                        playlist, plugin_instance = self._determine_next_plugin(playlist_manager, latest_refresh, current_dt)
-                        if plugin_instance:
-                            refresh_action = PlaylistRefresh(playlist, plugin_instance)
+                        if self.device_config.is_schedule_active():
+                            refresh_action = self._determine_view_refresh(current_dt)
+                        else:
+                            # handle refresh based on playlists
+                            logger.info(f"Running interval refresh check. | current_time: {current_dt.strftime('%Y-%m-%d %H:%M:%S')}")
+                            playlist, plugin_instance = self._determine_next_plugin(playlist_manager, latest_refresh, current_dt)
+                            if plugin_instance:
+                                refresh_action = PlaylistRefresh(playlist, plugin_instance)
 
                     if refresh_action:
                         plugin_config = self.device_config.get_plugin(refresh_action.get_plugin_id())
@@ -110,6 +121,8 @@ class RefreshTask:
                             raise ValueError(f"Plugin '{refresh_action.get_plugin_id()}' nicht gefunden")
                         plugin = get_plugin_instance(plugin_config)
                         image = refresh_action.execute(plugin, self.device_config, current_dt)
+                        if isinstance(refresh_action, ViewRefresh):
+                            self.schedule_failure = None
                         image_hash = compute_image_hash(image)
 
                         refresh_info = refresh_action.get_refresh_info()
@@ -129,6 +142,8 @@ class RefreshTask:
                 logger.exception('Exception during refresh')
                 if request:
                     request.exception = e
+                elif isinstance(refresh_action, ViewRefresh):
+                    self._remember_failure(refresh_action)
                 continue
             finally:
                 # The image is ready: a waiting web request can return now, the
@@ -180,6 +195,59 @@ class RefreshTask:
         """Retrieves the current datetime based on the device's configured timezone."""
         tz_str = self.device_config.get_config("timezone", default="UTC")
         return datetime.now(pytz.timezone(tz_str))
+
+    def _sleep_seconds(self):
+        """Wie lange bis zur nächsten Prüfung gewartet wird.
+
+        Mit Playlists: das Plugin-Wechselintervall. Mit dem Zeitplan: bis zum nächsten
+        Abschnittswechsel oder zur nächsten Datenaktualisierung der angezeigten Ansicht.
+        """
+        if not self.device_config.is_schedule_active():
+            return self.device_config.get_config("plugin_cycle_interval_seconds", default=60*60)
+        try:
+            now = self._get_current_datetime().replace(tzinfo=None)
+            schedule = self.device_config.get_schedule()
+            wakeup = next_wakeup(schedule, now)
+            failure = self._current_failure(schedule, now)
+            if failure:
+                segment, retry = failure
+                wakeup = retry or segment.end
+            seconds = (wakeup - now).total_seconds() + 1
+        except Exception:
+            logger.exception("Zeitplan: nächster Zeitpunkt konnte nicht berechnet werden")
+            seconds = 60
+        return min(MAX_SCHEDULE_SLEEP, max(MIN_SCHEDULE_SLEEP, seconds))
+
+    def _current_failure(self, schedule, now):
+        """(Abschnitt, nächster Versuch), wenn die Ansicht im aktuellen Abschnitt fehlgeschlagen ist."""
+        if not self.schedule_failure:
+            return None
+        view_id, segment_start, retry = self.schedule_failure
+        segment = current_segment(schedule, now)
+        if segment.view and segment.view.id == view_id and segment.start == segment_start:
+            return segment, retry
+        self.schedule_failure = None
+        return None
+
+    def _remember_failure(self, action):
+        """Fehler beim Erzeugen: das letzte Bild bleibt stehen, später neuer Versuch."""
+        retry = retry_at(action.now, action.segment)
+        self.schedule_failure = (action.view.id, action.segment.start, retry)
+        when = retry.strftime('%H:%M') if retry else "beim nächsten Abschnitt"
+        logger.warning(f"Zeitplan: Ansicht '{action.view.name}' fehlgeschlagen, das letzte Bild bleibt. Neuer Versuch: {when}")
+
+    def _determine_view_refresh(self, current_dt):
+        """Bestimmt anhand des Zeitplans, welche Ansicht jetzt angezeigt wird."""
+        now = current_dt.replace(tzinfo=None)
+        schedule = self.device_config.get_schedule()
+        segment = current_segment(schedule, now)
+        logger.info(f"Zeitplan: {segment} | current_time: {now:%Y-%m-%d %H:%M:%S}")
+        if segment.view is None:
+            return None
+        failure = self._current_failure(schedule, now)
+        if failure and (failure[1] is None or now < failure[1]):
+            return None
+        return ViewRefresh(segment.view, segment, now)
 
     def _determine_next_plugin(self, playlist_manager, latest_refresh_info, current_dt):
         """Determines the next plugin to refresh based on the active playlist, plugin cycle interval, and current time."""
@@ -315,4 +383,49 @@ class PlaylistRefresh(RefreshAction):
             with Image.open(plugin_image_path) as img:
                 image = img.copy()
 
+        return image
+
+
+class ViewRefresh(RefreshAction):
+    """Zeigt eine Ansicht aus dem Zeitplan an und holt bei Bedarf neue Daten.
+
+    Attributes:
+        view: Die Ansicht (zeitplan.View).
+        segment: Der Abschnitt des Tagesplans, in dem sie läuft (None bei „Jetzt anzeigen“).
+        now: Zeitpunkt der Entscheidung (naive Ortszeit).
+        force: Daten in jedem Fall neu holen.
+    """
+
+    def __init__(self, view, segment=None, now=None, force=False):
+        self.view = view
+        self.segment = segment
+        self.now = now
+        self.force = force
+
+    def get_refresh_info(self):
+        return {
+            "refresh_type": "Ansicht",
+            "plugin_id": self.view.plugin_id,
+            "plugin_instance": self.view.name,
+        }
+
+    def get_plugin_id(self):
+        return self.view.plugin_id
+
+    def execute(self, plugin, device_config, current_dt: datetime):
+        image_path = os.path.join(device_config.plugin_image_dir, self.view.get_image_path())
+        now = current_dt.replace(tzinfo=None)
+        due = (self.force or self.segment is None or not os.path.exists(image_path)
+               or needs_refresh(self.view, now, self.segment))
+        if due:
+            logger.info(f"Ansicht holt neue Daten. | view: '{self.view.name}'")
+            image = plugin.generate_image(self.view.settings, device_config)
+            if image is None:
+                raise RuntimeError(f"Das Plugin hat für „{self.view.name}“ kein Bild geliefert")
+            image.save(image_path)
+            self.view.latest_refresh_time = current_dt.isoformat()
+        else:
+            logger.info(f"Ansicht nutzt vorhandenes Bild. | view: '{self.view.name}'")
+            with Image.open(image_path) as img:
+                image = img.copy()
         return image

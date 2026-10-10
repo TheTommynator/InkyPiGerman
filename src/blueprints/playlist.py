@@ -76,7 +76,8 @@ def playlists():
     return render_template(
         'playlist.html',
         playlist_config=playlist_manager.to_dict(),
-        refresh_info=refresh_info.to_dict()
+        refresh_info=refresh_info.to_dict(),
+        schedule_active=device_config.is_schedule_active()
     )
 
 @playlist_bp.route('/create_playlist', methods=['POST'])

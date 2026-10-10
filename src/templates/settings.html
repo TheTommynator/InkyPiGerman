@@ -178,7 +178,7 @@
                 <div class="form-group">
                     <div class="form-group">
                         <label for="interval">Plugin-Wechselintervall:</label>
-                        <span title="Legt fest, wie oft das Display zum nächsten Plugin wechselt.">ⓘ</span>
+                        <span title="Legt fest, wie oft das Display zum nächsten Plugin wechselt. Gilt nur für Playlists – im neuen Zeitplan hat jede Ansicht ihre eigene Anzeigedauer.">ⓘ</span>
                         <span>Alle</span>
                         <input type="number" id="interval" name="interval" class="form-input" required min="1">
                         <select id="unit" name="unit" class="form-input" required>
@@ -268,6 +268,42 @@
         <div class="buttons-container">
             <button type="button" onclick="handleAction()" class="action-button">Speichern</button>
         </div>
+
+        <!-- Neuer Zeitplan (Beta) -->
+        <div class="separator"></div>
+        <div class="updates-section">
+            <h2 class="updates-title">Neuer Zeitplan (Beta)</h2>
+            <div class="updates-row">
+                <label class="form-label" for="scheduleBetaToggle">Ansichten statt Playlists</label>
+                <div class="toggle-container">
+                    <input type="checkbox" id="scheduleBetaToggle" class="toggle-checkbox" onchange="setScheduleBeta(this)" {% if device_settings.zeitplan_beta %}checked{% endif %}>
+                    <label for="scheduleBetaToggle" class="toggle-label"></label>
+                </div>
+                <a id="scheduleBetaLink" href="{{ url_for('ansichten.ansichten_page') }}" {% if not device_settings.zeitplan_beta %}hidden{% endif %}>Zu den Ansichten →</a>
+            </div>
+            <p class="updates-muted" style="margin-top: 8px;">Jede Ansicht hat ihre eigene Anzeigedauer, feste Zeiten und eine Ruhezeit. Beim ersten Einschalten werden deine Playlists übernommen. Die Playlists bleiben erhalten: Schaltest du wieder aus, gilt alles wie vorher. Änderungen im neuen Zeitplan landen aber nicht in den Playlists.</p>
+        </div>
+        <script>
+            async function setScheduleBeta(toggle) {
+                toggle.disabled = true;
+                try {
+                    const response = await fetch("{{ url_for('ansichten.set_beta') }}", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ enabled: toggle.checked }),
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+                    document.getElementById("scheduleBetaLink").hidden = !toggle.checked;
+                    showResponseModal("success", result.message);
+                } catch (e) {
+                    toggle.checked = !toggle.checked;
+                    showResponseModal("failure", `Fehler: ${e.message}`);
+                } finally {
+                    toggle.disabled = false;
+                }
+            }
+        </script>
 
         <!-- Updates (scripts/deploy.sh) -->
         <div class="separator"></div>

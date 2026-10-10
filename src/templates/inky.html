@@ -142,9 +142,15 @@
         <header class="header">
             <h1>{{ config.name }}</h1>
             <button class="settings-button dark-mode-toggle" title="Dunkelmodus umschalten" aria-label="Dunkelmodus umschalten"></button>
+            {% if config.zeitplan_beta %}
+            <a href="{{ url_for('ansichten.ansichten_page') }}" class="settings-button">
+                <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Ansichten" alt="Ansichten" class="icon-image">
+            </a>
+            {% else %}
             <a href="{{ url_for('playlist.playlists') }}" class="settings-button">
                 <img src="{{ url_for('static', filename='icons/playlist.png') }}" title="Playlists" alt="Playlist-Symbol" class="icon-image">
             </a>
+            {% endif %}
             <a href="{{ url_for('settings.settings_page') }}" class="settings-button">
                 <img src="{{ url_for('static', filename='icons/settings.png') }}" title="Einstellungen" alt="Einstellungen-Symbol" class="icon-image">
             </a>

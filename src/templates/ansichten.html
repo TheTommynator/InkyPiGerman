@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ansichten</title>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('inkypi-theme') ||
+                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/ansichten.css') }}">
+    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+</head>
+<body>
+    <div class="frame">
+        <a href="{{ url_for('main.main_page') }}" class="back-button" style="text-decoration: none;">← Startseite</a>
+        <div class="app-header">
+            <div class="header-content">
+                <div class="title-container">
+                    <img src="{{ url_for('static', filename='icons/playlist.png') }}" alt="" class="app-icon">
+                    <h1 class="app-title">Ansichten</h1>
+                </div>
+                {% if active %}
+                <div>
+                    <button type="button" class="header-button" style="background-color: var(--accent-primary); color: #fff;" data-a="add-view">+ Ansicht</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="separator"></div>
+
+        <div class="z-page" id="zPage">
+            {% if not active %}
+            <div class="z-group">
+                <div class="z-intro">
+                    <strong>Neuer Zeitplan (Beta)</strong>
+                    <p>Statt Playlists gibt es Ansichten. Jede Ansicht bestimmt selbst, wann sie zu sehen ist:</p>
+                    <ul>
+                        <li><strong>Rotation</strong> mit eigener Anzeigedauer, auf Wunsch nur zu bestimmten Zeiten oder an bestimmten Tagen</li>
+                        <li><strong>Feste Zeiten</strong> wie ein Wecker, z. B. Mo–Fr 06:30–07:30, die sich nicht überschneiden können</li>
+                        <li><strong>Ruhezeit</strong>, in der das Display nicht aktualisiert wird</li>
+                    </ul>
+                    <p>Beim Einschalten werden deine Playlists als Ansichten übernommen. Die Playlists selbst bleiben erhalten: Schaltest du den neuen Zeitplan wieder aus, gilt alles wie vorher. Änderungen, die du im neuen Zeitplan machst, landen aber nicht in den Playlists.</p>
+                    <div><button type="button" class="z-btn z-primary" data-a="beta-on">Neuen Zeitplan einschalten</button></div>
+                </div>
+            </div>
+            {% else %}
+            <p class="z-lead" id="zLead"></p>
+            <div id="zBanner"></div>
+            <div id="zLists"></div>
+            <div id="zSettings"></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="zSheetRoot"></div>
+    <div id="zToastRoot"></div>
+
+    {% include 'response_modal.html' %}
+
+    <script id="zData" type="application/json">{{ {
+        "active": active,
+        "schedule": schedule,
+        "plugins": plugins,
+        "openView": open_view,
+        "urls": {
+            "beta": url_for('ansichten.set_beta'),
+            "schedule": url_for('ansichten.update_schedule'),
+            "override": url_for('ansichten.end_override'),
+            "view": "/api/ansicht/",
+            "plugin": "/plugin/"
+        }
+    } | tojson }}</script>
+    <script src="{{ url_for('static', filename='scripts/ansichten.js') }}"></script>
+</body>
+</html>
