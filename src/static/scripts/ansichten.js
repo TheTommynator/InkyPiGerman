@@ -141,7 +141,8 @@
     const o = conf.f, V = conf.v, name = "„" + V.name + "“";
     const opts = [];
     const ca = tm(c.start), cb = endMin(c), oa = tm(o.start), ob = endMin(o);
-    const otherDays = !o.date && o.days.length > 1 ? " (gilt für " + daysSummary(o.days) + ")" : "";
+    const scope = !o.date ? daysSummary(o.days) : "";
+    const otherDays = !o.date && o.days.length > 1 ? " (gilt für " + (scope === "Täglich" ? "jeden Tag" : scope) + ")" : "";
     if (ca < cb && oa < ob) {
       const len = cb - ca;
       for (const na of [ob, oa - len]) {
@@ -200,8 +201,13 @@
       '<span class="z-chev">›</span></button></div>';
   }
 
+  const listeners = [];
+  function notify() { listeners.forEach((cb) => { try { cb(schedule); } catch (e) { console.error(e); } }); }
+
   function render() {
     if (!DATA.active) return;
+    notify();
+    if (!document.getElementById("zLists")) return;
     const rot = schedule.views.filter((v) => v.rotation);
     const fix = schedule.views.filter((v) => !v.rotation && v.fixed_times.length);
     const none = schedule.views.filter((v) => !v.rotation && !v.fixed_times.length);
@@ -251,7 +257,7 @@
     const old = root.querySelector(".z-sheet");
     const top = keepScroll && old ? old.scrollTop : 0;
     if (!sheet) { root.innerHTML = ""; document.body.style.overflow = ""; return; }
-    const body = { gallery: galleryHtml, view: viewHtml, fixed: fixedHtml, show: showHtml }[sheet.mode]();
+    const body = { gallery: galleryHtml, view: viewHtml, fixed: fixedHtml, show: showHtml, pickview: pickViewHtml, actions: actionsHtml }[sheet.mode]();
     root.innerHTML = '<div class="z-scrim" data-a="scrim"><div class="z-sheet" role="dialog" aria-modal="true">' + body + "</div></div>";
     document.body.style.overflow = "hidden";
     const s = root.querySelector(".z-sheet");
@@ -333,9 +339,26 @@
     return h;
   }
 
+  function pickViewHtml() {
+    return head(["close", "Abbrechen"], "Feste Zeit ab " + hm(sheet.start)) +
+      '<p class="z-gfoot" style="margin:0 4px 12px">Welche Ansicht soll dann zu sehen sein?</p>' +
+      '<div class="z-group">' + schedule.views.map((v) => '<button type="button" class="z-row" data-a="pick-for-fixed" data-v="' + esc(v.id) + '">' + thumb(v) +
+        '<span class="z-grow"><span class="z-title">' + esc(v.name) + '</span><span class="z-meta">' + esc(viewSummary(v)) + "</span></span></button>").join("") +
+      '</div><div class="z-group" style="margin-top:12px"><button type="button" class="z-row z-link" data-a="add-view">Neue Ansicht anlegen …</button></div>';
+  }
+
+  function actionsHtml() {
+    return '<div class="z-action-title">' + esc(sheet.title) + "</div>" +
+      '<div class="z-group z-action">' + sheet.items.map((it, i) => '<button type="button" class="z-row" data-a="act" data-v="' + i + '">' + esc(it.label) + "</button>").join("") + "</div>" +
+      '<div class="z-group z-action" style="margin-top:10px"><button type="button" class="z-row" data-a="close" style="font-weight:600">Abbrechen</button></div>';
+  }
+
   function fixedHtml() {
     const f = sheet.fixed;
-    let h = head(["fixed-cancel", "Zurück"], sheet.fixedIsNew ? "Feste Zeit" : "Feste Zeit bearbeiten", ["fixed-save", sheet.fixedIsNew ? "Hinzufügen" : "Übernehmen"]);
+    let h = sheet.direct
+      ? head(["close", "Abbrechen"], sheet.draft.name, ["fixed-save", sheet.fixedIsNew ? "Hinzufügen" : "Fertig"])
+      : head(["fixed-cancel", "Zurück"], sheet.fixedIsNew ? "Feste Zeit" : "Feste Zeit bearbeiten", ["fixed-save", sheet.fixedIsNew ? "Hinzufügen" : "Übernehmen"]);
+    if (sheet.direct) h += '<div class="z-hero"><img alt="" src="' + esc(plugin(sheet.draft.plugin_id).icon) + '"><span>Feste Zeit</span></div>';
     if (sheet.conflict) {
       const c = sheet.conflict;
       h += '<div class="z-notice z-warn"><strong>Überschneidet sich mit „' + esc(c.conf.v.name) + "“</strong> (" + esc(fixedSummary(c.conf.f)) + "). Wie soll es weitergehen?" +
@@ -351,6 +374,7 @@
     if (f.mode === "weekly" && f.except_dates.length) {
       h += '<div class="z-ghead">Ausgesetzt</div><div class="z-group">' + f.except_dates.map((k, i) => '<div class="z-row"><span class="z-grow">' + esc(shortDate(k)) + '</span><button type="button" class="z-btn" data-a="fx-unexcept" data-v="' + i + '">Wieder aufnehmen</button></div>').join("") + "</div>";
     }
+    if (sheet.direct) h += touchedNote() + '<div class="z-group" style="margin-top:24px"><button type="button" class="z-row z-link" data-a="to-view">„' + esc(sheet.draft.name) + '“ bearbeiten …</button></div>';
     if (!sheet.fixedIsNew) h += '<div class="z-group" style="margin-top:24px"><button type="button" class="z-row z-danger" data-a="fixed-delete">Feste Zeit entfernen</button></div>';
     return h;
   }
@@ -380,6 +404,30 @@
     renderSheet();
     const s = document.querySelector(".z-sheet");
     if (s) { s.style.animation = "none"; s.scrollTop = sheet.viewScroll || 0; }
+  }
+
+  // Feste Zeit direkt (von der Startseite): sofort sichern statt zurück in den Bearbeiten-Dialog
+  async function commitDirect(message) {
+    busy = true; renderSheet(true);
+    try {
+      await saveWorld(sheet.world);
+      const names = [...sheet.touched];
+      sheet = null; busy = false; renderSheet(); render();
+      toast(message + (names.length ? " · " + names.map((n) => "„" + n + "“").join(", ") + " angepasst" : ""));
+    } catch (e) { busy = false; fail(e.message); }
+  }
+
+  // check: sofort prüfen (z. B. nach dem Ziehen im Tagesplan), damit Überschneidungen gleich mit Vorschlägen erscheinen
+  function openFixed(viewId, fixed, start, check) {
+    const world = clone(schedule);
+    const draft = world.views.find((v) => v.id === viewId);
+    if (!draft) return;
+    const isNew = !fixed || !draft.fixed_times.some((f) => f.id === fixed.id);
+    const today = new Date();
+    const draftFixed = fixed ? toDraft(fixed)
+      : { id: uid("f"), start: hmS(start), end: hmS(Math.min(start + 60, 1440)), mode: "weekly", days: [wdOf(today)], date: dkey(today), except_dates: [] };
+    sheet = { mode: "fixed", direct: true, world, draft, fixed: draftFixed, fixedIsNew: isNew, touched: new Set() };
+    if (check) A["fixed-save"](); else renderSheet();
   }
 
   async function quickSave(world, message) {
@@ -434,6 +482,9 @@
       renderSheet();
     },
     "fixed-cancel": () => backToView(),
+    "to-view": () => { Object.assign(sheet, { mode: "view", direct: false, fixed: null, conflict: null, error: null }); renderSheet(); },
+    "pick-for-fixed": (el) => openFixed(el.dataset.v, null, sheet.start),
+    act: (el) => { const item = sheet.items[+el.dataset.v]; sheet = null; renderSheet(); item.run(); },
     "fx-mode": (el) => { sheet.fixed.mode = el.dataset.v; clearIssue(); renderSheet(true); },
     "fx-day": (el) => { toggleIn(sheet.fixed.days, +el.dataset.v); clearIssue(); renderSheet(true); },
     "fx-preset": (el) => { sheet.fixed.days = { wk: [0, 1, 2, 3, 4], we: [5, 6], all: ALL_DAYS.slice() }[el.dataset.v]; clearIssue(); renderSheet(true); },
@@ -450,7 +501,8 @@
       const list = sheet.draft.fixed_times;
       const i = list.findIndex((x) => x.id === f.id);
       if (i >= 0) list[i] = asFixed(f); else list.push(asFixed(f));
-      backToView();
+      if (sheet.direct) commitDirect(sheet.fixedIsNew ? "Feste Zeit hinzugefügt" : "Gesichert");
+      else backToView();
     },
     resolve: (el) => {
       const o = sheet.conflict.opts[+el.dataset.v];
@@ -458,7 +510,10 @@
       if (o.other && o.other !== sheet.draft) sheet.touched.add(o.other.name);
       A["fixed-save"]();
     },
-    "fixed-delete": () => { sheet.draft.fixed_times = sheet.draft.fixed_times.filter((x) => x.id !== sheet.fixed.id); backToView(); },
+    "fixed-delete": () => {
+      sheet.draft.fixed_times = sheet.draft.fixed_times.filter((x) => x.id !== sheet.fixed.id);
+      if (sheet.direct) commitDirect("Feste Zeit entfernt"); else backToView();
+    },
 
     "show-open": () => { sheet = { mode: "show", viewId: sheet.draft.id, back: sheet }; renderSheet(); },
     "show-back": () => { sheet = sheet.back; renderSheet(); },
@@ -532,7 +587,7 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape" || !sheet) return;
-    if (sheet.mode === "fixed") backToView(); else A.close();
+    if (sheet.mode === "fixed" && !sheet.direct) backToView(); else A.close();
   });
 
   // Vorschaubilder: ohne erzeugtes Bild das Plugin-Symbol zeigen
@@ -584,6 +639,20 @@
     handle.addEventListener("pointerup", up);
     handle.addEventListener("pointercancel", up);
   });
+
+  // Für die Startseite (Tagesplan): Dialoge öffnen und über Änderungen informiert werden
+  window.Zeitplan = {
+    schedule: () => schedule,
+    onChange: (cb) => listeners.push(cb),
+    openView,
+    openFixed,
+    pickViewForFixed: (start) => { sheet = { mode: "pickview", start }; renderSheet(); },
+    actions: (title, items) => { sheet = { mode: "actions", title, items }; renderSheet(); },
+    findConflict: (fixed, world) => findConflict(fixed, world || schedule),
+    save: async (world, message) => { await saveWorld(world); render(); if (message) toast(message); },
+    endOverride: () => A["override-end"](),
+    toast,
+  };
 
   render();
   if (DATA.openView) openView(DATA.openView);

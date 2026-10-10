@@ -188,3 +188,14 @@ def test_jetzt_anzeigen_mit_fehler_aendert_nichts(env):
     assert "Plugin kaputt" in response.get_json()["error"]
     assert config.get_schedule().override is None
     assert json.loads(path.read_text())["schedule"]["override"] is None
+
+
+def test_tagesplan_endpunkt(env):
+    client, config, _, _ = env
+    assert client.get("/api/zeitplan/tag").status_code == 409
+    einschalten(client)
+    plan = client.get("/api/zeitplan/tag").get_json()
+    assert plan["date"] == "2026-10-10" and plan["today"]
+    assert plan["segments"][0]["view_name"] == "Wetter"
+    assert client.get("/api/zeitplan/tag?datum=2026-10-11").get_json()["today"] is False
+    assert client.get("/api/zeitplan/tag?datum=morgen").status_code == 400

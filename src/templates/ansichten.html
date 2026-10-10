@@ -65,19 +65,7 @@
 
     {% include 'response_modal.html' %}
 
-    <script id="zData" type="application/json">{{ {
-        "active": active,
-        "schedule": schedule,
-        "plugins": plugins,
-        "openView": open_view,
-        "urls": {
-            "beta": url_for('ansichten.set_beta'),
-            "schedule": url_for('ansichten.update_schedule'),
-            "override": url_for('ansichten.end_override'),
-            "view": "/api/ansicht/",
-            "plugin": "/plugin/"
-        }
-    } | tojson }}</script>
+    <script id="zData" type="application/json">{{ zdata | tojson }}</script>
     <script src="{{ url_for('static', filename='scripts/ansichten.js') }}"></script>
 </body>
 </html>
