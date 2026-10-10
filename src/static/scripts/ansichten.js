@@ -488,6 +488,9 @@
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-a]");
     if (!el) return;
+    // Links (z. B. Plugin-Kacheln) liegen im Sheet-Hintergrund, der selbst eine Aktion hat: normal öffnen lassen
+    const link = e.target.closest("a[href]");
+    if (link && el.contains(link)) return;
     const fn = A[el.dataset.a];
     if (fn) { e.preventDefault(); fn(el, e); }
   });
