@@ -4,8 +4,9 @@ Zwei Quellen, auch gemischt:
   - öffentliche iCal-Links (Kalender-App: Kalender teilen → „Öffentlicher
     Kalender“; ebenso jeder andere iCal-Link, z. B. von Google oder Outlook)
   - private Kalender direkt aus dem iCloud-Konto per CalDAV. Apple-ID und
-    app-spezifisches Passwort stehen in der .env (ICLOUD_APPLE_ID,
-    ICLOUD_APP_PASSWORT), nicht in den Plugin-Einstellungen.
+    app-spezifisches Passwort werden unter Einstellungen → Zugangsdaten
+    hinterlegt (landen in der .env als ICLOUD_APPLE_ID / ICLOUD_APP_PASSWORT),
+    nicht in den Plugin-Einstellungen.
 """
 
 import logging
@@ -150,7 +151,7 @@ class ICloudKalender(BasePlugin):
         apple_id = device_config.load_env_key("ICLOUD_APPLE_ID")
         passwort = device_config.load_env_key("ICLOUD_APP_PASSWORT")
         if not apple_id or not passwort:
-            raise RuntimeError("ICLOUD_APPLE_ID und ICLOUD_APP_PASSWORT fehlen in der .env")
+            raise RuntimeError("iCloud-Zugangsdaten fehlen – bitte unter Einstellungen → Zugangsdaten eintragen")
 
         client = ICloudCalDAV(requests.Session(), apple_id.strip(), passwort.strip())
         ausgewaehlt = waehle_kalender(client.kalender(), settings.get("icloudKalender"))

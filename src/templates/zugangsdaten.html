@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zugangsdaten</title>
+    <script>
+        (function() {
+            const theme = localStorage.getItem('inkypi-theme') ||
+                         (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
+    <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+    <style>
+        .zd-lead { color: var(--text-secondary); line-height: 1.5; margin: 0 0 20px; }
+        .zd-gruppe { margin-bottom: 26px; }
+        .zd-gruppe h2 { font-size: 1.1rem; margin: 0 0 4px; }
+        .zd-hinweis { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 10px; line-height: 1.4; }
+        .zd-eintrag {
+            border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 14px;
+            margin-bottom: 10px; background: var(--bg-secondary);
+        }
+        .zd-eintrag.ziel { border-color: var(--accent-primary); box-shadow: 0 0 0 2px var(--accent-primary); }
+        .zd-kopf { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .zd-name { font-weight: 600; }
+        .zd-key { font-family: monospace; font-size: 0.8rem; color: var(--text-secondary); }
+        .zd-status { margin-left: auto; font-size: 0.85rem; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+        .zd-status.an { background: var(--success-color); color: #fff; }
+        .zd-status.aus { background: var(--border-color); color: var(--text-secondary); }
+        .zd-hilfe { font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 8px; line-height: 1.4; }
+        .zd-zeile { display: flex; gap: 8px; flex-wrap: wrap; }
+        .zd-zeile .form-input { flex: 1 1 220px; min-width: 0; margin: 0; }
+        .zd-btn {
+            border: 1px solid var(--border-color); background: var(--bg-secondary); color: inherit;
+            border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit;
+        }
+        .zd-btn.primaer { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+        .zd-btn.loeschen { color: var(--failure-color); }
+        .zd-btn:disabled { opacity: 0.5; cursor: default; }
+        .zd-test { margin-top: 10px; }
+        .zd-kalender { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+        .zd-kalender li { display: flex; align-items: center; gap: 6px; }
+        .zd-kalender span { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .zd-sicherheit { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; border-top: 1px solid var(--border-color); padding-top: 14px; }
+    </style>
+</head>
+<body>
+    <div class="frame">
+        <a href="{{ url_for('settings.settings_page') }}" class="back-button" style="text-decoration: none;">← Einstellungen</a>
+        <div class="app-header">
+            <div class="header-content">
+                <div class="title-container">
+                    <img src="{{ url_for('static', filename='icons/settings.png') }}" alt="" class="app-icon">
+                    <h1 class="app-title">Zugangsdaten</h1>
+                </div>
+            </div>
+        </div>
+        <div class="separator"></div>
+
+        <p class="zd-lead">
+            API-Schlüssel und Passwörter für Plugins. Gespeicherte Werte werden hier nie wieder angezeigt –
+            zum Ändern einfach neu eintragen. Ein leeres Feld und „Löschen“ entfernt den Eintrag.
+        </p>
+
+        {% for g in gruppen %}
+        <section class="zd-gruppe">
+            <h2>{{ g.gruppe }}</h2>
+            {% if g.hinweis %}<p class="zd-hinweis">{{ g.hinweis }}</p>{% endif %}
+
+            {% for s in g.schluessel %}
+            <div class="zd-eintrag{% if s.key == ziel %} ziel{% endif %}" id="eintrag-{{ s.key }}" data-key="{{ s.key }}">
+                <div class="zd-kopf">
+                    <span class="zd-name">{{ s.name }}</span>
+                    {% if s.name != s.key %}<span class="zd-key">{{ s.key }}</span>{% endif %}
+                    <span class="zd-status {{ 'an' if s.gesetzt else 'aus' }}">{{ 'hinterlegt ✓' if s.gesetzt else 'fehlt' }}</span>
+                </div>
+                {% if s.hilfe %}
+                <p class="zd-hilfe">{{ s.hilfe }}{% if s.link %} <a href="{{ s.link }}" target="_blank" rel="noopener">Öffnen ↗</a>{% endif %}</p>
+                {% endif %}
+                <div class="zd-zeile">
+                    <input class="form-input" type="{{ 'password' if s.geheim else 'text' }}"
+                           autocomplete="off" spellcheck="false"
+                           placeholder="{{ 'Neuen Wert eintragen …' if s.gesetzt else 'Wert eintragen …' }}">
+                    <button type="button" class="zd-btn primaer" data-a="speichern">Speichern</button>
+                    <button type="button" class="zd-btn loeschen" data-a="loeschen" {% if not s.gesetzt %}hidden{% endif %}>Löschen</button>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if g.gruppe == "iCloud-Kalender" %}
+            <div class="zd-test">
+                <button type="button" class="zd-btn" id="icloudTest">Verbindung testen</button>
+                <ul class="zd-kalender" id="icloudKalender"></ul>
+            </div>
+            {% endif %}
+        </section>
+        {% endfor %}
+
+        <p class="zd-sicherheit">
+            Die Werte stehen in der Datei <code>.env</code> im InkyPi-Ordner, die nur für InkyPi lesbar ist.
+            Wer die Weboberfläche im Heimnetz erreicht, kann hier Werte überschreiben, aber nicht auslesen.
+        </p>
+    </div>
+
+    {% include 'response_modal.html' %}
+
+    <script>
+        function setzeStatus(eintrag, gesetzt) {
+            const status = eintrag.querySelector('.zd-status');
+            status.className = 'zd-status ' + (gesetzt ? 'an' : 'aus');
+            status.textContent = gesetzt ? 'hinterlegt ✓' : 'fehlt';
+            eintrag.querySelector('[data-a="loeschen"]').hidden = !gesetzt;
+            eintrag.querySelector('input').placeholder = gesetzt ? 'Neuen Wert eintragen …' : 'Wert eintragen …';
+        }
+
+        async function sende(eintrag, wert) {
+            const knoepfe = eintrag.querySelectorAll('button');
+            knoepfe.forEach(b => b.disabled = true);
+            try {
+                const response = await fetch("{{ url_for('zugangsdaten.speichern') }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ key: eintrag.dataset.key, wert: wert }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error);
+                eintrag.querySelector('input').value = '';
+                setzeStatus(eintrag, result.gesetzt);
+                showResponseModal("success", result.message);
+            } catch (e) {
+                showResponseModal("failure", `Fehler: ${e.message}`);
+            } finally {
+                knoepfe.forEach(b => b.disabled = false);
+            }
+        }
+
+        document.querySelectorAll('.zd-eintrag').forEach(eintrag => {
+            const feld = eintrag.querySelector('input');
+            eintrag.querySelector('[data-a="speichern"]').addEventListener('click', () => {
+                if (!feld.value.trim()) {
+                    showResponseModal("failure", "Bitte einen Wert eintragen – zum Entfernen „Löschen“ verwenden.");
+                    return;
+                }
+                sende(eintrag, feld.value);
+            });
+            feld.addEventListener('keydown', e => {
+                if (e.key === 'Enter') eintrag.querySelector('[data-a="speichern"]').click();
+            });
+            eintrag.querySelector('[data-a="loeschen"]').addEventListener('click', () => {
+                if (confirm(`„${eintrag.querySelector('.zd-name').textContent}“ wirklich löschen?`)) sende(eintrag, '');
+            });
+        });
+
+        const testKnopf = document.getElementById('icloudTest');
+        if (testKnopf) {
+            testKnopf.addEventListener('click', async () => {
+                const liste = document.getElementById('icloudKalender');
+                testKnopf.disabled = true;
+                testKnopf.textContent = 'Verbinde …';
+                liste.innerHTML = '';
+                try {
+                    const response = await fetch("{{ url_for('zugangsdaten.icloud_test') }}", { method: "POST" });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+                    result.kalender.forEach(k => {
+                        const li = document.createElement('li');
+                        const punkt = document.createElement('span');
+                        punkt.style.background = k.farbe || '#2f6fde';
+                        li.append(punkt, document.createTextNode(k.name));
+                        liste.appendChild(li);
+                    });
+                    showResponseModal("success", result.message);
+                } catch (e) {
+                    showResponseModal("failure", e.message);
+                } finally {
+                    testKnopf.disabled = false;
+                    testKnopf.textContent = 'Verbindung testen';
+                }
+            });
+        }
+
+        const ziel = document.querySelector('.zd-eintrag.ziel');
+        if (ziel) {
+            ziel.scrollIntoView({ block: 'center' });
+            ziel.querySelector('input').focus();
+        }
+    </script>
+</body>
+</html>

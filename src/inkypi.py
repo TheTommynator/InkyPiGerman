@@ -32,6 +32,7 @@ from blueprints.playlist import playlist_bp
 from blueprints.updates import updates_bp
 from blueprints.calibration import calibration_bp
 from blueprints.ansichten import ansichten_bp
+from blueprints.zugangsdaten import zugangsdaten_bp
 from jinja2 import ChoiceLoader, FileSystemLoader
 from plugins.plugin_registry import load_plugins
 from waitress import serve
@@ -84,6 +85,7 @@ app.register_blueprint(playlist_bp)
 app.register_blueprint(updates_bp)
 app.register_blueprint(calibration_bp)
 app.register_blueprint(ansichten_bp)
+app.register_blueprint(zugangsdaten_bp)
 
 # Register opener for HEIF/HEIC images
 register_heif_opener()

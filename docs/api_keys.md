@@ -1,6 +1,8 @@
 
 # Storing API Keys
 
+> **InkyPiGerman:** Am einfachsten trägst du alle Schlüssel in der Weboberfläche ein: **Einstellungen → Zugangsdaten**. Dort siehst du, welche Schlüssel hinterlegt sind, kannst neue eintragen oder löschen – ohne SSH. Gespeicherte Werte werden nie wieder angezeigt. Die Seite schreibt in dieselbe `.env`, die unten beschrieben ist; der Weg per SSH funktioniert weiterhin.
+
 Certain plugins, like the AI Image plugin, require API credentials to function. These credentials must be stored in a .env file located at the root of the project. Once you have your API token, follow these steps:
 
 1. SSH into your Raspberry Pi and navigate to the InkyPi directory:
@@ -99,7 +101,8 @@ Required for the Image Album plugin for the Immich Provider
 Für das Plugin „iCloud-Kalender“, wenn Kalender direkt aus dem iCloud-Konto geladen werden sollen (öffentliche Kalender-Links brauchen keine Zugangsdaten).
 
 - Auf [account.apple.com](https://account.apple.com) anmelden → **Anmeldung und Sicherheit** → **App-spezifische Passwörter** → neues Passwort erstellen, z. B. „InkyPi“
-- Apple-ID und das app-spezifische Passwort (nicht das normale Apple-ID-Passwort!) in der .env eintragen:
+- In InkyPi unter **Einstellungen → Zugangsdaten** die Apple-ID und das app-spezifische Passwort (nicht das normale Apple-ID-Passwort!) eintragen und mit **Verbindung testen** prüfen – die gefundenen Kalender werden aufgelistet.
+- Alternativ per SSH in der .env:
     ```
     ICLOUD_APPLE_ID=deine@apple-id.de
     ICLOUD_APP_PASSWORT=abcd-efgh-ijkl-mnop

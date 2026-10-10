@@ -452,7 +452,7 @@ def test_icloud_konto_im_plugin(monkeypatch):
     plugin = ICloudKalender({"id": "icloud_kalender"})
     start, ende = zeit(date(2026, 10, 12), 0), zeit(date(2026, 10, 19), 0)
 
-    with pytest.raises(RuntimeError, match="ICLOUD_APPLE_ID"):
+    with pytest.raises(RuntimeError, match="Zugangsdaten"):
         plugin.icloud_kalender({}, Geraet({}), start, ende)
 
     geraet = Geraet({"ICLOUD_APPLE_ID": " ich@icloud.com ", "ICLOUD_APP_PASSWORT": "pw"})
