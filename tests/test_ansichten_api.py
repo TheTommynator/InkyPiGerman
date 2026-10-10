@@ -213,3 +213,13 @@ def test_zeitzone_im_tagesplan_und_uebernehmen(env):
     assert response.status_code == 200
     assert json.loads(path.read_text())["timezone"] == "Europe/Berlin"
     assert task.signals == signals + 1
+
+
+def test_tagesplan_zeigt_von_hand_angezeigtes_bild(env):
+    client, config, _, _ = env
+    einschalten(client)
+    config.refresh_info = RefreshInfo("Manual Update", "clock", "2026-10-10T08:02:00+00:00", "abc")
+    now = client.get("/api/zeitplan/tag").get_json()["now"]
+    assert now["manual"]["name"] == "Uhr" and now["manual"]["since"] == "08:02"
+    config.refresh_info = RefreshInfo("Ansicht", "weather", "2026-10-10T08:02:00+00:00", "abc", plugin_instance="Wetter")
+    assert "manual" not in client.get("/api/zeitplan/tag").get_json()["now"]
