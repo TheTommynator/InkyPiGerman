@@ -14,6 +14,7 @@
         })();
     </script>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
+    <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
     <style>
         .wz-page {
             min-height: 100vh;
@@ -536,7 +537,7 @@
             state.original = result.values;
             if (state.motif === 'current' && !result.has_snapshot) state.motif = 'pattern';
         } catch (e) {
-            alert(e.message);
+            showToast(e.message, true);
             return;
         }
         state.values = Object.assign({}, state.original);
@@ -728,7 +729,7 @@
             window.location.href = "{{ url_for('main.main_page') }}";
             return;
         }
-        if (!confirm('Assistent beenden? Deine bisherigen Einstellungen bleiben unverändert.')) return;
+        if (!await confirmSheet('Deine bisherigen Bildeinstellungen bleiben unverändert.', 'Assistent beenden', false)) return;
         try { await finishDisplay(); } catch (e) { /* trotzdem beenden */ }
         window.location.href = "{{ url_for('main.main_page') }}";
     }

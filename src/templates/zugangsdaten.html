@@ -131,8 +131,9 @@
             feld.addEventListener('keydown', e => {
                 if (e.key === 'Enter') eintrag.querySelector('[data-a="speichern"]').click();
             });
-            eintrag.querySelector('[data-a="loeschen"]').addEventListener('click', () => {
-                if (confirm(`„${eintrag.querySelector('.zd-name').textContent}“ wirklich löschen?`)) sende(eintrag, '');
+            eintrag.querySelector('[data-a="loeschen"]').addEventListener('click', async () => {
+                const name = eintrag.querySelector('.zd-name').textContent;
+                if (await confirmSheet(`„${name}“ wird gelöscht. Plugins, die ihn brauchen, funktionieren danach nicht mehr.`, 'Löschen', true)) sende(eintrag, '');
             });
         });
 
