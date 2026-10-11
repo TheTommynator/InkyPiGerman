@@ -63,7 +63,12 @@ def ist_nacht(wetter, jetzt):
     return not wetter.jetzt["tag"]
 
 
-def szene_fenster(wetter, jetzt):
+def anzeige_temp(wetter, gefuehlt=False):
+    """Gemessene oder gefühlte Temperatur, wie in den Einstellungen gewählt."""
+    return grad(wetter.jetzt["gefuehlt"] if gefuehlt else wetter.jetzt["temp"])
+
+
+def szene_fenster(wetter, jetzt, gefuehlt=False):
     """Alles, was die Landschaft braucht – gezeichnet wird im Template."""
     j = wetter.jetzt
     heute = _heute(wetter, jetzt)
@@ -87,7 +92,8 @@ def szene_fenster(wetter, jetzt):
         "windrichtung": round(j["richtung"]),
         "mond": mondphase(jetzt),
         "baum": baum(jetzt.date()),
-        "temp": grad(j["temp"]),
+        "temp": anzeige_temp(wetter, gefuehlt),
+        "gefuehlt": gefuehlt,
     }
 
 
@@ -257,7 +263,7 @@ def poesie_zeilen(wetter, jetzt):
     return [erste, zweite, dritte]
 
 
-def poesie(wetter, jetzt):
+def poesie(wetter, jetzt, gefuehlt=False):
     lage = poesie_lage(wetter, jetzt)
     heute = _heute(wetter, jetzt)
     wort = poesie_wort(lage, wetter, jetzt)
@@ -267,7 +273,8 @@ def poesie(wetter, jetzt):
         # Lange Wörter kleiner, damit sie nicht ins Motiv laufen
         "groesse": "gross" if len(wort) <= 9 else "mittel" if len(wort) <= 12 else "klein",
         "zeilen": poesie_zeilen(wetter, jetzt),
-        "temp": grad(wetter.jetzt["temp"]),
+        "temp": anzeige_temp(wetter, gefuehlt),
+        "gefuehlt": gefuehlt,
         "tief": grad(heute.tmin) if heute else None,
         "hoch": grad(heute.tmax) if heute else None,
     }

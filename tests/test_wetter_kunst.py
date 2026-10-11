@@ -169,3 +169,40 @@ def test_plugin_kunst_ansichten(monkeypatch, ansicht):
     # Farbrollen des Farbtests, Mischfarben im Bild durch Muster ersetzt
     assert erfasst["farben"]["gelb"] == PLATZHALTER["gelb_orange_75"]
     assert sorted(farbe for _, farbe in bild.getcolors()) == [(255, 128, 0), (255, 255, 0)]
+
+
+def test_gefuehlte_temperatur_waehlbar():
+    w = wetter_mit()  # gemessen 14,2°, gefühlt 12,4°
+    assert szene_fenster(w, JETZT)["temp"] == 14 and not szene_fenster(w, JETZT)["gefuehlt"]
+    szene = szene_fenster(w, JETZT, gefuehlt=True)
+    assert szene["temp"] == 12 and szene["gefuehlt"]
+    gedicht = poesie(w, JETZT, gefuehlt=True)
+    assert gedicht["temp"] == 12 and gedicht["gefuehlt"]
+    assert (gedicht["tief"], gedicht["hoch"]) == (8, 17)  # Spanne bleibt gemessen
+
+
+@pytest.mark.parametrize("wahl, erwartet", [(None, 14), ("gemessen", 14), ("gefuehlt", 12)])
+def test_plugin_uebernimmt_temperaturwahl(monkeypatch, wahl, erwartet):
+    for modul in ("requests", "PIL", "jinja2", "numpy"):
+        pytest.importorskip(modul)
+    from PIL import Image
+    from plugins.wetter.wetter import Wetter
+
+    monkeypatch.setattr(Wetter, "vorhersage", staticmethod(lambda lat, lon, tz: beispiel_antwort()))
+    monkeypatch.setattr(Wetter, "warnungen", staticmethod(lambda lat, lon, tz: {"alerts": []}))
+    monkeypatch.setattr(Wetter, "jetzt", staticmethod(lambda tz: JETZT))
+    plugin = Wetter({"id": "wetter"})
+    erfasst = {}
+
+    def render_image(dimensions, html, css, params):
+        erfasst.update(params)
+        return Image.new("RGB", (2, 2), "#ffffff")
+    plugin.render_image = render_image
+
+    einstellungen = {"latitude": "47.99", "longitude": "7.85", "ansicht": "fenster"}
+    if wahl:
+        einstellungen["temperatur"] = wahl
+    plugin.generate_image(einstellungen, GeraetDummy())
+    assert erfasst["szene"]["temp"] == erwartet
+    plugin.generate_image({**einstellungen, "ansicht": "poesie"}, GeraetDummy())
+    assert erfasst["gedicht"]["temp"] == erwartet

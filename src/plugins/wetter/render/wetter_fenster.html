@@ -171,8 +171,15 @@ svg += `<rect x="${hx + 62}" y="${hy + 50}" width="26" height="48" fill="var(--s
 
 // Schild mit der Temperatur
 svg += `<line x1="460" y1="356" x2="460" y2="410" ${S} stroke-width="5"/>`;
-svg += `<rect x="418" y="318" width="84" height="46" rx="6" fill="var(--weiss)" ${S} stroke-width="3.5"/>`;
-svg += `<text x="460" y="353" text-anchor="middle" font-size="31" font-weight="bold" font-family="Jost" fill="var(--schwarz)">${d.temp}°</text>`;
+if (d.gefuehlt) {
+  // Gefühlte Temperatur: etwas höheres Schild mit kleinem Hinweis
+  svg += `<rect x="414" y="304" width="92" height="62" rx="6" fill="var(--weiss)" ${S} stroke-width="3.5"/>`;
+  svg += `<text x="460" y="320" text-anchor="middle" font-size="12" font-weight="bold" letter-spacing="1.5" font-family="Jost" fill="var(--schwarz)">GEFÜHLT</text>`;
+  svg += `<text x="460" y="355" text-anchor="middle" font-size="31" font-weight="bold" font-family="Jost" fill="var(--schwarz)">${d.temp}°</text>`;
+} else {
+  svg += `<rect x="418" y="318" width="84" height="46" rx="6" fill="var(--weiss)" ${S} stroke-width="3.5"/>`;
+  svg += `<text x="460" y="353" text-anchor="middle" font-size="31" font-weight="bold" font-family="Jost" fill="var(--schwarz)">${d.temp}°</text>`;
+}
 
 document.getElementById('szene').innerHTML = svg;
 </script>
