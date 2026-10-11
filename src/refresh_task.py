@@ -122,6 +122,9 @@ class RefreshTask:
                         if plugin_config is None:
                             raise ValueError(f"Plugin '{refresh_action.get_plugin_id()}' nicht gefunden")
                         plugin = get_plugin_instance(plugin_config)
+                        title = (refresh_action.get_refresh_info().get("plugin_instance")
+                                 or plugin_config.get("display_name") or refresh_action.get_plugin_id())
+                        self.display_manager.begin_job(title)
                         image = refresh_action.execute(plugin, self.device_config, current_dt)
                         if isinstance(refresh_action, ViewRefresh):
                             self.schedule_failure = None
@@ -134,7 +137,7 @@ class RefreshTask:
                         # check if image is the same as current image
                         if image_hash != latest_refresh.image_hash:
                             logger.info(f"Updating display. | refresh_info: {refresh_info}")
-                            pending_display = (image, plugin.config.get("image_settings", []), latest_refresh)
+                            pending_display = (image, plugin.config.get("image_settings", []), latest_refresh, title)
                         else:
                             logger.info(f"Image already displayed, skipping refresh. | refresh_info: {refresh_info}")
 
@@ -144,12 +147,16 @@ class RefreshTask:
 
             except Exception as e:
                 logger.exception('Exception during refresh')
+                self.display_manager.end_job(error=str(e) or type(e).__name__)
                 if request:
                     request.exception = e
                 elif isinstance(refresh_action, ViewRefresh):
                     self._remember_failure(refresh_action)
                 continue
             finally:
+                if not pending_display:
+                    # Bild unverändert oder Fehler: kein Bildaufbau, der Status ist erledigt
+                    self.display_manager.end_job()
                 # The image is ready: a waiting web request can return now, the
                 # (slow) e-paper refresh continues in the background.
                 if request:
@@ -159,10 +166,10 @@ class RefreshTask:
             if pending_display:
                 self._show(*pending_display)
 
-    def _show(self, image, image_settings, previous_refresh_info):
+    def _show(self, image, image_settings, previous_refresh_info, title=None):
         """Sends the image to the display without holding the lock, so the web interface stays usable."""
         try:
-            self.display_manager.display_image(image, image_settings=image_settings)
+            self.display_manager.display_image(image, image_settings=image_settings, title=title)
         except Exception:
             logger.exception('Exception while updating the display')
             # Show the image again on the next refresh instead of skipping it as "already displayed"

@@ -200,7 +200,7 @@ def _show_now(device_config, refresh_task, schedule, view, duration, temporary=F
     if display_started is False:
         message = f"„{view.name}“ ist schon zu sehen."
     else:
-        message = f"„{view.name}“ wird jetzt angezeigt. Den Fortschritt siehst du auf der Startseite."
+        message = f"„{view.name}“ wird jetzt angezeigt. Den Fortschritt siehst du unten im Statusfeld."
     return jsonify({"success": True, "message": message, "override": schedule_for_page(schedule)["override"]})
 
 

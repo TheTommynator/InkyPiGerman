@@ -58,5 +58,6 @@ class InkyDisplay(AbstractDisplay):
             raise ValueError(f"No image provided.")
 
         # Display the image on the Inky display
+        self.report_phase("aufbauen")
         self.inky_display.set_image(image)
         self.inky_display.show()

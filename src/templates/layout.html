@@ -27,10 +27,24 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
     <script src="{{ url_for('static', filename='scripts/dark_mode.js') }}"></script>
     <script src="{{ url_for('static', filename='scripts/response_modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='scripts/display_status.js') }}"></script>
     {% block head %}{% endblock %}
 </head>
 <body class="has-tabbar">
     {% block content %}{% endblock %}
     {% include 'tabbar.html' %}
+    {# Fortschritt der Display-Aktualisierung auf allen Seiten (die Startseite zeigt ihn unter dem Bild) #}
+    {% if tab != 'jetzt' %}
+    <div id="globalDisplayStatus" class="global-display-status" role="status" aria-live="polite" hidden>
+        <span class="gds-dot" aria-hidden="true"></span>
+        <div class="gds-body">
+            <div class="gds-title"></div>
+            <div class="gds-text"></div>
+        </div>
+        <button type="button" class="gds-close" aria-label="Hinweis ausblenden" hidden>×</button>
+        <div class="gds-bar" hidden><div class="gds-fill"></div></div>
+    </div>
+    {% endif %}
+    <script>DisplayStatus.start("{{ url_for('main.get_display_status') }}");</script>
 </body>
 </html>

@@ -1068,6 +1068,123 @@ body.has-tabbar {
     transition: width 1s linear;
 }
 
+/* Display-Status auf allen Seiten: über der Tab-Leiste, ab 900px unten in der Seitenleiste */
+.global-display-status {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + 8px);
+    z-index: 950;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background-color: var(--bar-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 0.5px solid var(--separator);
+    box-shadow: 0 4px 16px var(--shadow-medium);
+    font-size: 0.85rem;
+}
+
+.global-display-status[hidden] {
+    display: none;
+}
+
+.gds-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex: none;
+    background-color: var(--success-color);
+}
+
+.global-display-status.busy .gds-dot {
+    background-color: var(--loading-color);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.global-display-status.failed .gds-dot {
+    background-color: var(--failure-color);
+}
+
+.gds-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.gds-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gds-text {
+    color: var(--text-secondary);
+}
+
+.global-display-status.failed .gds-text {
+    color: var(--failure-color);
+}
+
+.gds-close {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background-color: var(--button-bg);
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.gds-bar {
+    flex-basis: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--button-bg);
+    overflow: hidden;
+}
+
+.gds-fill {
+    height: 100%;
+    width: 0;
+    background-color: var(--loading-color);
+    transition: width 1s linear;
+}
+
+.global-display-status.done .gds-fill {
+    background-color: var(--success-color);
+}
+
+/* Unbekannte Dauer (Bild wird erzeugt, erste Aktualisierung): wandernder Balken */
+.global-display-status.indeterminate .gds-fill,
+.display-status.indeterminate .display-status-fill {
+    width: 35% !important;
+    transition: none;
+    animation: indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
+}
+
+@media (min-width: 900px) {
+    .global-display-status {
+        right: auto;
+        bottom: 16px;
+        width: calc(var(--sidebar-width) - 24px);
+    }
+}
+
 @keyframes pulse {
     50% { opacity: 0.35; }
 }
@@ -1262,7 +1379,10 @@ input, select, textarea {
 
 @media (prefers-reduced-motion: reduce) {
     .modal-content,
-    .display-status.refreshing .display-status-dot {
+    .display-status.refreshing .display-status-dot,
+    .global-display-status.busy .gds-dot,
+    .global-display-status.indeterminate .gds-fill,
+    .display-status.indeterminate .display-status-fill {
         animation: none;
     }
 }
