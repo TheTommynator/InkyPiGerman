@@ -520,6 +520,11 @@ small {
     max-width: 100px;
 }
 
+.image-option-label {
+    font-size: 0.8em;
+    margin-top: 4px;
+}
+
 .image-option.selected {
     border-color: var(--accent-primary);
 }

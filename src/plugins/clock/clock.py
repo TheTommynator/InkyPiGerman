@@ -8,35 +8,74 @@ import numpy as np
 import math
 from datetime import datetime
 import pytz
+from plugins.clock.ruhige_uhren import (
+    RUHIGE_UHREN, zeichne_stundenring,
+)
+from utils.eink_farben import palette
 
 logger = logging.getLogger(__name__)
 
 CLOCK_FACES = [
     {
         "name": "Gradient Clock",
+        "label": "Farbverlauf",
         "primary_color": "#db3246",
         "secondary_color": "#000000",
         "icon": "faces/gradient.png"
     },
     {
         "name": "Digital Clock",
+        "label": "Digital",
         "primary_color": "#ffffff",
         "secondary_color": "#000000",
         "icon": "faces/digital.png"
     },
     {
         "name": "Divided Clock",
+        "label": "Geteilt",
         "primary_color": "#20b7ae",
         "secondary_color": "#ffffff",
         "icon": "faces/divided.png"
     },
     {
         "name": "Word Clock",
+        "label": "Word Clock (englisch)",
         "primary_color": "#000000",
         "secondary_color": "#ffffff",
         "icon": "faces/word.png"
+    },
+    # Für einen ruhigen Takt (alle 5–15 Minuten): zeigen Fünf-Minuten-Schritte
+    # bzw. einen einzigen Zeiger und bleiben dadurch bis zum nächsten Bild richtig.
+    {
+        "name": "Wortuhr",
+        "label": "Wortuhr",
+        "primary_color": "#ff0000",
+        "secondary_color": "#ffffff",
+        "icon": "faces/wortuhr.png"
+    },
+    {
+        "name": "Uhrzeit in Worten",
+        "label": "Uhrzeit in Worten",
+        "primary_color": "#ff0000",
+        "secondary_color": "#ffffff",
+        "icon": "faces/worte.png"
+    },
+    {
+        "name": "Einzeigeruhr",
+        "label": "Einzeigeruhr",
+        "primary_color": "#ff0000",
+        "secondary_color": "#ffffff",
+        "icon": "faces/einzeiger.png"
+    },
+    {
+        "name": "Stundenring",
+        "label": "Stundenring",
+        "primary_color": "#0000ff",
+        "secondary_color": "#ffffff",
+        "icon": "faces/stundenring.png"
     }
 ]
+
 
 DEFAULT_TIMEZONE = "US/Eastern"
 DEFAULT_CLOCK_FACE = "Gradient Clock"
@@ -72,6 +111,11 @@ class Clock(BasePlugin):
                 img = self.draw_divided_clock(dimensions, current_time, primary_color, secondary_color)
             elif clock_face == "Word Clock":
                 img = self.draw_word_clock(dimensions, current_time, primary_color, secondary_color)
+            elif clock_face == "Stundenring":
+                farben = palette(device_config.get_config("display_type", default=""))
+                img = zeichne_stundenring(dimensions, current_time, primary_color, secondary_color, farben)
+            elif clock_face in RUHIGE_UHREN:
+                img = RUHIGE_UHREN[clock_face](dimensions, current_time, primary_color, secondary_color)
         except Exception as e:
             logger.error(f"Failed to draw clock image: {str(e)}")
             raise RuntimeError("Uhr konnte nicht angezeigt werden.")
