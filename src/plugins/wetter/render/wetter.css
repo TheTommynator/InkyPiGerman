@@ -113,9 +113,9 @@ svg.symbol {
 .warnung b { font-weight: bold; }
 .warnung svg.symbol { width: 1.4em; height: 1.3em; }
 .warnung.stufe2 { --band: var(--orange); }
-.warnung.stufe3,
-.warnung.stufe4 { --band: var(--rot); color: #fff; border-color: var(--rot); }
-.warnung.stufe4 { border-color: #000; border-width: 3px; }
+.warnung.stufe3 { --band: var(--rot); color: #fff; border-color: var(--rot); }
+/* Höchste Stufe: beim DWD violett */
+.warnung.stufe4 { --band: var(--violett); color: #fff; border-color: #000; border-width: 3px; }
 
 .trenner {
     height: 2px;
@@ -129,8 +129,9 @@ svg.symbol {
     background: var(--linie);
 }
 
+/* Blau wäre als Schrift auf dem E-Ink-Display kaum von Schwarz zu unterscheiden */
 .hervor {
-    color: var(--blau);
+    color: var(--akzent);
     font-weight: bold;
 }
 
@@ -419,3 +420,17 @@ footer.details {
 .hochformat .beides .satz { flex: 0 0 auto; padding-bottom: 0.6em; }
 
 .beides .satz-morgen { font-size: 0.8em; }
+
+/* ---------- E-Ink: Blau nur für Flächen ----------
+   Kleine blaue Schrift und Symbole wirken auf dem Display fast schwarz
+   (Farbtest) – dort also gleich Schwarz, das ist schärfer. */
+
+.thema-eink .std .mm,
+.thema-eink .tag .prozent {
+    color: var(--ink);
+}
+
+.thema-eink .tag .prozent,
+.thema-eink .detail {
+    --i-regen: var(--ink);
+}

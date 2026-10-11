@@ -10,7 +10,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from utils.eink_farben import (  # noqa: E402
-    MISCHUNGEN, PALETTEN, PIGMENTE, css_flaeche, ist_farbe, muster_png, palette, png, titel,
+    MISCHUNGEN, NUR_FLAECHE, PALETTEN, PIGMENTE, PLATZHALTER, ROLLEN, css_farbe, css_flaeche, ist_farbe,
+    muster_einsetzen, muster_png, palette, png, rollen_farben, schrift_auf, titel,
 )
 
 
@@ -76,6 +77,50 @@ def test_kalender_nutzt_dieselben_pigmente():
     assert EINK_PALETTEN["inky"][2] == PALETTEN["inky"]["blau"]
 
 
+# --- Farbrollen und Platzhalter ---
+
+def test_farbrollen_aus_dem_farbtest():
+    assert all(ist_farbe(name) for name in ROLLEN.values())
+    # Ergebnis des Farbtests auf dem Waveshare-Display
+    assert ROLLEN["blau"] == "blau"
+    assert ROLLEN["gelb"] == "gelb_orange_75"
+    assert ROLLEN["orange"] == "rot_orange_50"
+    assert {"blau", "gelb"} <= NUR_FLAECHE and "rot" not in NUR_FLAECHE
+    assert [schrift_auf(r) for r in ("rot", "gruen", "blau", "gelb", "orange", "violett")] == [
+        "weiss", "weiss", "weiss", "schwarz", "schwarz", "weiss"]
+
+
+def test_platzhalter_sind_eindeutig():
+    farben = PALETTEN["waveshare"]
+    werte = list(PLATZHALTER.values())
+    assert len(set(werte)) == len(MISCHUNGEN)
+    assert not set(werte) & set(farben.values())
+    assert css_farbe("rot", farben) == "#ff0000"
+    assert css_farbe("gelb_orange_75", farben) == PLATZHALTER["gelb_orange_75"]
+    rollen = rollen_farben(farben)
+    assert rollen["blau"] == "#0000ff" and rollen["gelb"] == PLATZHALTER["gelb_orange_75"]
+
+
+def test_muster_einsetzen():
+    for modul in ("PIL", "numpy"):
+        pytest.importorskip(modul)
+    from PIL import Image
+
+    farben = PALETTEN["waveshare"]
+    bild = Image.new("RGB", (6, 4), "#ffffff")
+    for x in range(1, 5):
+        for y in range(4):
+            bild.putpixel((x, y), tuple(int(PLATZHALTER["gelb_orange_75"][i:i + 2], 16) for i in (1, 3, 5)))
+    bild.putpixel((5, 0), (0, 0, 0))
+    ergebnis = muster_einsetzen(bild, farben)
+    gelb, orange = (255, 255, 0), (255, 128, 0)
+    # Muster nach absoluter Position: an (1,1) und (3,1) … Orange, sonst Gelb
+    assert [ergebnis.getpixel((x, 1)) for x in range(1, 5)] == [orange, gelb, orange, gelb]
+    assert [ergebnis.getpixel((x, 0)) for x in range(1, 5)] == [gelb] * 4
+    # Alles andere bleibt unverändert
+    assert ergebnis.getpixel((0, 0)) == (255, 255, 255) and ergebnis.getpixel((5, 0)) == (0, 0, 0)
+
+
 # --- Plugin (braucht die Laufzeit-Abhängigkeiten) ---
 
 class GeraetDummy:
@@ -90,7 +135,7 @@ class GeraetDummy:
 
 
 def plugin_mit_erfassung():
-    for modul in ("requests", "PIL", "jinja2"):
+    for modul in ("requests", "PIL", "jinja2", "numpy"):
         pytest.importorskip(modul)
     from plugins.farbtest.farbtest import Farbtest
 
@@ -98,8 +143,9 @@ def plugin_mit_erfassung():
     erfasst = {}
 
     def render_image(dimensions, html, css, params):
+        from PIL import Image
         erfasst.update(params, dimensions=dimensions)
-        return "bild"
+        return Image.new("RGB", (2, 2), PLATZHALTER["rot_blau_50"])
     plugin.render_image = render_image
     return plugin, erfasst
 
@@ -118,7 +164,7 @@ def test_mischungstafel_ist_vollstaendig_und_nummeriert():
 
 def test_plugin_tafeln():
     plugin, params = plugin_mit_erfassung()
-    assert plugin.generate_image({}, GeraetDummy()) == "bild"
+    plugin.generate_image({}, GeraetDummy())
     assert params["tafel"] == "grundfarben" and params["palette_name"] == "Waveshare"
     assert [f["name"] for f in params["bunte"]] == ["rot", "gruen", "blau", "gelb", "orange"]
 
@@ -128,3 +174,51 @@ def test_plugin_tafeln():
 
     with pytest.raises(RuntimeError):
         plugin.generate_image({"tafel": "quatsch"}, GeraetDummy())
+
+
+def test_rollentafel_setzt_muster_ein():
+    plugin, params = plugin_mit_erfassung()
+    bild = plugin.generate_image({"tafel": "rollen"}, GeraetDummy())
+    assert params["tafel"] == "rollen" and len(params["rollen"]) == len(ROLLEN) - 1
+    gelb = next(r for r in params["rollen"] if r["rolle"] == "Gelb")
+    assert gelb["farbe"] == PLATZHALTER["gelb_orange_75"] and gelb["schrift"] == "#000000" and gelb["nur_flaeche"]
+    # Violett-Platzhalter wurde zu Rot und Blau im Schachbrett
+    assert sorted(farbe for _, farbe in bild.getcolors()) == [(0, 0, 255), (255, 0, 0)]
+
+
+def test_kantenpixel_werden_zugeordnet():
+    for modul in ("PIL", "numpy"):
+        pytest.importorskip(modul)
+    from PIL import Image
+
+    farben = PALETTEN["waveshare"]
+    p = tuple(int(PLATZHALTER["gelb_orange_75"][i:i + 2], 16) for i in (1, 3, 5))
+    fast_platzhalter = tuple(round(0.8 * c) for c in p)          # 80 % Platzhalter, 20 % Schwarz
+    fast_schwarz = tuple(round(0.2 * c) for c in p)              # 20 % Platzhalter, 80 % Schwarz
+    halb_weiss = tuple(round(0.3 * c + 0.7 * 255) for c in p)    # Kante zu Weiß
+    bild = Image.new("RGB", (4, 1))
+    for x, farbe in enumerate((p, fast_platzhalter, fast_schwarz, halb_weiss)):
+        bild.putpixel((x, 0), farbe)
+    ergebnis = [muster_einsetzen(bild, farben).getpixel((x, 0)) for x in range(4)]
+    assert ergebnis[0] in ((255, 255, 0), (255, 128, 0))
+    assert ergebnis[1] in ((255, 255, 0), (255, 128, 0))
+    assert ergebnis[2] == (0, 0, 0)
+    assert ergebnis[3] == (255, 255, 255)
+
+
+def test_benachbarte_mischungen_bleiben_getrennt():
+    for modul in ("PIL", "numpy"):
+        pytest.importorskip(modul)
+    from PIL import Image
+
+    farben = PALETTEN["waveshare"]
+    bild = Image.new("RGB", (len(PLATZHALTER) * 2, 2))
+    for i, platzhalter in enumerate(PLATZHALTER.values()):
+        for x in (2 * i, 2 * i + 1):
+            for y in (0, 1):
+                bild.putpixel((x, y), tuple(int(platzhalter[j:j + 2], 16) for j in (1, 3, 5)))
+    ergebnis = muster_einsetzen(bild, farben)
+    for i, mischung in enumerate(MISCHUNGEN.values()):
+        erwartet = {tuple(int(farben[p][j:j + 2], 16) for j in (1, 3, 5)) for p in (mischung.a, mischung.b)}
+        gefunden = {ergebnis.getpixel((x, y)) for x in (2 * i, 2 * i + 1) for y in (0, 1)}
+        assert gefunden == erwartet, mischung.name

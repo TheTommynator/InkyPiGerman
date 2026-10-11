@@ -13,6 +13,7 @@ from plugins.wetter.wetter_daten import (  # noqa: E402
     lese_warnungen, mm_text, parse_details, satz_heute, satz_morgen, stundenstreifen,
     tagesliste, temperaturfarbe, warn_titel, wetterart,
 )
+from utils.eink_farben import PLATZHALTER  # noqa: E402
 from plugins.wetter.wetter_icons import ICONS, SYMBOLE, symbol, wetter_icon  # noqa: E402
 
 TZ = ZoneInfo("Europe/Berlin")
@@ -277,7 +278,7 @@ class GeraetDummy:
 
 
 def plugin_mit_daten(monkeypatch, warnungen=BEISPIEL_WARNUNGEN):
-    for modul in ("requests", "PIL", "jinja2"):
+    for modul in ("requests", "PIL", "jinja2", "numpy"):
         pytest.importorskip(modul)
     from plugins.wetter.wetter import Wetter
 
@@ -294,7 +295,9 @@ def plugin_mit_daten(monkeypatch, warnungen=BEISPIEL_WARNUNGEN):
 
     def render_image(dimensions, html, css, params):
         erfasst.update(params)
-        return "bild"
+        from PIL import Image
+        # Kleines Bild mit dem Platzhalter des Gelbs – muss beim Thema „E-Ink“ ersetzt werden
+        return Image.new("RGB", (4, 2), params["farben"]["gelb"])
     plugin.render_image = render_image
     return plugin, erfasst
 
@@ -303,13 +306,17 @@ def test_plugin_uebergibt_ansicht_und_eink_farben(monkeypatch):
     plugin, params = plugin_mit_daten(monkeypatch)
     einstellungen = {"latitude": "47.99", "longitude": "7.85", "ortName": "Freiburg", "ansicht": "beides",
                      "temperaturfarbe": "einfarbig", "iconstil": "linien", "akzentfarbe": "#e0393e"}
-    assert plugin.generate_image(einstellungen, GeraetDummy()) == "bild"
+    bild = plugin.generate_image(einstellungen, GeraetDummy())
     assert params["ort"] == "Freiburg" and params["ansicht"] == "beides" and params["icons"] == "linien"
     assert len(params["daten"]["tage"]) == 6
     assert params["daten"]["tage"][0]["farbe"] == "akzent"
     # Waveshare: reine Farben, Akzent auf die nächste Displayfarbe gesetzt
     assert params["farben"]["rot"] == "#ff0000" and params["farben"]["bg"] == "#ffffff"
     assert params["akzent"] == "#ff0000"
+    # Gelb ist die Mischung Gelb ¾ + Orange: im Template Platzhalter, im Bild das Muster
+    assert params["farben"]["gelb"] == PLATZHALTER["gelb_orange_75"]
+    assert params["farben"]["orange"] == PLATZHALTER["rot_orange_50"]
+    assert sorted(farbe for _, farbe in bild.getcolors()) == [(255, 128, 0), (255, 255, 0)]
     assert params["daten"]["warnung"]["titel"] == "Windböen"
 
 

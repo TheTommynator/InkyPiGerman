@@ -8,6 +8,7 @@
     <div class="button-group" id="ftTafelWahl">
         <button type="button" data-value="grundfarben" onclick="ftTafelWaehlen(this.dataset.value)">Grundfarben &amp; Größen</button>
         <button type="button" data-value="mischungen" onclick="ftTafelWaehlen(this.dataset.value)">Mischungen</button>
+        <button type="button" data-value="rollen" onclick="ftTafelWaehlen(this.dataset.value)">Farbrollen</button>
     </div>
     <input type="hidden" name="tafel" id="tafel" value="grundfarben">
 </div>
@@ -24,6 +25,11 @@
         <li>Aus etwa einem Meter Abstand ansehen, am besten bei Tageslicht.</li>
         <li>Die Nummern notieren, die am kräftigsten oder schönsten wirken – z. B. „Regen: Nr. 3“.</li>
     </ol>
+</div>
+
+<div class="ft-hinweis" data-tafel="rollen">
+    Zeigt die Farben, die die Plugins tatsächlich verwenden – mit der passenden Schrift darauf. Farben mit
+    „nur Fläche“ (z. B. Blau und Gelb) werden nie für Text oder dünne Linien eingesetzt.
 </div>
 
 <script>
