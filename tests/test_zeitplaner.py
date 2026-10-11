@@ -224,6 +224,14 @@ class TestAktualisierung:
         wetter.latest_refresh_time = "2026-10-10T09:45:00"
         assert next_refresh_at(wetter, at(SAMSTAG, "09:50"), seg) is None  # 10:00 ist schon der nächste Abschnitt
 
+    def test_uhr_jede_minute_bleibt_im_minutentakt(self):
+        # Der Planer wacht ein paar Sekunden nach der vollen Minute auf – das darf sich nicht aufsummieren
+        uhr = view("u", "Uhr", plugin_id="clock", refresh=Refresh("interval", minutes=1), latest="2026-10-10T08:00:01.700000")
+        seg = self.segment()
+        assert not needs_refresh(uhr, at(SAMSTAG, "08:00") + timedelta(seconds=40), seg)
+        assert next_refresh_at(uhr, at(SAMSTAG, "08:00") + timedelta(seconds=40), seg) == at(SAMSTAG, "08:01")
+        assert needs_refresh(uhr, at(SAMSTAG, "08:01") + timedelta(seconds=1, microseconds=200000), seg)
+
     def test_automatisch_nach_plugin(self):
         wetter = view("w", "Wetter", refresh=Refresh("auto"), latest="2026-10-10T08:00:00")
         seg = self.segment()
