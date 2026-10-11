@@ -14,6 +14,8 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
+from utils.eink_farben import PALETTEN
+
 ANSICHTEN = ("tag", "woche", "monat")
 
 WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
@@ -365,9 +367,10 @@ def kontrastfarbe(farbe):
 # Farben, die 7-Farben-Displays ohne Rastern darstellen. Pimoronis Inky-Bibliothek
 # mischt die gesättigte mit der echten Displaypalette (Sättigung 0.5), Waveshare
 # rechnet mit den reinen Farben. Weiß fehlt bewusst: ein weißer Termin wäre unsichtbar.
+# Pigmentfarben ohne Weiß, in fester Reihenfolge (Quelle: utils/eink_farben.py)
 EINK_PALETTEN = {
-    "inky": ["#1c181c", "#1dad23", "#1e1dae", "#cd2425", "#e7de23", "#d87b24"],
-    "waveshare": ["#000000", "#00ff00", "#0000ff", "#ff0000", "#ffff00", "#ff8000"],
+    name: [farben[p] for p in ("schwarz", "gruen", "blau", "rot", "gelb", "orange")]
+    for name, farben in PALETTEN.items()
 }
 
 

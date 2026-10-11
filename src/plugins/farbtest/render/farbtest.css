@@ -1,0 +1,202 @@
+/* Farbtest – nur reine Pigmente und feste Pixelmuster */
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.farbtest {
+    width: 100%;
+    height: 100%;
+    padding: 0.9em 1em 0.8em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7em;
+    background: #fff;
+    color: var(--schwarz);
+    font-family: "Jost", sans-serif;
+    line-height: 1.15;
+    overflow: hidden;
+}
+
+.kopf {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1em;
+    flex: 0 0 auto;
+}
+
+.kopf h1 {
+    font-size: 1.6em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.kopf h1 span {
+    font-weight: normal;
+}
+
+.meta {
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+.kachel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+    min-height: 0;
+    min-width: 0;
+}
+
+/* Feste Pixelkante: das Muster beginnt an einer geraden Position */
+.feld {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 2px solid var(--schwarz);
+    border-radius: 6px;
+    image-rendering: pixelated;
+}
+
+.name {
+    font-size: 0.8em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.name b {
+    font-size: 1.15em;
+    margin-right: 0.15em;
+}
+
+/* ---------- Grundfarben & Größen ---------- */
+
+.flaechen {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.6em;
+    flex: 0 0 34%;
+}
+
+.groessen {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.zeile {
+    display: grid;
+    grid-template-columns: 4.6em repeat(9, 1fr);
+    align-items: center;
+    column-gap: 0.4em;
+    flex: 1 1 0;
+    border-top: 1px dotted var(--schwarz);
+}
+
+.zeile > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zeile > .farbname {
+    justify-content: flex-start;
+    font-size: 0.9em;
+}
+
+.kopfzeile {
+    flex: 0 0 auto;
+    border-top: none;
+    font-size: 0.68em;
+    padding-bottom: 0.3em;
+}
+
+.kopfzeile > div {
+    white-space: nowrap;
+}
+
+.linie {
+    display: block;
+    width: 80%;
+}
+
+.t14 { font-size: 14px; }
+.t20 { font-size: 20px; }
+.t28 { font-size: 28px; font-weight: bold; }
+
+.auf-farbe {
+    gap: 0.25em;
+}
+
+.auf-farbe span {
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 1em;
+}
+
+/* ---------- Mischungen ---------- */
+
+.mischungen {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 0.55em 0.6em;
+}
+
+.mischungen .rein .feld {
+    border-style: dashed;
+}
+
+/* ---------- Hochformat ---------- */
+
+.hochformat .kopf {
+    flex-direction: column;
+    gap: 0.2em;
+}
+
+.hochformat .flaechen {
+    grid-template-columns: repeat(3, 1fr);
+    flex-basis: 30%;
+}
+
+.hochformat .zeile {
+    grid-template-columns: 3.6em repeat(6, 1fr);
+}
+
+/* Im Hochformat nur die wichtigsten Spalten */
+.hochformat .zeile > :nth-child(3),
+.hochformat .zeile > :nth-child(6),
+.hochformat .zeile > :nth-child(8) {
+    display: none;
+}
+
+.hochformat .kopfzeile > div {
+    white-space: normal;
+    text-align: center;
+}
+
+.hochformat .mischungen .name {
+    white-space: normal;
+    line-height: 1.1;
+    min-height: 2.2em;
+}
+
+.hochformat .mischungen {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+}

@@ -1,0 +1,8 @@
+{
+    "display_name": "Farbtest",
+    "id": "farbtest",
+    "class": "Farbtest",
+    "image_settings": ["skip-enhancement"],
+    "category": "Werkzeuge",
+    "description": "Testtafel: welche Farben und Mischungen auf dem Display am besten wirken"
+}
