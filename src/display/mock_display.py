@@ -21,6 +21,7 @@ class MockDisplay(AbstractDisplay):
         logger.info(f"Mock display initialized: {self.width}x{self.height}")
         
     def display_image(self, image, image_settings=[]):
+        self.report_phase("aufbauen")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filepath = os.path.join(self.output_dir, f"display_{timestamp}.png")
         image.save(filepath, "PNG")

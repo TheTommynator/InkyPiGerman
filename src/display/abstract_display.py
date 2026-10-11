@@ -8,6 +8,14 @@ class AbstractDisplay:
     These implementations will be device specific.
     """
 
+    # Wird vom DisplayManager gesetzt; meldet der Weboberfläche den laufenden Schritt
+    phase_callback = None
+
+    def report_phase(self, key):
+        """Meldet einen neuen Schritt der Aktualisierung (Schlüssel aus display_manager.PHASE_LABELS)."""
+        if self.phase_callback:
+            self.phase_callback(key)
+
     def __init__(self, device_config):
         """
         Initializes the display manager with the provided device configuration.

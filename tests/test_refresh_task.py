@@ -52,9 +52,16 @@ class SlowDisplay:
         self.started = threading.Event()
         self.release = threading.Event()
         self.shown = []
+        self.jobs = []
         self.fail = fail
 
-    def display_image(self, image, image_settings=[]):
+    def begin_job(self, title=None):
+        self.jobs.append(title)
+
+    def end_job(self, error=None):
+        pass
+
+    def display_image(self, image, image_settings=[], title=None):
         self.started.set()
         self.release.wait(5)
         if self.fail:

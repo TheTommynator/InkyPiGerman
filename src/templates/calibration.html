@@ -502,11 +502,13 @@
                 if (s.refreshing) {
                     seenRefreshing = true;
                     const expected = s.expected_seconds || 30;
-                    const remaining = Math.max(0, Math.round(expected - s.elapsed_seconds));
+                    const left = s.remaining_seconds ?? (expected - s.elapsed_seconds);
+                    const remaining = Math.max(0, Math.round(left));
+                    const phase = s.phase || 'Das Display baut das Bild auf';
                     setStatus(prefix, 'busy',
-                        remaining > 0 ? `Das Display baut das Bild auf … noch etwa ${remaining} s`
-                                      : 'Das Display baut das Bild auf … gleich fertig',
-                        Math.min(1, s.elapsed_seconds / expected));
+                        remaining > 0 ? `${phase} … noch etwa ${remaining} s`
+                                      : `${phase} … gleich fertig`,
+                        Math.min(1, s.elapsed_seconds / Math.max(1, s.elapsed_seconds + Math.max(0, left))));
                     return;
                 }
                 // Fertig – oder es lief gar keine Aktualisierung an (gleiches Bild)

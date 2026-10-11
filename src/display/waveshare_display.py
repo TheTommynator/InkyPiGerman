@@ -122,22 +122,26 @@ class WaveshareDisplay(AbstractDisplay):
             raise ValueError(f"No image provided.")
 
         # Assume device was in sleep mode.
+        self.report_phase("aufwecken")
         self.epd_display_init()
 
         # Clear residual pixels before updating the image.
+        self.report_phase("loeschen")
         self.epd_display.Clear()
 
-        # Display the image on the WS display.
+        # Bild auf die Farben des Displays umrechnen
+        self.report_phase("farben")
         if not self.bi_color_display:
-            self.epd_display.display(self.epd_display.getbuffer(image))
+            buffers = [self.epd_display.getbuffer(image)]
         else:
             black_layer, red_layer = split_image_for_bi_color_epd(image)
+            buffers = [self.epd_display.getbuffer(black_layer), self.epd_display.getbuffer(red_layer)]
 
-            self.epd_display.display(
-                self.epd_display.getbuffer(black_layer),
-                self.epd_display.getbuffer(red_layer),
-            )
+        # Display the image on the WS display.
+        self.report_phase("aufbauen")
+        self.epd_display.display(*buffers)
 
         # Put device into low power mode (EPD displays maintain image when powered off)
         logger.info("Putting Waveshare display into sleep mode for power saving.")
+        self.report_phase("schlafen")
         self.epd_display.sleep()

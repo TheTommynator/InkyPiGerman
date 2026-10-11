@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 plugin_bp = Blueprint("plugin", __name__)
 
 # Das Bild ist fertig, der Bildaufbau auf dem E-Paper läuft danach im Hintergrund weiter
-DISPLAY_STARTED_MESSAGE = "Bild erstellt – das Display wird jetzt aktualisiert. Den Fortschritt siehst du auf der Startseite."
+DISPLAY_STARTED_MESSAGE = "Bild erstellt – das Display wird jetzt aktualisiert. Den Fortschritt siehst du unten im Statusfeld."
 DISPLAY_UNCHANGED_MESSAGE = "Das Display zeigt dieses Bild bereits."
 
 def _display_message(display_started):
