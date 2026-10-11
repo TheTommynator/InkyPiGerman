@@ -1,0 +1,246 @@
+<style>
+    .wt-hinweis { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4; }
+    .wt-ort { flex-direction: column; align-items: stretch !important; }
+    .wt-ort-kopf { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .wt-ort-name { color: var(--text-secondary); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wt-treffer { display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; background: var(--bg-primary); }
+    .wt-treffer:empty { display: none; }
+    .wt-treffer button {
+        display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+        padding: 10px 12px; border: 0; background: none; color: var(--text-primary); font: inherit; cursor: pointer;
+    }
+    .wt-treffer button + button { box-shadow: inset 0 0.5px 0 var(--separator); }
+    .wt-treffer button:hover { background: var(--button-bg); }
+    .wt-treffer small { color: var(--text-secondary); }
+    .wt-treffer .leer { padding: 10px 12px; color: var(--text-secondary); }
+    .wt-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .wt-chips button {
+        border: 1px solid var(--separator); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+        background: var(--bg-primary); color: var(--text-primary); font: inherit;
+    }
+    .wt-chips button.an { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+    .wt-chips button:disabled { opacity: 0.4; cursor: default; }
+    .wt-details { flex-direction: column; align-items: stretch !important; }
+</style>
+
+<div class="form-group wt-ort">
+    <div class="wt-ort-kopf">
+        <label for="wtSuche" class="form-label">Ort</label>
+        <span class="wt-ort-name" id="wtOrtAnzeige">Noch kein Ort gewählt</span>
+    </div>
+    <input type="text" id="wtSuche" class="form-input" placeholder="Ort suchen, z. B. Freiburg" autocomplete="off" enterkeyhint="search">
+    <div class="wt-treffer" id="wtTreffer"></div>
+    <input type="hidden" id="ortName" name="ortName">
+    <input type="hidden" id="latitude" name="latitude">
+    <input type="hidden" id="longitude" name="longitude">
+</div>
+
+<div class="form-group">
+    <label class="form-label">Ansicht</label>
+    <div class="button-group" id="wtAnsichtWahl">
+        <button type="button" data-value="heute" onclick="wtAnsichtWaehlen(this.dataset.value)">Heute</button>
+        <button type="button" data-value="woche" onclick="wtAnsichtWaehlen(this.dataset.value)">Woche</button>
+        <button type="button" data-value="beides" onclick="wtAnsichtWaehlen(this.dataset.value)">Heute + Woche</button>
+    </div>
+    <input type="hidden" name="ansicht" id="ansicht" value="heute">
+</div>
+
+<div class="form-group wt-details" data-ansichten="heute,beides">
+    <label class="form-label">Details (bis zu drei)</label>
+    <div class="wt-chips" id="wtDetails">
+        <button type="button" data-value="gefuehlt">Gefühlt</button>
+        <button type="button" data-value="wind">Wind</button>
+        <button type="button" data-value="regen">Regenmenge</button>
+        <button type="button" data-value="uv">UV-Index</button>
+        <button type="button" data-value="feuchte">Luftfeuchte</button>
+        <button type="button" data-value="sonne">Sonnenauf-/untergang</button>
+    </div>
+    <input type="hidden" name="details" id="details" value="wind,regen,uv">
+</div>
+
+<div class="form-group">
+    <input type="hidden" name="warnungen" id="warnungen" value="true">
+    <input type="checkbox" id="warnungenBox" checked onchange="wtCheckbox(this, 'warnungen')">
+    <span>Amtliche Wetterwarnungen des DWD</span>
+</div>
+
+<div class="form-group nowrap">
+    <label for="iconstil" class="form-label">Icons</label>
+    <select id="iconstil" name="iconstil" class="form-input">
+        <option value="farbig">Farbig</option>
+        <option value="linien">Nur Linien</option>
+    </select>
+</div>
+
+<div class="form-group nowrap" data-ansichten="woche,beides">
+    <label for="temperaturfarbe" class="form-label">Temperaturbalken</label>
+    <select id="temperaturfarbe" name="temperaturfarbe" class="form-input">
+        <option value="farbig">Farbig (kalt blau, warm rot)</option>
+        <option value="einfarbig">Einfarbig in Akzentfarbe</option>
+    </select>
+</div>
+
+<div class="form-group nowrap">
+    <label for="thema" class="form-label">Thema</label>
+    <select id="thema" name="thema" class="form-input">
+        <option value="eink">E-Ink (7 Farben)</option>
+        <option value="hell">Hell</option>
+        <option value="dunkel">Dunkel</option>
+    </select>
+</div>
+
+<div class="form-group nowrap">
+    <label for="akzentfarbe" class="form-label">Akzentfarbe</label>
+    <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
+</div>
+
+<div class="form-group nowrap">
+    <label for="schriftgroesse" class="form-label">Schriftgröße</label>
+    <select id="schriftgroesse" name="schriftgroesse" class="form-input">
+        <option value="klein">Klein</option>
+        <option value="normal" selected>Normal</option>
+        <option value="gross">Groß</option>
+        <option value="sehr_gross">Sehr groß</option>
+    </select>
+</div>
+
+<div class="wt-hinweis">
+    Vorhersage mit den Modellen des Deutschen Wetterdienstes über Open-Meteo, Warnungen vom DWD über Bright Sky.
+    Es ist kein API-Schlüssel nötig. Bei „E-Ink (7 Farben)“ werden nur die reinen Displayfarben verwendet.
+</div>
+
+<script>
+    const WT_MAX_DETAILS = 3;
+
+    function wtCheckbox(box, feld) {
+        document.getElementById(feld).value = box.checked ? 'true' : 'false';
+    }
+
+    function wtAnsichtWaehlen(ansicht) {
+        document.getElementById('ansicht').value = ansicht;
+        document.querySelectorAll('#wtAnsichtWahl button').forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.value === ansicht));
+        document.querySelectorAll('[data-ansichten]').forEach(el => {
+            el.style.display = el.dataset.ansichten.split(',').includes(ansicht) ? '' : 'none';
+        });
+    }
+
+    function wtDetailsAnzeigen() {
+        const gewaehlt = document.getElementById('details').value.split(',').filter(Boolean);
+        document.querySelectorAll('#wtDetails button').forEach(btn => {
+            const an = gewaehlt.includes(btn.dataset.value);
+            btn.classList.toggle('an', an);
+            btn.disabled = !an && gewaehlt.length >= WT_MAX_DETAILS;
+        });
+    }
+
+    function wtDetailUmschalten(wert) {
+        const feld = document.getElementById('details');
+        let gewaehlt = feld.value.split(',').filter(Boolean);
+        gewaehlt = gewaehlt.includes(wert) ? gewaehlt.filter(w => w !== wert) : [...gewaehlt, wert];
+        feld.value = gewaehlt.slice(0, WT_MAX_DETAILS).join(',');
+        wtDetailsAnzeigen();
+    }
+
+    function wtKoordinaten(lat, lon) {
+        const f = (wert, plus, minus) => `${Math.abs(wert).toFixed(2).replace('.', ',')}° ${wert >= 0 ? plus : minus}`;
+        return `${f(lat, 'N', 'S')}, ${f(lon, 'O', 'W')}`;
+    }
+
+    function wtOrtAnzeigen() {
+        const name = document.getElementById('ortName').value;
+        const lat = parseFloat(document.getElementById('latitude').value);
+        const lon = parseFloat(document.getElementById('longitude').value);
+        const anzeige = document.getElementById('wtOrtAnzeige');
+        if (isNaN(lat) || isNaN(lon)) {
+            anzeige.textContent = 'Noch kein Ort gewählt';
+            return;
+        }
+        anzeige.textContent = name || wtKoordinaten(lat, lon);
+        anzeige.title = wtKoordinaten(lat, lon);
+    }
+
+    function wtOrtWaehlen(ort) {
+        document.getElementById('ortName').value = ort.name;
+        document.getElementById('latitude').value = ort.latitude;
+        document.getElementById('longitude').value = ort.longitude;
+        document.getElementById('wtSuche').value = '';
+        document.getElementById('wtTreffer').innerHTML = '';
+        wtOrtAnzeigen();
+    }
+
+    let wtSuchTimer = null;
+    let wtSuchNummer = 0;
+
+    async function wtSuchen(text) {
+        const treffer = document.getElementById('wtTreffer');
+        const nummer = ++wtSuchNummer;
+        if (text.trim().length < 2) {
+            treffer.innerHTML = '';
+            return;
+        }
+        try {
+            const url = 'https://geocoding-api.open-meteo.com/v1/search?count=6&language=de&format=json&name='
+                + encodeURIComponent(text.trim());
+            const daten = await (await fetch(url)).json();
+            if (nummer !== wtSuchNummer) return;  // inzwischen weitergetippt
+            treffer.innerHTML = '';
+            const orte = daten.results || [];
+            if (!orte.length) {
+                treffer.innerHTML = '<div class="leer">Kein Ort gefunden</div>';
+                return;
+            }
+            orte.forEach(ort => {
+                const knopf = document.createElement('button');
+                knopf.type = 'button';
+                const name = document.createElement('span');
+                name.textContent = ort.name;
+                const zusatz = document.createElement('small');
+                zusatz.textContent = [ort.admin1, ort.country].filter(Boolean).join(', ');
+                knopf.append(name, zusatz);
+                knopf.onclick = () => wtOrtWaehlen(ort);
+                treffer.appendChild(knopf);
+            });
+        } catch (e) {
+            if (nummer === wtSuchNummer) {
+                treffer.innerHTML = '<div class="leer">Ortssuche nicht erreichbar</div>';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const s = loadPluginSettings ? pluginSettings : {};
+
+        ['ortName', 'latitude', 'longitude', 'iconstil', 'temperaturfarbe', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
+            if (s[feld]) document.getElementById(feld).value = s[feld];
+        });
+        if (s.details !== undefined) {
+            const liste = Array.isArray(s.details) ? s.details : String(s.details).split(',');
+            document.getElementById('details').value = liste.filter(Boolean).slice(0, WT_MAX_DETAILS).join(',');
+        }
+        const warnungen = s.warnungen !== 'false';
+        document.getElementById('warnungen').value = warnungen ? 'true' : 'false';
+        document.getElementById('warnungenBox').checked = warnungen;
+
+        document.querySelectorAll('#wtDetails button').forEach(btn =>
+            btn.addEventListener('click', () => wtDetailUmschalten(btn.dataset.value)));
+
+        const suche = document.getElementById('wtSuche');
+        suche.addEventListener('input', () => {
+            clearTimeout(wtSuchTimer);
+            wtSuchTimer = setTimeout(() => wtSuchen(suche.value), 300);
+        });
+        // Enter sucht sofort, statt das Formular abzuschicken
+        suche.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(wtSuchTimer);
+                wtSuchen(suche.value);
+            }
+        });
+
+        wtOrtAnzeigen();
+        wtDetailsAnzeigen();
+        wtAnsichtWaehlen(s.ansicht || 'heute');
+    });
+</script>

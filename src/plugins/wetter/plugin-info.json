@@ -1,0 +1,8 @@
+{
+    "display_name": "Wetter",
+    "id": "wetter",
+    "class": "Wetter",
+    "image_settings": ["skip-enhancement"],
+    "category": "Wetter & Nachrichten",
+    "description": "Wetter und Warnungen des DWD, ohne API-Schlüssel"
+}
