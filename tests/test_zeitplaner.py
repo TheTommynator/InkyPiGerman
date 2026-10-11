@@ -232,6 +232,17 @@ class TestAktualisierung:
         assert next_refresh_at(uhr, at(SAMSTAG, "08:00") + timedelta(seconds=40), seg) == at(SAMSTAG, "08:01")
         assert needs_refresh(uhr, at(SAMSTAG, "08:01") + timedelta(seconds=1, microseconds=200000), seg)
 
+    def test_alle_5_minuten_auf_dem_takt_der_uhr(self):
+        # Erste Aktualisierung um 08:02 → danach 08:05, 08:10 … statt 08:07, 08:12 …
+        uhr = view("u", "Uhr", plugin_id="clock", refresh=Refresh("interval", minutes=5), latest="2026-10-10T08:02:10")
+        seg = self.segment()
+        assert next_refresh_at(uhr, at(SAMSTAG, "08:03"), seg) == at(SAMSTAG, "08:05")
+        assert not needs_refresh(uhr, at(SAMSTAG, "08:04"), seg)
+        assert needs_refresh(uhr, at(SAMSTAG, "08:05"), seg)
+        # Intervalle, die nicht im Tag aufgehen, laufen weiter ab der letzten Aktualisierung
+        krumm = view("k", "Krumm", refresh=Refresh("interval", minutes=7), latest="2026-10-10T08:02:10")
+        assert next_refresh_at(krumm, at(SAMSTAG, "08:03"), seg) == at(SAMSTAG, "08:09")
+
     def test_automatisch_nach_plugin(self):
         wetter = view("w", "Wetter", refresh=Refresh("auto"), latest="2026-10-10T08:00:00")
         seg = self.segment()
@@ -267,7 +278,9 @@ class TestAktualisierung:
                       fixed=[FixedTime("f", "08:00", "10:00", days=[5])])
         schedule = Schedule(views=[view("k", "Kalender", 60, plugin_id="calendar", latest="2026-10-10T07:10:00"), wetter])
         assert next_wakeup(schedule, at(SAMSTAG, "08:05")) == at(SAMSTAG, "08:15")
-        assert next_wakeup(schedule, at(SAMSTAG, "07:20")) == at(SAMSTAG, "07:25")  # Kalender: alle 15 Min
+        assert next_wakeup(schedule, at(SAMSTAG, "07:20")) == at(SAMSTAG, "07:20")  # Kalender: alle 15 Min im Viertelstundentakt, 07:15 ist schon fällig
+        schedule.views[0].latest_refresh_time = "2026-10-10T07:15:20"
+        assert next_wakeup(schedule, at(SAMSTAG, "07:20")) == at(SAMSTAG, "07:30")
         schedule.views[0].latest_refresh_time = "2026-10-10T06:50:00"
         assert next_wakeup(schedule, at(SAMSTAG, "07:20")) == at(SAMSTAG, "07:20")  # überfällig: sofort
         wetter.latest_refresh_time = "2026-10-10T09:50:00"

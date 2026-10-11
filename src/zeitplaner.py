@@ -263,13 +263,19 @@ def _daily_due(view, now):
 
 
 def _interval_due(last, interval):
-    """Nächste fällige Intervall-Aktualisierung, auf die volle Minute abgerundet.
+    """Nächste fällige Intervall-Aktualisierung, abgerundet auf den Takt der Uhr.
 
     Der Planer wacht erst kurz nach dem fälligen Zeitpunkt auf; ohne Abrunden würde
-    sich jede Aktualisierung um diese Sekunden verschieben. So bleibt z. B. die Uhr
-    bei „Jede Minute“ im Takt der vollen Minuten.
+    sich jede Aktualisierung um diese Sekunden verschieben. Geht das Intervall glatt
+    im Tag auf (1, 5, 10, 15, 30, 60 … Minuten), liegen die Aktualisierungen auf
+    seinen Vielfachen – „Alle 5 Min“ also um :00, :05, :10 … So zeigt die Uhr im
+    Fünf-Minuten-Takt immer die passende Zeit.
     """
-    return (last + timedelta(minutes=interval)).replace(second=0, microsecond=0)
+    due = (last + timedelta(minutes=interval)).replace(second=0, microsecond=0)
+    if MINUTES_PER_DAY % interval == 0:
+        minute = due.hour * 60 + due.minute
+        due -= timedelta(minutes=minute % interval)
+    return due
 
 
 def needs_refresh(view, now, segment):
