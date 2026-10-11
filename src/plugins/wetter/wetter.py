@@ -133,6 +133,7 @@ class Wetter(BasePlugin):
         else:
             farben = dict(KUNST_FARBEN)
         breite, hoehe = dimensions
+        gefuehlt = settings.get("temperatur") == "gefuehlt"
         template_params = {
             "farben": farben,
             "ort": (settings.get("ortName") or "").strip(),
@@ -143,9 +144,9 @@ class Wetter(BasePlugin):
             "plugin_settings": {},
         }
         if ansicht == "fenster":
-            template_params["szene"] = szene_fenster(wetter, jetzt)
+            template_params["szene"] = szene_fenster(wetter, jetzt, gefuehlt)
         else:
-            template_params["gedicht"] = poesie(wetter, jetzt)
+            template_params["gedicht"] = poesie(wetter, jetzt, gefuehlt)
 
         image = self.render_image(dimensions, f"wetter_{ansicht}.html", "wetter_kunst.css", template_params)
         if not image:

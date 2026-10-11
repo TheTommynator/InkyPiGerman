@@ -14,6 +14,7 @@
     <div class="unter"><i></i><span>{{ datum }}</span></div>
   </section>
   <div class="marke">
+    {% if gedicht.gefuehlt %}<div class="hinweis">gefühlt</div>{% endif %}
     <div class="temp">{{ gedicht.temp }}°</div>
     {% if gedicht.tief is not none %}<div class="spanne">{{ gedicht.tief }}° – {{ gedicht.hoch }}°</div>{% endif %}
   </div>

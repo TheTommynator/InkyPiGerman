@@ -74,6 +74,14 @@
     Ein Plakat mit großem Wort und drei kurzen Zeilen zum Tag. Farbe und Motiv richten sich nach dem Wetter.
 </div>
 
+<div class="form-group nowrap" data-ansichten="fenster,poesie">
+    <label for="temperatur" class="form-label">Temperatur</label>
+    <select id="temperatur" name="temperatur" class="form-input">
+        <option value="gemessen">Gemessen</option>
+        <option value="gefuehlt">Gefühlt</option>
+    </select>
+</div>
+
 <div class="form-group nowrap" data-ansichten="heute,woche,beides">
     <label for="iconstil" class="form-label">Icons</label>
     <select id="iconstil" name="iconstil" class="form-input">
@@ -221,7 +229,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const s = loadPluginSettings ? pluginSettings : {};
 
-        ['ortName', 'latitude', 'longitude', 'iconstil', 'temperaturfarbe', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
+        ['ortName', 'latitude', 'longitude', 'iconstil', 'temperaturfarbe', 'temperatur', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
             if (s[feld]) document.getElementById(feld).value = s[feld];
         });
         if (s.details !== undefined) {
