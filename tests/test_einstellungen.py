@@ -19,11 +19,19 @@ from blueprints.plugin import plugin_bp  # noqa: E402
 from blueprints.settings import settings_bp  # noqa: E402
 from blueprints.updates import updates_bp  # noqa: E402
 from blueprints.zugangsdaten import zugangsdaten_bp  # noqa: E402
+from blueprints.loeschtest import loeschtest_bp  # noqa: E402
 
 
 class FakeRefreshTask:
+    running = True
+
     def __init__(self):
         self.signals = 0
+        self.shown = []
+
+    def manual_update(self, action):
+        self.shown.append(action)
+        return True
 
     def signal_config_change(self):
         self.signals += 1
@@ -42,7 +50,7 @@ def env(tmp_path):
     config._schedule = None
 
     app = flask.Flask(__name__, template_folder=str(Path(__file__).resolve().parent.parent / "src" / "templates"))
-    for bp in (settings_bp, main_bp, ansichten_bp, plugin_bp, updates_bp, zugangsdaten_bp, calibration_bp):
+    for bp in (settings_bp, main_bp, ansichten_bp, plugin_bp, updates_bp, zugangsdaten_bp, calibration_bp, loeschtest_bp):
         app.register_blueprint(bp)
     task = FakeRefreshTask()
     app.config.update(DEVICE_CONFIG=config, REFRESH_TASK=task)
@@ -64,8 +72,9 @@ def test_einzelne_einstellung_wird_sofort_gespeichert(env):
     client.post("/settings/geraet", json={"inverted_image": True, "log_system_stats": False})
     assert saved(path)["inverted_image"] is True and saved(path)["log_system_stats"] is False
 
-    client.post("/settings/geraet", json={"display_clear_mode": "automatisch"})
+    client.post("/settings/geraet", json={"display_clear_mode": "automatisch", "display_clear_threshold": 45})
     assert saved(path)["display_clear_mode"] == "automatisch"
+    assert saved(path)["display_clear_threshold"] == 45
 
 
 def test_zeitzone_weckt_den_zeitplan(env):
@@ -83,6 +92,8 @@ def test_zeitzone_weckt_den_zeitplan(env):
     ({"orientation": "schief"}, "Ausrichtung"),
     ({"time_format": "13h"}, "Zeitformat"),
     ({"display_clear_mode": "manchmal"}, "Löschen"),
+    ({"display_clear_threshold": 2}, "zwischen 5 und 100"),
+    ({"display_clear_threshold": "viel"}, "ganze Zahl"),
     ({"timezone": "Mond/Krater"}, "keine bekannte Zeitzone"),
     ({}, "Keine Einstellung"),
 ])
@@ -106,9 +117,32 @@ def test_name_wird_bereinigt(env):
     ("/settings/geraet", "Zeitzone"),
     ("/settings/bild", "1.40"),
     ("/settings/updates", "Jetzt aktualisieren"),
+    ("/settings/loeschtest", "Test starten"),
 ])
 def test_seiten_werden_angezeigt(env, url, text):
     client, _, _ = env
     response = client.get(url)
     assert response.status_code == 200
     assert text in response.get_data(as_text=True)
+
+
+def test_loeschtest_zeigt_szene_mit_und_ohne_loeschen(env):
+    client, _, task = env
+    response = client.post("/settings/loeschtest/zeigen", json={"szene": "wetter", "bild": "vorher"})
+    assert response.status_code == 200
+    anteil = response.get_json()["anteil"]
+    assert 5 < anteil < 40
+    client.post("/settings/loeschtest/zeigen", json={"szene": "wetter", "bild": "nachher"})
+    assert [action.clear for action in task.shown] == [True, False]
+    assert all(action.always_show for action in task.shown)
+
+    assert client.post("/settings/loeschtest/zeigen", json={"szene": "mond", "bild": "vorher"}).status_code == 400
+
+
+def test_loeschtest_auswertung(env):
+    client, _, _ = env
+    response = client.post("/settings/loeschtest/auswerten", json={"ergebnisse": [
+        {"anteil": 6, "bewertung": "sauber"}, {"anteil": 34, "bewertung": "stoerend"}]})
+    empfehlung = response.get_json()["empfehlung"]
+    assert empfehlung["modus"] == "automatisch" and 6 < empfehlung["schwelle"] <= 34
+    assert client.post("/settings/loeschtest/auswerten", json={"ergebnisse": []}).status_code == 400

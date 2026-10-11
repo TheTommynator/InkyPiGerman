@@ -18,8 +18,10 @@ STANDARD_MODUS = "immer"
 
 # Spätestens nach dieser Zeit wird wieder gelöscht, damit sich keine Reste ansammeln
 MAX_SEKUNDEN_OHNE_LOESCHEN = 24 * 60 * 60
-# Ab diesem Anteil geänderter Bildpunkte gilt ein Wechsel als groß
-ANTEIL_GROSSER_WECHSEL = 0.3
+# Ab diesem Anteil geänderter Bildpunkte (Prozent) gilt ein Wechsel als groß;
+# anpassbar über den Löschtest (Einstellung „display_clear_threshold“)
+STANDARD_SCHWELLE = 30
+MIN_SCHWELLE, MAX_SCHWELLE = 5, 100
 
 # Vergleichsgröße und Farben, mit denen der Waveshare-Treiber die Pigmente anspricht
 VERGLEICH_BREITE = 160
@@ -29,6 +31,15 @@ PIGMENTE = ((0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (0, 0, 255), (
 def modus(device_config):
     value = device_config.get_config("display_clear_mode", default=STANDARD_MODUS)
     return value if value in MODI else STANDARD_MODUS
+
+
+def schwelle(device_config):
+    """Schwelle in Prozent für „automatisch“."""
+    try:
+        value = int(device_config.get_config("display_clear_threshold", default=STANDARD_SCHWELLE))
+    except (TypeError, ValueError):
+        return STANDARD_SCHWELLE
+    return max(MIN_SCHWELLE, min(MAX_SCHWELLE, value))
 
 
 def pigment_bild(image):
@@ -49,13 +60,13 @@ def anteil_geaendert(vorher, nachher):
     return sum(1 for x, y in zip(a, b) if x != y) / max(1, len(a))
 
 
-def entscheiden(modus, vorher, nachher, letztes_loeschen, jetzt=None):
+def entscheiden(modus, vorher, nachher, letztes_loeschen, jetzt=None, schwelle=STANDARD_SCHWELLE):
     """Ob gelöscht wird, und warum (für die Statusanzeige).
 
     Automatisch wird gelöscht, wenn
       - das vorige Bild unbekannt ist (nach einem Neustart),
       - seit dem letzten Löschen mehr als 24 Stunden vergangen sind, oder
-      - sich mindestens 30 % der Bildpunkte ändern (z. B. Wechsel zu einer anderen Ansicht).
+      - sich mindestens `schwelle` Prozent der Bildpunkte ändern (z. B. Wechsel zu einer anderen Ansicht).
     Kleine Änderungen wie eine neue Uhrzeit oder ein aktualisierter Wert brauchen kein Löschen.
 
     Args:
@@ -72,6 +83,6 @@ def entscheiden(modus, vorher, nachher, letztes_loeschen, jetzt=None):
     if letztes_loeschen is None or jetzt - letztes_loeschen >= MAX_SEKUNDEN_OHNE_LOESCHEN:
         return True, "tägliche Auffrischung"
     anteil = anteil_geaendert(vorher, nachher)
-    if anteil >= ANTEIL_GROSSER_WECHSEL:
+    if anteil * 100 >= schwelle:
         return True, f"großer Bildwechsel ({round(anteil * 100)} %)"
     return False, f"nur {round(anteil * 100)} % geändert"

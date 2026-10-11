@@ -99,7 +99,7 @@ class DisplayManager:
         # Die Treiber melden ihre Schritte („Altes Bild wird gelöscht“ …)
         self.display.phase_callback = self.set_phase
 
-    def display_image(self, image, image_settings=[], title=None):
+    def display_image(self, image, image_settings=[], title=None, clear=None):
         
         """
         Delegates image rendering to the appropriate display instance.
@@ -108,6 +108,8 @@ class DisplayManager:
             image (PIL.Image): The image to be displayed.
             image_settings (list, optional): List of settings to modify image rendering.
             title (str, optional): Was angezeigt wird, für die Statusanzeige in der Weboberfläche.
+            clear (bool, optional): Altes Bild löschen erzwingen (True) oder auslassen (False),
+                sonst entscheidet die Einstellung (z. B. für den Löschtest).
 
         Raises:
             ValueError: If no valid display instance is found.
@@ -131,7 +133,7 @@ class DisplayManager:
             self._last_error = None
             self._enter_phase("vorbereiten", now)
         try:
-            self._render(image, image_settings)
+            self._render(image, image_settings, clear)
         except Exception as e:
             self._end_job(error=str(e) or type(e).__name__)
             raise
@@ -258,7 +260,7 @@ class DisplayManager:
             result.update({"step": keys.index(current) + 1, "steps": len(keys)})
         return result
 
-    def _render(self, image, image_settings):
+    def _render(self, image, image_settings, clear_override=None):
         # Save the image
         logger.info(f"Saving image to {self.device_config.current_image_file}")
         image.save(self.device_config.current_image_file)
@@ -274,8 +276,12 @@ class DisplayManager:
         # Vorher löschen? (Einstellung „Altes Bild löschen“)
         mode = loeschen.modus(self.device_config)
         pigments = loeschen.pigment_bild(image)
-        clear, reason = loeschen.entscheiden(mode, self._shown_pigments, pigments,
-                                             self.device_config.get_config("last_display_clear", default=None))
+        if clear_override is not None:
+            clear, reason = bool(clear_override), "Löschtest"
+        else:
+            clear, reason = loeschen.entscheiden(mode, self._shown_pigments, pigments,
+                                                 self.device_config.get_config("last_display_clear", default=None),
+                                                 schwelle=loeschen.schwelle(self.device_config))
         logger.info(f"Altes Bild löschen: {'ja' if clear else 'nein'} | mode: {mode} | {reason or ''}")
         with self._status_lock:
             self._clear_reason = reason if clear else None

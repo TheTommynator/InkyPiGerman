@@ -1,0 +1,327 @@
+{% set tab = 'einstellungen' %}
+{% extends 'layout.html' %}
+{% block title %}Löschtest{% endblock %}
+{% block head %}
+    <style>
+        .lt-screen[hidden] { display: none; }
+        .lt-eyebrow { color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 4px 4px; }
+        .lt-text { margin: 0 4px 16px; color: var(--text-secondary); line-height: 1.45; }
+        .lt-progress { display: flex; gap: 4px; margin: 0 4px 18px; }
+        .lt-progress span { flex: 1; height: 4px; border-radius: 2px; background: var(--button-bg); }
+        .lt-progress span.done { background: var(--accent-primary); }
+        .lt-progress span.active { background: var(--loading-color); opacity: 0.5; }
+        .lt-step { display: flex; align-items: center; gap: 10px; padding: 12px 16px; color: var(--text-secondary); }
+        .lt-step + .lt-step { border-top: 0.5px solid var(--separator); }
+        .lt-step-icon { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid var(--border-color); box-sizing: border-box; }
+        .lt-step.active { color: var(--text-primary); font-weight: 600; }
+        .lt-step.active .lt-step-icon { border-color: var(--loading-color); border-top-color: transparent; animation: lt-spin 0.9s linear infinite; }
+        .lt-step.done .lt-step-icon { border-color: var(--success-color); background: var(--success-color); }
+        @keyframes lt-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .lt-step.active .lt-step-icon { animation: none; } }
+        .lt-hint { margin: 16px 4px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); color: var(--text-primary); line-height: 1.4; }
+        .lt-rating { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+        .lt-rating small { color: var(--text-secondary); font-weight: 400; }
+        .lt-actions { display: flex; gap: 10px; margin: 18px 0 8px; flex-wrap: wrap; }
+        .lt-actions .action-button.secondary { background: var(--button-bg); color: var(--text-primary); }
+        .lt-result-row { display: flex; justify-content: space-between; gap: 12px; }
+        .lt-badge { font-size: 0.85rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+        .lt-badge.sauber { background: color-mix(in srgb, var(--success-color) 20%, transparent); color: var(--text-primary); }
+        .lt-badge.leicht { background: var(--button-bg); color: var(--text-primary); }
+        .lt-badge.stoerend { background: color-mix(in srgb, var(--failure-color) 20%, transparent); color: var(--text-primary); }
+        .lt-badge.offen { color: var(--text-secondary); }
+        .lt-recommendation { font-size: 1.05rem; line-height: 1.45; margin: 0 4px 8px; }
+        .lt-recommendation strong { display: block; font-size: 1.25rem; margin-bottom: 6px; }
+    </style>
+{% endblock %}
+{% block content %}
+    <div class="frame">
+        <a href="{{ url_for('settings.device_page') }}" class="back-button" id="backLink">Gerät</a>
+        <header class="header">
+            <h1>Löschtest</h1>
+        </header>
+
+        <!-- Einleitung -->
+        <section class="lt-screen" id="screenIntro">
+            <p class="lt-text">
+                Der Test spielt typische Bildwechsel auf deinem Display nach – jeweils <strong>ohne</strong> das alte Bild
+                vorher zu löschen. Du schaust aufs Display und sagst, ob Reste des vorigen Bilds zu sehen sind.
+                Daraus ergibt sich, ab wie viel Änderung „Automatisch“ löschen soll.
+            </p>
+            <section class="list-section">
+                <h2 class="list-header">Die Szenen</h2>
+                <div class="list-group">
+                    {% for s in szenen %}
+                    <div class="list-row">
+                        <span class="list-text">
+                            <span class="list-title">{{ loop.index }}. {{ s.name }}</span>
+                            <span class="list-subtitle">{{ s.beschreibung }}</span>
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <p class="list-footer">
+                    Pro Szene baut das Display zweimal ein Bild auf: erst sauber (mit Löschen), dann den Wechsel ohne Löschen.
+                    Rechne mit etwa einer Minute pro Szene. Am besten stehst du dabei vor dem Display.
+                    Aktuell: {% if modus == 'automatisch' %}Automatisch ab {{ schwelle }}&nbsp;%{% elif modus == 'nie' %}Nie löschen{% else %}Immer löschen{% endif %}.
+                </p>
+            </section>
+            <div class="lt-actions">
+                <button type="button" class="action-button" id="startButton">Test starten</button>
+            </div>
+        </section>
+
+        <!-- Eine Szene -->
+        <section class="lt-screen" id="screenScene" hidden>
+            <div class="lt-progress" id="progress"></div>
+            <div class="lt-eyebrow" id="sceneEyebrow"></div>
+            <h2 class="list-header" style="text-transform: none; font-size: 1.3rem; color: var(--text-primary); margin: 0 4px 6px;" id="sceneTitle"></h2>
+            <p class="lt-text" id="sceneText"></p>
+
+            <div class="list-group">
+                <div class="lt-step" id="stepBefore"><span class="lt-step-icon"></span><span>Ausgangsbild sauber anzeigen (mit Löschen)</span></div>
+                <div class="lt-step" id="stepAfter"><span class="lt-step-icon"></span><span id="stepAfterText">Wechsel ohne Löschen anzeigen</span></div>
+            </div>
+
+            <div id="question" hidden>
+                <div class="lt-hint" id="sceneHint"></div>
+                <section class="list-section">
+                    <h2 class="list-header">Siehst du Reste des vorigen Bilds?</h2>
+                    <div class="list-group">
+                        <button type="button" class="list-row list-action lt-rating" data-rating="sauber">
+                            <span>Nein, sauber</span><small>Kein Unterschied zu einem frisch gelöschten Bild</small>
+                        </button>
+                        <button type="button" class="list-row list-action lt-rating" data-rating="leicht">
+                            <span>Leichte Reste, stört mich nicht</span><small>Nur aus der Nähe oder bei genauem Hinsehen</small>
+                        </button>
+                        <button type="button" class="list-row list-action lt-rating" data-rating="stoerend">
+                            <span>Ja, störende Reste</span><small>Das alte Bild ist beim normalen Hinschauen zu erkennen</small>
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="lt-actions">
+                <button type="button" class="action-button secondary compact" id="repeatButton" hidden>Szene wiederholen</button>
+                <button type="button" class="action-button secondary compact" id="skipButton">Szene überspringen</button>
+                <button type="button" class="action-button secondary compact" id="finishEarly">Test beenden</button>
+            </div>
+        </section>
+
+        <!-- Ergebnis -->
+        <section class="lt-screen" id="screenResult" hidden>
+            <div class="list-group">
+                <div class="list-row">
+                    <div class="lt-recommendation" id="recommendation"></div>
+                </div>
+            </div>
+            <div class="lt-actions">
+                <button type="button" class="action-button" id="applyButton">Übernehmen</button>
+                <button type="button" class="action-button secondary" id="discardButton">Nicht übernehmen</button>
+            </div>
+            <section class="list-section">
+                <h2 class="list-header">Deine Bewertungen</h2>
+                <div class="list-group" id="resultList"></div>
+                <p class="list-footer" id="restoreNote">Das Display zeigt gleich wieder das Bild von vor dem Test.</p>
+            </section>
+        </section>
+    </div>
+
+    {% include 'response_modal.html' %}
+
+    <script>
+        const SZENEN = {{ szenen | tojson }};
+        const URLS = {
+            start: "{{ url_for('loeschtest.loeschtest_start') }}",
+            zeigen: "{{ url_for('loeschtest.loeschtest_zeigen') }}",
+            auswerten: "{{ url_for('loeschtest.loeschtest_auswerten') }}",
+            ende: "{{ url_for('loeschtest.loeschtest_ende') }}",
+            status: "{{ url_for('main.get_display_status') }}",
+            speichern: "{{ url_for('settings.save_device_settings') }}",
+            geraet: "{{ url_for('settings.device_page') }}",
+        };
+        const RATING_TEXT = {sauber: 'Sauber', leicht: 'Leichte Reste', stoerend: 'Störend'};
+
+        const state = {index: 0, results: SZENEN.map(s => ({id: s.id, name: s.name, anteil: null, bewertung: null})),
+                       run: 0, recommendation: null, restored: false};
+        const $ = id => document.getElementById(id);
+
+        function show(name) {
+            ['Intro', 'Scene', 'Result'].forEach(n => { $('screen' + n).hidden = n !== name; });
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        async function post(url, body) {
+            const response = await fetch(url, {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body || {}),
+            });
+            let result = {};
+            try { result = await response.json(); } catch (e) { /* leer */ }
+            if (!response.ok) throw new Error(result.error || `Fehler ${response.status}`);
+            return result;
+        }
+
+        // Wartet, bis das Display mit dem Bildaufbau fertig ist
+        function waitForDisplay() {
+            return new Promise(function(resolve, reject) {
+                const startedAt = Date.now();
+                let seenBusy = false;
+                async function tick() {
+                    try {
+                        const s = await (await fetch(URLS.status, {cache: 'no-store'})).json();
+                        if (s.busy) seenBusy = true;
+                        else if (seenBusy || Date.now() - startedAt > 3000) {
+                            if (s.error) return reject(new Error(s.error));
+                            return resolve();
+                        }
+                    } catch (e) { /* nächster Versuch */ }
+                    setTimeout(tick, 1000);
+                }
+                tick();
+            });
+        }
+
+        function setStep(id, kind) {
+            $(id).classList.remove('active', 'done');
+            if (kind) $(id).classList.add(kind);
+        }
+
+        function renderProgress() {
+            $('progress').innerHTML = state.results.map(function(r, i) {
+                const kind = r.bewertung ? 'done' : (i === state.index ? 'active' : '');
+                return `<span class="${kind}"></span>`;
+            }).join('');
+        }
+
+        async function runScene() {
+            const run = ++state.run;
+            const szene = SZENEN[state.index];
+            show('Scene');
+            renderProgress();
+            $('sceneEyebrow').textContent = `Szene ${state.index + 1} von ${SZENEN.length}`;
+            $('sceneTitle').textContent = szene.name;
+            $('sceneText').textContent = szene.beschreibung;
+            $('sceneHint').textContent = szene.hinweis;
+            $('question').hidden = true;
+            $('repeatButton').hidden = true;
+            $('stepAfterText').textContent = 'Wechsel ohne Löschen anzeigen';
+            setStep('stepBefore', 'active');
+            setStep('stepAfter', null);
+            try {
+                await post(URLS.zeigen, {szene: szene.id, bild: 'vorher'});
+                await waitForDisplay();
+                if (run !== state.run) return;
+                setStep('stepBefore', 'done');
+                setStep('stepAfter', 'active');
+                const result = await post(URLS.zeigen, {szene: szene.id, bild: 'nachher'});
+                state.results[state.index].anteil = result.anteil;
+                $('stepAfterText').textContent = `Wechsel ohne Löschen anzeigen · ${Math.round(result.anteil)}\u00a0% geändert`;
+                await waitForDisplay();
+                if (run !== state.run) return;
+                setStep('stepAfter', 'done');
+                $('question').hidden = false;
+                $('repeatButton').hidden = false;
+                $('question').scrollIntoView({behavior: 'smooth', block: 'start'});
+            } catch (e) {
+                if (run !== state.run) return;
+                setStep('stepBefore', null);
+                setStep('stepAfter', null);
+                $('repeatButton').hidden = false;
+                showToast(e.message, true);
+            }
+        }
+
+        function nextScene() {
+            state.index += 1;
+            if (state.index >= SZENEN.length) finish();
+            else runScene();
+        }
+
+        async function finish() {
+            state.run++;
+            const rated = state.results.filter(r => r.bewertung && r.anteil !== null);
+            $('resultList').innerHTML = state.results.map(function(r) {
+                const badge = r.bewertung
+                    ? `<span class="lt-badge ${r.bewertung}">${RATING_TEXT[r.bewertung]}</span>`
+                    : '<span class="lt-badge offen">nicht bewertet</span>';
+                const anteil = r.anteil !== null ? ` · ${Math.round(r.anteil)}&nbsp;%` : '';
+                return `<div class="list-row lt-result-row"><span>${r.name}<span style="color: var(--text-secondary)">${anteil}</span></span>${badge}</div>`;
+            }).join('');
+            show('Result');
+            if (!rated.length) {
+                state.recommendation = null;
+                $('recommendation').innerHTML = '<strong>Keine Empfehlung</strong>Es wurde keine Szene bewertet.';
+                $('applyButton').hidden = true;
+            } else {
+                try {
+                    const result = await post(URLS.auswerten, {ergebnisse: rated});
+                    state.recommendation = result.empfehlung;
+                    const r = state.recommendation;
+                    const title = r.modus === 'immer' ? 'Empfehlung: Immer löschen'
+                        : r.schwelle >= 100 ? 'Empfehlung: Automatisch, nur nach Neustart und täglich'
+                        : `Empfehlung: Automatisch ab ${r.schwelle}&nbsp;%`;
+                    $('recommendation').innerHTML = `<strong>${title}</strong>`;
+                    $('recommendation').appendChild(document.createTextNode(r.text));
+                    $('applyButton').hidden = false;
+                } catch (e) {
+                    $('recommendation').textContent = e.message;
+                    $('applyButton').hidden = true;
+                }
+            }
+            restore();
+        }
+
+        async function restore() {
+            if (state.restored) return;
+            state.restored = true;
+            try {
+                const result = await post(URLS.ende);
+                $('restoreNote').hidden = !result.restored;
+            } catch (e) {
+                showToast(e.message, true);
+            }
+        }
+
+        $('startButton').addEventListener('click', async function() {
+            try {
+                await post(URLS.start);
+            } catch (e) {
+                showToast(e.message, true);
+                return;
+            }
+            state.index = 0;
+            state.restored = false;
+            runScene();
+        });
+
+        document.querySelectorAll('[data-rating]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                state.results[state.index].bewertung = button.dataset.rating;
+                nextScene();
+            });
+        });
+        $('repeatButton').addEventListener('click', runScene);
+        $('skipButton').addEventListener('click', function() {
+            state.results[state.index].bewertung = null;
+            nextScene();
+        });
+        $('finishEarly').addEventListener('click', finish);
+
+        $('applyButton').addEventListener('click', async function() {
+            const r = state.recommendation;
+            if (!r) return;
+            const data = {display_clear_mode: r.modus};
+            if (r.schwelle) data.display_clear_threshold = r.schwelle;
+            if (await saveNow(URLS.speichern, data)) {
+                setTimeout(function() { window.location.href = URLS.geraet; }, 600);
+            }
+        });
+        $('discardButton').addEventListener('click', function() { window.location.href = URLS.geraet; });
+
+        // Wer den Test mittendrin verlässt, bekommt das vorige Bild zurück
+        $('backLink').addEventListener('click', function() {
+            if (!$('screenScene').hidden) navigator.sendBeacon && navigator.sendBeacon(URLS.ende);
+        });
+
+        show('Intro');
+    </script>
+{% endblock %}
