@@ -7,12 +7,19 @@ z. B. kleines Blau, das fast schwarz wirkt.
 Tafel „Mischungen“ zeigt nummerierte Musterflächen aus zwei Pigmenten
 (siehe utils/eink_farben.py). Die Nummern dienen als Rückmeldung, welche
 Variante auf dem eigenen Display am besten wirkt.
+
+Tafel „Farbrollen“ zeigt die Farben, die Plugins tatsächlich verwenden
+(ROLLEN in utils/eink_farben.py), mit passender Schrift darauf. Sie läuft
+über denselben Weg wie die Plugins: Platzhalterfarben im HTML, danach
+muster_einsetzen() auf dem Screenshot.
 """
 
 from plugins.base_plugin.base_plugin import BasePlugin
-from utils.eink_farben import PIGMENT_NAMEN, css_flaeche, palette, titel
+from utils.eink_farben import (
+    NUR_FLAECHE, PIGMENT_NAMEN, ROLLEN, css_farbe, css_flaeche, muster_einsetzen, palette, schrift_auf, titel,
+)
 
-TAFELN = ("grundfarben", "mischungen")
+TAFELN = ("grundfarben", "mischungen", "rollen")
 
 GRUNDFARBEN = ("schwarz", "rot", "gruen", "blau", "gelb", "orange")
 BUNTE_FARBEN = ("rot", "gruen", "blau", "gelb", "orange")
@@ -24,6 +31,29 @@ MISCHUNGS_REIHEN = (
     ("rot", "rot_orange_50", "rot_weiss_50", "rot_blau_50", "orange_weiss_50", "gruen"),
     ("gruen_gelb_50", "gruen_weiss_50", "gruen_blau_75", "schwarz_weiss_50", "schwarz_weiss_25", "schwarz"),
 )
+
+
+ROLLEN_NAMEN = {
+    "schwarz": "Schwarz", "weiss": "Weiß", "rot": "Rot", "gruen": "Grün", "blau": "Blau", "gelb": "Gelb",
+    "orange": "Orange", "violett": "Violett", "grau": "Grau", "hellgrau": "Hellgrau", "rosa": "Rosa",
+    "apricot": "Apricot", "mint": "Mint",
+}
+
+
+def rollen_kacheln(farben):
+    """Eine Kachel je Farbrolle: Fläche, Schrift darauf und woraus sie besteht."""
+    kacheln = []
+    for rolle, name in ROLLEN.items():
+        if rolle == "weiss":
+            continue
+        kacheln.append({
+            "rolle": ROLLEN_NAMEN[rolle],
+            "herkunft": titel(name),
+            "farbe": css_farbe(name, farben),
+            "schrift": farben[schrift_auf(rolle)],
+            "nur_flaeche": rolle in NUR_FLAECHE,
+        })
+    return kacheln
 
 
 def mischungs_kacheln(farben):
@@ -67,6 +97,7 @@ class Farbtest(BasePlugin):
             "grundfarben": [{"name": n, "titel": PIGMENT_NAMEN[n], "farbe": farben[n]} for n in GRUNDFARBEN],
             "bunte": [{"name": n, "titel": PIGMENT_NAMEN[n], "farbe": farben[n]} for n in BUNTE_FARBEN],
             "kacheln": mischungs_kacheln(farben),
+            "rollen": rollen_kacheln(farben),
             "hochformat": hoehe > breite,
             "basis_px": round((breite + hoehe) / 1280 * 16, 2),
             "plugin_settings": {},
@@ -75,4 +106,6 @@ class Farbtest(BasePlugin):
         image = self.render_image(dimensions, "farbtest.html", "farbtest.css", template_params)
         if not image:
             raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
+        if tafel == "rollen":
+            image = muster_einsetzen(image, farben)
         return image

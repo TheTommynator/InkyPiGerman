@@ -9,7 +9,7 @@
      style="font-size: {{ basis_px }}px; --schwarz: {{ farben.schwarz }};">
 
   <header class="kopf">
-    <h1>Farbtest <span>{{ "Grundfarben & Größen" if tafel == "grundfarben" else "Mischungen" }}</span></h1>
+    <h1>Farbtest <span>{{ {"grundfarben": "Grundfarben & Größen", "mischungen": "Mischungen", "rollen": "Farbrollen"}[tafel] }}</span></h1>
     <div class="meta">{{ palette_name }}-Palette · aus etwa 1 m betrachten</div>
   </header>
 
@@ -45,6 +45,20 @@
         <span style="background: {{ f.farbe }}; color: #fff">Aa</span>
         <span style="background: {{ f.farbe }}; color: var(--schwarz)">Aa</span>
       </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% elif tafel == "rollen" %}
+  <section class="rollen">
+    {% for r in rollen %}
+    <div class="rolle">
+      <div class="rollen-feld" style="background: {{ r.farbe }}; color: {{ r.schrift }}">
+        <b>{{ r.rolle }}</b>
+        <span>Aa 17°</span>
+      </div>
+      <div class="name">{{ r.herkunft }}{% if r.nur_flaeche %} · nur Fläche{% endif %}</div>
+      {% if not r.nur_flaeche %}<div class="rollen-text" style="color: {{ r.farbe }}">Text 15 Uhr</div>{% endif %}
     </div>
     {% endfor %}
   </section>

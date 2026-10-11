@@ -14,7 +14,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import requests
 
 from plugins.base_plugin.base_plugin import BasePlugin
-from plugins.icloud_kalender.kalender_daten import eink_palette, naechste_farbe
+from plugins.icloud_kalender.kalender_daten import naechste_farbe
+from utils.eink_farben import muster_einsetzen, palette, rollen_farben
 from plugins.wetter.wetter_daten import ANSICHTEN, baue_ansicht, lese_open_meteo, lese_warnungen, parse_details
 from plugins.wetter.wetter_icons import symbol, wetter_icon
 
@@ -29,11 +30,14 @@ STANDARD_AKZENT = "#e0393e"
 # Farben je Thema. Beim Thema „E-Ink“ werden sie auf die Displayfarben gesetzt.
 FARBEN = {
     "hell": {"bg": "#ffffff", "ink": "#111418", "linie": "#c9ccd1", "rot": "#e0393e", "gruen": "#1f9d55",
-             "blau": "#2f6fde", "gelb": "#f5c400", "orange": "#f08c00"},
+             "blau": "#2f6fde", "gelb": "#f5c400", "orange": "#f08c00", "violett": "#8e44ad",
+             "grau": "#8a8f98", "hellgrau": "#c9ccd1"},
     "dunkel": {"bg": "#101214", "ink": "#f3f4f6", "linie": "#3a3f46", "rot": "#ff5a5f", "gruen": "#3ccf7a",
-               "blau": "#5b9bff", "gelb": "#ffd43b", "orange": "#ffa94d"},
+               "blau": "#5b9bff", "gelb": "#ffd43b", "orange": "#ffa94d", "violett": "#b57edc",
+               "grau": "#6b7079", "hellgrau": "#3a3f46"},
 }
-EINK_NAMEN = ("schwarz", "gruen", "blau", "rot", "gelb", "orange")
+# Farbrollen, die das Template beim Thema „E-Ink“ verwendet (siehe utils/eink_farben.py)
+EINK_ROLLEN = ("rot", "gruen", "blau", "gelb", "orange", "violett", "grau", "hellgrau")
 
 
 class Wetter(BasePlugin):
@@ -103,6 +107,9 @@ class Wetter(BasePlugin):
         image = self.render_image(dimensions, "wetter.html", "wetter.css", template_params)
         if not image:
             raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
+        if thema == "eink":
+            # Mischfarben (z. B. das wärmere Gelb) als festes Pixelmuster einsetzen
+            image = muster_einsetzen(image, palette(device_config.get_config("display_type", default="")))
         return image
 
     @staticmethod
@@ -119,12 +126,14 @@ class Wetter(BasePlugin):
 
     @staticmethod
     def farben(thema, akzent, device_config):
-        """CSS-Farben des Themas; bei „E-Ink“ nur die reinen Displayfarben."""
+        """CSS-Farben des Themas; bei „E-Ink“ die Farbrollen aus dem Farbtest."""
         if thema == "eink":
-            palette = eink_palette(device_config.get_config("display_type", default=""))
-            farben = dict(zip(EINK_NAMEN, palette))
-            farben.update({"bg": "#ffffff", "ink": farben["schwarz"], "linie": farben["schwarz"]})
-            return farben, naechste_farbe(akzent, palette)
+            pigmente = palette(device_config.get_config("display_type", default=""))
+            rollen = rollen_farben(pigmente)
+            farben = {rolle: rollen[rolle] for rolle in EINK_ROLLEN}
+            farben.update({"bg": pigmente["weiss"], "ink": pigmente["schwarz"], "linie": pigmente["schwarz"]})
+            buntes = [f for name, f in pigmente.items() if name != "weiss"]
+            return farben, naechste_farbe(akzent, buntes)
         return FARBEN.get(thema, FARBEN["hell"]), akzent
 
     @staticmethod
