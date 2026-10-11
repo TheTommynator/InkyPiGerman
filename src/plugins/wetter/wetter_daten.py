@@ -14,7 +14,9 @@ Beide brauchen keinen API-Schlüssel.
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-ANSICHTEN = ("heute", "woche", "beides")
+ANSICHTEN = ("heute", "woche", "beides", "fenster", "poesie")
+# Ansichten, die eher Bild als Datenanzeige sind (siehe kunst_daten.py)
+KUNST_ANSICHTEN = ("fenster", "poesie")
 DETAILS = ("gefuehlt", "wind", "regen", "uv", "feuchte", "sonne")
 STANDARD_DETAILS = ("wind", "regen", "uv")
 MAX_DETAILS = 3
@@ -226,6 +228,7 @@ def lese_open_meteo(antwort, tz):
         "richtung": zahl(c.get("wind_direction_10m")),
         "boeen": zahl(c.get("wind_gusts_10m")),
         "regen": zahl(c.get("precipitation")),
+        "bewoelkung": zahl(c.get("cloud_cover"), 50) / 100,
     }
     return Wetter(jetzt=jetzt, stunden=stunden, tage=tage)
 
