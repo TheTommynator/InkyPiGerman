@@ -1,0 +1,63 @@
+{% extends "plugin.html" %}
+
+{% macro tropfen(farbe, groesse) -%}
+<svg width="{{ groesse }}" height="{{ groesse }}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 C8 8 5 11 5 15 a7 7 0 0 0 14 0 c0-4-3-7-7-13z" fill="{{ farbe }}"/></svg>
+{%- endmacro %}
+
+{% block content %}
+<div lang="de" class="farbtest tafel-{{ tafel }}{% if hochformat %} hochformat{% endif %}"
+     style="font-size: {{ basis_px }}px; --schwarz: {{ farben.schwarz }};">
+
+  <header class="kopf">
+    <h1>Farbtest <span>{{ "Grundfarben & Größen" if tafel == "grundfarben" else "Mischungen" }}</span></h1>
+    <div class="meta">{{ palette_name }}-Palette · aus etwa 1 m betrachten</div>
+  </header>
+
+  {% if tafel == "grundfarben" %}
+  <section class="flaechen">
+    {% for f in grundfarben %}
+    <div class="kachel">
+      <div class="feld" style="background: {{ f.farbe }}"></div>
+      <div class="name">{{ f.titel }}</div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="groessen">
+    <div class="zeile kopfzeile">
+      <div></div>
+      <div>Linie 1 px</div><div>2 px</div><div>4 px</div>
+      <div>Text 14 px</div><div>Text 20 px</div><div>28 px fett</div>
+      <div>Symbol</div><div>Symbol groß</div><div>Text auf Farbe</div>
+    </div>
+    {% for f in bunte %}
+    <div class="zeile">
+      <div class="farbname">{{ f.titel }}</div>
+      <div><i class="linie" style="height: 1px; background: {{ f.farbe }}"></i></div>
+      <div><i class="linie" style="height: 2px; background: {{ f.farbe }}"></i></div>
+      <div><i class="linie" style="height: 4px; background: {{ f.farbe }}"></i></div>
+      <div class="t14" style="color: {{ f.farbe }}">80 %</div>
+      <div class="t20" style="color: {{ f.farbe }}">15 Uhr</div>
+      <div class="t28" style="color: {{ f.farbe }}">17°</div>
+      <div>{{ tropfen(f.farbe, 16) }}</div>
+      <div>{{ tropfen(f.farbe, 34) }}</div>
+      <div class="auf-farbe">
+        <span style="background: {{ f.farbe }}; color: #fff">Aa</span>
+        <span style="background: {{ f.farbe }}; color: var(--schwarz)">Aa</span>
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  {% else %}
+  <section class="mischungen">
+    {% for k in kacheln %}
+    <div class="kachel{% if k.rein %} rein{% endif %}">
+      <div class="feld" style="background: {{ k.flaeche }}"></div>
+      <div class="name"><b>{{ k.nummer }}</b> {{ k.titel }}</div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

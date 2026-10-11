@@ -1,0 +1,43 @@
+<style>
+    .ft-hinweis { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.45; }
+    .ft-hinweis ol { margin: 0.4rem 0 0 1.2rem; }
+</style>
+
+<div class="form-group">
+    <label class="form-label">Tafel</label>
+    <div class="button-group" id="ftTafelWahl">
+        <button type="button" data-value="grundfarben" onclick="ftTafelWaehlen(this.dataset.value)">Grundfarben &amp; Größen</button>
+        <button type="button" data-value="mischungen" onclick="ftTafelWaehlen(this.dataset.value)">Mischungen</button>
+    </div>
+    <input type="hidden" name="tafel" id="tafel" value="grundfarben">
+</div>
+
+<div class="ft-hinweis" data-tafel="grundfarben">
+    Zeigt die sieben Pigmente als große Flächen und darunter in kleinen Größen: Linien, Schrift, Symbole und Text
+    auf farbigem Grund. So siehst du, ab welcher Größe eine Farbe noch als Farbe erkennbar ist.
+</div>
+<div class="ft-hinweis" data-tafel="mischungen">
+    Zeigt nummerierte Flächen aus zwei Pigmenten in einem festen Pixelmuster, jeweils mit der reinen Farbe zum
+    Vergleich (gestrichelter Rahmen).
+    <ol>
+        <li>Mit „Jetzt anzeigen“ auf das Display bringen.</li>
+        <li>Aus etwa einem Meter Abstand ansehen, am besten bei Tageslicht.</li>
+        <li>Die Nummern notieren, die am kräftigsten oder schönsten wirken – z. B. „Regen: Nr. 3“.</li>
+    </ol>
+</div>
+
+<script>
+    function ftTafelWaehlen(tafel) {
+        document.getElementById('tafel').value = tafel;
+        document.querySelectorAll('#ftTafelWahl button').forEach(btn =>
+            btn.classList.toggle('active', btn.dataset.value === tafel));
+        document.querySelectorAll('[data-tafel]').forEach(el => {
+            el.style.display = el.dataset.tafel === tafel ? '' : 'none';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const s = loadPluginSettings ? pluginSettings : {};
+        ftTafelWaehlen(s.tafel || 'grundfarben');
+    });
+</script>
