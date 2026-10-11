@@ -1,0 +1,114 @@
+{% extends "plugin.html" %}
+
+{% macro kopf() -%}
+<header class="kopf">
+  <div class="titelblock">
+    <h1>{{ ort or "Wetter" }}</h1>
+    <div class="untertitel">{{ daten.datum }}</div>
+  </div>
+  <div class="meta">
+    <div>Stand {{ stand }}</div>
+    <div>Daten: DWD · Open-Meteo</div>
+  </div>
+</header>
+{% if daten.warnung %}
+<div class="warnung stufe{{ daten.warnung.stufe }}">
+  {{ symbol("warnung")|safe }}
+  <span><b>{{ daten.warnung.titel }}</b> {{ daten.warnung.zeitraum }}{% if daten.weitere_warnungen %} · +{{ daten.weitere_warnungen }} weitere{% endif %}</span>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro satz() -%}
+{% for text, hervor in daten.satz %}{% if hervor %}<span class="hervor">{{ text }}</span>{% else %}{{ text }}{% endif %}{% endfor %}
+{%- endmacro %}
+
+{% macro details() -%}
+{% for d in daten.details %}<span class="detail">{{ symbol(d.symbol)|safe }}{{ d.label }} <b>{{ d.wert }}</b></span>{% endfor %}
+{%- endmacro %}
+
+{% macro hoch_tief(mit_gefuehlt) -%}
+<div class="hoch-tief">
+  {% if daten.jetzt.hoch is not none %}<span>↑ {{ daten.jetzt.hoch }}°</span><span>↓ {{ daten.jetzt.tief }}°</span>{% endif %}
+  {% if mit_gefuehlt %}<span>gefühlt {{ daten.jetzt.gefuehlt }}°</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro tage(kurz) -%}
+<div class="tage">
+  {% for t in daten.tage %}
+  <div class="tag{% if t.heute %} heute{% endif %}">
+    <div class="name">{{ t.kurz if kurz else t.name }}</div>
+    <div class="tag-icon">{{ icon(t.icon)|safe }}</div>
+    <div class="prozent">{% if t.prozent is not none %}{{ symbol("tropfen")|safe }}{{ t.prozent }} %{% endif %}</div>
+    <div class="min">{{ t.tmin }}°</div>
+    <div class="skala">
+      <div class="bahn"></div>
+      <div class="balken" style="left: {{ t.von }}%; right: {{ 100 - t.bis }}%; background: var(--{{ t.farbe }});"></div>
+      {% if t.punkt is not none %}<div class="punkt" style="left: {{ t.punkt }}%"></div>{% endif %}
+    </div>
+    <div class="max">{{ t.tmax }}°</div>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div lang="de" class="wetter thema-{{ thema }} icons-{{ icons }} ansicht-{{ ansicht }}{% if hochformat %} hochformat{% endif %}"
+     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};{% for name, wert in farben.items() %} --{{ name }}: {{ wert }};{% endfor %}">
+
+  {{ kopf() }}
+
+  {% if ansicht == "heute" %}
+  <section class="heute-oben">
+    <div class="gross-icon">{{ icon(daten.jetzt.icon)|safe }}</div>
+    <div class="temp-block">
+      <div class="gross-temp">{{ daten.jetzt.temp }}°</div>
+      {{ hoch_tief(true) }}
+    </div>
+    <div class="satz">
+      {{ satz() }}
+      {% if daten.satz_morgen %}<div class="satz-morgen">{{ daten.satz_morgen }}</div>{% endif %}
+    </div>
+  </section>
+  <div class="trenner"></div>
+  <section class="stunden">
+    {% for s in daten.stunden %}
+    <div class="std{% if loop.first %} jetzt{% endif %}">
+      <div class="zeit">{{ s.label }}</div>
+      {{ icon(s.icon)|safe }}
+      <div class="tmp">{{ s.temp }}°</div>
+      <div class="regen"><i style="height: {{ (s.regen_anteil * 100)|round(1) }}%"></i></div>
+      <div class="mm">{{ s.regen_text }}</div>
+    </div>
+    {% endfor %}
+  </section>
+  {% if daten.details %}
+  <div class="trenner"></div>
+  <footer class="details">{{ details() }}</footer>
+  {% endif %}
+
+  {% elif ansicht == "woche" %}
+  {{ tage(false) }}
+
+  {% else %}
+  <section class="beides">
+    <div class="links">
+      <div class="oben">
+        <div class="mittel-icon">{{ icon(daten.jetzt.icon)|safe }}</div>
+        <div>
+          <div class="gross-temp">{{ daten.jetzt.temp }}°</div>
+          {{ hoch_tief(false) }}
+        </div>
+      </div>
+      <div class="satz">
+        {{ satz() }}
+        {% if daten.satz_morgen %}<div class="satz-morgen">{{ daten.satz_morgen }}</div>{% endif %}
+      </div>
+      {% if daten.details %}<div class="details">{{ details() }}</div>{% endif %}
+    </div>
+    {{ tage(true) }}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

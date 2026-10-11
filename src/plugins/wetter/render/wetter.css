@@ -1,0 +1,421 @@
+/* Wetter – ruhiges Layout, abgestimmt auf 7-Farben-E-Ink */
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.wetter {
+    /* --bg, --ink, --linie und die Farben kommen aus dem Plugin (je Thema) */
+    --i-sonne: var(--gelb);
+    --i-regen: var(--blau);
+    --i-blitz: var(--gelb);
+    --i-warm: var(--rot);
+
+    width: 100%;
+    height: 100%;
+    padding: 1.3em 1.75em 1em;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Jost", sans-serif;
+    line-height: 1.15;
+    overflow: hidden;
+}
+
+/* Icons nur als Linien: keine Farbflächen, alles in Textfarbe */
+.wetter.icons-linien {
+    --i-sonne: var(--bg);
+    --i-regen: var(--ink);
+    --i-blitz: var(--bg);
+    --i-warm: var(--ink);
+}
+
+svg.icon {
+    display: block;
+    width: 3.1em;
+    height: 3.1em;
+    flex: 0 0 auto;
+}
+
+svg.symbol {
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+}
+
+/* ---------- Kopf ---------- */
+
+.kopf {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1em;
+    flex: 0 0 auto;
+}
+
+.titelblock {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6em;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.kopf h1 {
+    font-size: 2.1em;
+    font-weight: bold;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.untertitel {
+    font-size: 1.2em;
+}
+
+.meta {
+    font-size: 0.72em;
+    text-align: right;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+/* ---------- Warnband (nur bei amtlicher Warnung) ---------- */
+
+.warnung {
+    --band: var(--gelb);
+    --warn-innen: var(--band);
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    margin-top: 0.7em;
+    padding: 0.4em 0.75em;
+    border: 2px solid #000;
+    border-radius: 0.6em;
+    background: var(--band);
+    color: #000;
+    font-size: 1.05em;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.warnung b { font-weight: bold; }
+.warnung svg.symbol { width: 1.4em; height: 1.3em; }
+.warnung.stufe2 { --band: var(--orange); }
+.warnung.stufe3,
+.warnung.stufe4 { --band: var(--rot); color: #fff; border-color: var(--rot); }
+.warnung.stufe4 { border-color: #000; border-width: 3px; }
+
+.trenner {
+    height: 2px;
+    background: var(--ink);
+    flex: 0 0 auto;
+}
+
+.thema-hell .trenner,
+.thema-dunkel .trenner {
+    height: 1px;
+    background: var(--linie);
+}
+
+.hervor {
+    color: var(--blau);
+    font-weight: bold;
+}
+
+.hoch-tief {
+    display: flex;
+    gap: 0.65em;
+    font-size: 1.35em;
+    margin-top: 0.35em;
+    white-space: nowrap;
+}
+
+.gross-temp {
+    font-size: 8em;
+    font-weight: bold;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+}
+
+.detail {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    white-space: nowrap;
+}
+
+.detail b { font-weight: bold; }
+
+/* ---------- Heute ---------- */
+
+.heute-oben {
+    display: flex;
+    align-items: center;
+    gap: 1.4em;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.3em 0;
+}
+
+.gross-icon svg.icon {
+    width: 9.4em;
+    height: 9.4em;
+}
+
+.heute-oben .satz {
+    flex: 1;
+    text-wrap: balance;
+    font-size: 1.7em;
+    line-height: 1.25;
+    padding-left: 0.3em;
+}
+
+.satz-morgen {
+    font-size: 0.74em;
+    margin-top: 0.5em;
+}
+
+.stunden {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin: 0.6em 0 0.5em;
+    flex: 0 0 auto;
+}
+
+.std {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2em;
+}
+
+.std .zeit { font-size: 1em; }
+.std.jetzt .zeit { font-weight: bold; }
+.std .tmp { font-size: 1.3em; font-weight: bold; }
+
+.std .regen {
+    height: 1.6em;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.std .regen i {
+    display: block;
+    width: 2.75em;
+    min-height: 0;
+    background: var(--blau);
+    border-radius: 0.2em 0.2em 0 0;
+}
+
+.std .mm {
+    font-size: 0.8em;
+    height: 1.1em;
+    color: var(--blau);
+}
+
+footer.details {
+    display: flex;
+    gap: 2.1em;
+    padding-top: 0.6em;
+    font-size: 1.2em;
+    flex: 0 0 auto;
+}
+
+/* ---------- Woche ---------- */
+
+.tage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-top: 0.6em;
+}
+
+.tag {
+    display: grid;
+    grid-template-columns: 8em 3.5em 5.75em 3.1em 1fr 3.1em;
+    align-items: center;
+    column-gap: 0.6em;
+    flex: 1 1 0;
+    min-height: 0;
+    /* Icons richten sich nach der Zeilenhöhe, damit sie nie in die Nachbarzeile ragen */
+    container-type: size;
+}
+
+.tag svg.icon {
+    width: min(3.1em, 94cqh);
+    height: min(3.1em, 94cqh);
+}
+
+.tag + .tag { border-top: 1px dotted var(--ink); }
+.thema-hell .tag + .tag,
+.thema-dunkel .tag + .tag { border-top: 1px solid var(--linie); }
+
+.tag .name { font-size: 1.375em; white-space: nowrap; }
+.tag.heute .name { font-weight: bold; }
+
+.tag .prozent {
+    display: flex;
+    align-items: center;
+    gap: 0.2em;
+    color: var(--blau);
+    white-space: nowrap;
+}
+
+.tag .prozent svg.symbol { width: 0.9em; height: 1.1em; }
+
+.tag .min,
+.tag .max { font-size: 1.375em; }
+.tag .min { text-align: right; }
+.tag .max { font-weight: bold; }
+
+.skala {
+    position: relative;
+    height: 0.9em;
+}
+
+.skala .bahn {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% - 1px);
+    border-top: 2px dotted var(--ink);
+}
+
+.thema-hell .skala .bahn,
+.thema-dunkel .skala .bahn { border-top: 2px solid var(--linie); }
+
+.skala .balken {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 0.9em;
+    border-radius: 0.45em;
+    border: 2px solid var(--ink);
+}
+
+.skala .punkt {
+    position: absolute;
+    top: 50%;
+    width: 1.25em;
+    height: 1.25em;
+    margin: -0.625em 0 0 -0.625em;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 3px solid var(--ink);
+}
+
+/* ---------- Heute + Woche ---------- */
+
+.beides {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 20.5em 1fr;
+    column-gap: 1.6em;
+    margin-top: 0.6em;
+}
+
+.beides .links {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 2px solid var(--ink);
+    padding-right: 1.4em;
+}
+
+.thema-hell .beides .links,
+.thema-dunkel .beides .links { border-right: 1px solid var(--linie); }
+
+.beides .oben {
+    display: flex;
+    align-items: center;
+    gap: 0.75em;
+}
+
+.mittel-icon svg.icon {
+    width: 6.5em;
+    height: 6.5em;
+}
+
+.beides .gross-temp { font-size: 6em; }
+
+.beides .satz {
+    flex: 1;
+    text-wrap: balance;
+    font-size: 1.375em;
+    line-height: 1.25;
+    padding-top: 0.6em;
+}
+
+.beides .details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35em;
+    font-size: 1.12em;
+}
+
+.beides .tage { margin-top: 0; }
+
+.beides .tag { grid-template-columns: 3.25em 2.9em 3.9em 2.4em 1fr 2.4em; }
+.beides .tag .name,
+.beides .tag .min,
+.beides .tag .max { font-size: 1.25em; }
+.beides .tag .prozent { font-size: 0.875em; }
+.beides .tag svg.icon { width: min(2.75em, 94cqh); height: min(2.75em, 94cqh); }
+.beides .mittel-icon svg.icon { width: 6.5em; height: 6.5em; }
+
+/* ---------- Hochformat ---------- */
+
+.hochformat .kopf {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3em;
+}
+
+.hochformat .meta { text-align: left; }
+
+.hochformat .heute-oben {
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 0.6em 1.2em;
+}
+
+.hochformat .gross-icon svg.icon { width: 7em; height: 7em; }
+.hochformat .heute-oben .satz { flex: 1 1 100%; padding: 0; }
+.hochformat footer.details { flex-wrap: wrap; gap: 0.4em 1.4em; }
+
+.hochformat .tag { grid-template-columns: 6.5em 3.2em 4.5em 2.6em 1fr 2.6em; }
+
+.hochformat .beides {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    row-gap: 0.8em;
+}
+
+.hochformat .beides .links {
+    border-right: none;
+    padding-right: 0;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 0.8em;
+}
+
+.hochformat .beides .satz { flex: 0 0 auto; padding-bottom: 0.6em; }
+
+.beides .satz-morgen { font-size: 0.8em; }
