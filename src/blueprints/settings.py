@@ -52,6 +52,7 @@ def updates_page():
 DEVICE_NAME_MAX_LENGTH = 40
 ORIENTATIONS = ("horizontal", "vertical")
 TIME_FORMATS = ("24h", "12h")
+CLEAR_MODES = ("immer", "automatisch", "nie")
 
 def validate_device_settings(data, timezones):
     """Prüft einzelne Geräteeinstellungen (nur die übergebenen) und gibt sie für device.json zurück.
@@ -76,6 +77,10 @@ def validate_device_settings(data, timezones):
         if data["timezone"] not in timezones:
             raise ValueError(f"„{data['timezone']}“ ist keine bekannte Zeitzone. Wähle eine aus der Liste, z. B. Europe/Berlin.")
         settings["timezone"] = data["timezone"]
+    if "display_clear_mode" in data:
+        if data["display_clear_mode"] not in CLEAR_MODES:
+            raise ValueError("Unbekannte Einstellung zum Löschen.")
+        settings["display_clear_mode"] = data["display_clear_mode"]
     for key in ("inverted_image", "log_system_stats"):
         if key in data:
             settings[key] = bool(data[key])

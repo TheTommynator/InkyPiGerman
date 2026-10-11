@@ -6,6 +6,7 @@ import time
 
 from utils.image_utils import resize_image, change_orientation, apply_image_enhancement
 from display.mock_display import MockDisplay
+from display import loeschen
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,9 @@ class DisplayManager:
         self._last_error = None
         self._last_duration = device_config.get_config("last_display_refresh_seconds", default=None)
         self._phase_plan = _load_phase_plan(device_config.get_config("display_phase_seconds", default=None))
+        self._skip_phases = set()     # Schritte, die diesmal entfallen (z. B. Löschen)
+        self._clear_reason = None     # warum automatisch gelöscht wird
+        self._shown_pigments = None   # das zuletzt angezeigte Bild, verkleinert, für den Vergleich
      
         display_type = device_config.get_config("display_type", default="inky")
 
@@ -122,6 +126,8 @@ class DisplayManager:
                 self._job_title = title
             self._refresh_started = now
             self._run_phases = []
+            self._skip_phases = set()
+            self._clear_reason = None
             self._last_error = None
             self._enter_phase("vorbereiten", now)
         try:
@@ -135,17 +141,31 @@ class DisplayManager:
             self._enter_phase(None, finished)
             self._last_duration = round(finished - self._refresh_started, 1)
             if self._run_phases:
-                # Meldet ein Treiber einen Schritt mehrfach, zählt er einmal mit der Gesamtdauer
-                totals = {}
-                for key, seconds in self._run_phases:
-                    totals[key] = totals.get(key, 0.0) + seconds
-                self._phase_plan = [(key, round(seconds, 1)) for key, seconds in totals.items()]
+                self._phase_plan = self._merge_plan()
             self._refresh_finished = finished
         self._end_job()
         # Dauern merken, damit die Schätzung auch nach einem Neustart passt
         self.device_config.update_value("last_display_refresh_seconds", self._last_duration)
         self.device_config.update_value("display_phase_seconds", [list(step) for step in self._phase_plan])
         logger.info(f"Display refresh finished in {self._last_duration}s | steps: {self._phase_plan}")
+
+    def _merge_plan(self):
+        """Schrittdauern dieser Aktualisierung als neue Schätzung.
+
+        Meldet ein Treiber einen Schritt mehrfach, zählt er einmal mit der Gesamtdauer.
+        Entfiel ein Schritt nur diesmal (Löschen), bleibt seine bisherige Dauer an alter Stelle stehen.
+        """
+        totals = {}
+        for key, seconds in self._run_phases:
+            totals[key] = totals.get(key, 0.0) + seconds
+        plan = [(key, round(seconds, 1)) for key, seconds in totals.items()]
+        old = self._phase_plan
+        for i, (key, seconds) in enumerate(old):
+            if key in self._skip_phases and key not in totals:
+                previous = old[i - 1][0] if i > 0 else None
+                index = next((j + 1 for j, (k, _) in enumerate(plan) if k == previous), 0)
+                plan.insert(index, (key, seconds))
+        return plan
 
     def begin_job(self, title=None):
         """Ein neues Bild wird erzeugt (Plugin holt Daten); die Anzeige folgt ggf. mit display_image()."""
@@ -202,7 +222,7 @@ class DisplayManager:
                 "busy": self._job_started is not None,
                 "refreshing": refreshing,
                 "title": self._job_title,
-                "phase": PHASE_LABELS.get(self._phase, self._phase) if self._phase else None,
+                "phase": self._phase_label(),
                 "elapsed_seconds": round(now - started, 1) if refreshing else None,
                 "expected_seconds": self._last_duration,
                 "remaining_seconds": None,
@@ -215,15 +235,24 @@ class DisplayManager:
                 status.update(self._estimate(now))
             return status
 
+    def _phase_label(self):
+        if not self._phase:
+            return None
+        label = PHASE_LABELS.get(self._phase, self._phase)
+        if self._phase == "loeschen" and self._clear_reason:
+            label = f"{label} ({self._clear_reason})"
+        return label
+
     def _estimate(self, now):
         """Restzeit und Schrittnummer anhand der Dauern der letzten Aktualisierung."""
-        plan = dict(self._phase_plan)
+        steps = [(key, seconds) for key, seconds in self._phase_plan if key not in self._skip_phases]
+        plan = dict(steps)
         done = {key for key, _ in self._run_phases}
         current = self._phase
-        remaining = sum(seconds for key, seconds in self._phase_plan if key not in done and key != current)
+        remaining = sum(seconds for key, seconds in steps if key not in done and key != current)
         if current in plan:
             remaining += max(0.0, plan[current] - (now - self._phase_started))
-        keys = [key for key, _ in self._phase_plan]
+        keys = [key for key, _ in steps]
         result = {"remaining_seconds": round(remaining, 1)}
         if current in keys:
             result.update({"step": keys.index(current) + 1, "steps": len(keys)})
@@ -242,5 +271,19 @@ class DisplayManager:
         if "skip-enhancement" not in image_settings:
             image = apply_image_enhancement(image, self.device_config.get_config("image_settings"))
 
+        # Vorher löschen? (Einstellung „Altes Bild löschen“)
+        mode = loeschen.modus(self.device_config)
+        pigments = loeschen.pigment_bild(image)
+        clear, reason = loeschen.entscheiden(mode, self._shown_pigments, pigments,
+                                             self.device_config.get_config("last_display_clear", default=None))
+        logger.info(f"Altes Bild löschen: {'ja' if clear else 'nein'} | mode: {mode} | {reason or ''}")
+        with self._status_lock:
+            self._clear_reason = reason if clear else None
+            self._skip_phases = set() if clear else {"loeschen"}
+        self.display.clear_before_display = clear
+
         # Pass to the concrete instance to render to the device.
         self.display.display_image(image, image_settings)
+        self._shown_pigments = pigments
+        if clear:
+            self.device_config.update_value("last_display_clear", time.time())
