@@ -41,6 +41,8 @@
         <button type="button" data-value="heute" onclick="wtAnsichtWaehlen(this.dataset.value)">Heute</button>
         <button type="button" data-value="woche" onclick="wtAnsichtWaehlen(this.dataset.value)">Woche</button>
         <button type="button" data-value="beides" onclick="wtAnsichtWaehlen(this.dataset.value)">Heute + Woche</button>
+        <button type="button" data-value="fenster" onclick="wtAnsichtWaehlen(this.dataset.value)">Fenster</button>
+        <button type="button" data-value="poesie" onclick="wtAnsichtWaehlen(this.dataset.value)">Poesie</button>
     </div>
     <input type="hidden" name="ansicht" id="ansicht" value="heute">
 </div>
@@ -64,7 +66,15 @@
     <span>Amtliche Wetterwarnungen des DWD</span>
 </div>
 
-<div class="form-group nowrap">
+<div class="wt-hinweis" data-ansichten="fenster">
+    Eine kleine Landschaft, die das Wetter nachspielt: Sonne und Mond stehen dort, wo sie gerade sind,
+    Wolken, Regen, Schnee und Wind sind echt – und der Baum verändert sich mit den Jahreszeiten.
+</div>
+<div class="wt-hinweis" data-ansichten="poesie">
+    Ein Plakat mit großem Wort und drei kurzen Zeilen zum Tag. Farbe und Motiv richten sich nach dem Wetter.
+</div>
+
+<div class="form-group nowrap" data-ansichten="heute,woche,beides">
     <label for="iconstil" class="form-label">Icons</label>
     <select id="iconstil" name="iconstil" class="form-input">
         <option value="farbig">Farbig</option>
@@ -89,12 +99,12 @@
     </select>
 </div>
 
-<div class="form-group nowrap">
+<div class="form-group nowrap" data-ansichten="heute,woche,beides">
     <label for="akzentfarbe" class="form-label">Akzentfarbe</label>
     <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
 </div>
 
-<div class="form-group nowrap">
+<div class="form-group nowrap" data-ansichten="heute,woche,beides">
     <label for="schriftgroesse" class="form-label">Schriftgröße</label>
     <select id="schriftgroesse" name="schriftgroesse" class="form-input">
         <option value="klein">Klein</option>

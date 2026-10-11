@@ -1,0 +1,152 @@
+/* Wetter als Bild: „Fenster“ und „Poesie“ */
+
+body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.container {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.kunst {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Jost", sans-serif;
+}
+
+.kunst > svg.szene {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* Amtliche Warnung als kleines Schild – Sicherheit geht vor Kunst */
+.warnschild {
+    position: absolute;
+    left: 1.2em;
+    top: 1.1em;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    padding: 0.3em 0.75em;
+    border: 2px solid var(--schwarz);
+    border-radius: 999px;
+    background: var(--gelb);
+    color: var(--schwarz);
+    font-size: 1em;
+    white-space: nowrap;
+}
+
+.warnschild.stufe2 { background: var(--orange); }
+.warnschild.stufe3 { background: var(--rot); color: var(--weiss); }
+.warnschild.stufe4 { background: var(--violett); color: var(--weiss); }
+.warnschild b { font-weight: bold; }
+
+/* ---------- Poesie ---------- */
+
+.poesie .text {
+    position: absolute;
+    left: 2.75em;
+    top: 2.25em;
+    bottom: 1.9em;
+    width: 32.5em;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+}
+
+.poesie.mit-warnung .text { top: 3.6em; }
+
+.poesie .ueber {
+    font-size: 0.95em;
+    letter-spacing: 0.27em;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.poesie .wort {
+    font-size: 7em;
+    font-weight: bold;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+    margin: 0.2em 0 0.22em;
+}
+
+.poesie .wort.mittel { font-size: 4.9em; }
+.poesie .wort.klein { font-size: 4.1em; }
+
+.poesie .gedicht {
+    font-size: 1.8em;
+    line-height: 1.32;
+    flex: 1;
+}
+
+.poesie .unter {
+    font-size: 0.95em;
+    letter-spacing: 0.06em;
+    display: flex;
+    gap: 0.9em;
+    align-items: center;
+}
+
+.poesie .unter i {
+    display: block;
+    width: 2.6em;
+    height: 3px;
+    background: currentColor;
+}
+
+.poesie .marke {
+    position: absolute;
+    right: 1.9em;
+    bottom: 1.9em;
+    z-index: 1;
+    background: var(--weiss);
+    color: var(--schwarz);
+    border: 4px solid var(--schwarz);
+    border-radius: 0.9em;
+    padding: 0.6em 1.1em 0.75em;
+    text-align: right;
+}
+
+.poesie .marke .temp {
+    font-size: 4.75em;
+    font-weight: bold;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+}
+
+.poesie .marke .spanne {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 0.35em;
+    letter-spacing: 0.06em;
+}
+
+/* Hochformat: Text oben, Motiv füllt die untere Hälfte */
+.hochformat.poesie .text {
+    left: 1.6em;
+    right: 1.6em;
+    width: auto;
+    top: 1.8em;
+    bottom: 45%;
+}
+
+.hochformat.poesie.mit-warnung .text { top: 3.6em; }
+.hochformat.poesie .wort { font-size: 5em; }
+.hochformat.poesie .wort.mittel { font-size: 3.6em; }
+.hochformat.poesie .wort.klein { font-size: 3em; }
+.hochformat.poesie .gedicht { font-size: 1.5em; }
+.hochformat.poesie .unter { display: none; }
+.hochformat.poesie > svg.szene { top: 45%; height: 55%; }

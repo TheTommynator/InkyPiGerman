@@ -16,7 +16,10 @@ import requests
 from plugins.base_plugin.base_plugin import BasePlugin
 from plugins.icloud_kalender.kalender_daten import naechste_farbe
 from utils.eink_farben import muster_einsetzen, palette, rollen_farben
-from plugins.wetter.wetter_daten import ANSICHTEN, baue_ansicht, lese_open_meteo, lese_warnungen, parse_details
+from plugins.wetter.kunst_daten import poesie, szene_fenster
+from plugins.wetter.wetter_daten import (
+    ANSICHTEN, KUNST_ANSICHTEN, baue_ansicht, datum_text, lese_open_meteo, lese_warnungen, parse_details,
+)
 from plugins.wetter.wetter_icons import symbol, wetter_icon
 
 logger = logging.getLogger(__name__)
@@ -36,6 +39,13 @@ FARBEN = {
                "blau": "#5b9bff", "gelb": "#ffd43b", "orange": "#ffa94d", "violett": "#b57edc",
                "grau": "#6b7079", "hellgrau": "#3a3f46"},
 }
+# Farben der Bild-Ansichten „Fenster“ und „Poesie“ außerhalb des E-Ink-Themas
+KUNST_FARBEN = {
+    "schwarz": "#111418", "weiss": "#ffffff", "rot": "#e0393e", "gruen": "#3a9b4a", "blau": "#2f5fd0",
+    "gelb": "#f5c400", "orange": "#ef7d22", "violett": "#7b3fa0", "grau": "#8a8f98", "hellgrau": "#d3d6da",
+    "rosa": "#f4a6b4", "apricot": "#f8c48d", "mint": "#a8dcae",
+}
+
 # Farbrollen, die das Template beim Thema „E-Ink“ verwendet (siehe utils/eink_farben.py)
 EINK_ROLLEN = ("rot", "gruen", "blau", "gelb", "orange", "violett", "grau", "hellgrau")
 
@@ -79,14 +89,17 @@ class Wetter(BasePlugin):
             except Exception as e:
                 logger.warning(f"DWD-Warnungen nicht verfügbar: {e}")
 
+        thema = settings.get("thema") or "eink"
+        breite, hoehe = dimensions
+        if ansicht in KUNST_ANSICHTEN:
+            return self.kunst_bild(ansicht, wetter, jetzt, settings, device_config, dimensions, thema)
+
         einfarbig = settings.get("temperaturfarbe") == "einfarbig"
         anzahl_tage = 6 if ansicht == "beides" else 7
         daten = baue_ansicht(wetter, jetzt, parse_details(settings.get("details")), einfarbig, anzahl_tage)
 
-        thema = settings.get("thema") or "eink"
         farben, akzent = self.farben(thema, settings.get("akzentfarbe") or STANDARD_AKZENT, device_config)
 
-        breite, hoehe = dimensions
         skala = SCHRIFTGROESSEN.get(settings.get("schriftgroesse"), 1.0)
         template_params = {
             "ansicht": ansicht,
@@ -110,6 +123,35 @@ class Wetter(BasePlugin):
         if thema == "eink":
             # Mischfarben (z. B. das wärmere Gelb) als festes Pixelmuster einsetzen
             image = muster_einsetzen(image, palette(device_config.get_config("display_type", default="")))
+        return image
+
+    def kunst_bild(self, ansicht, wetter, jetzt, settings, device_config, dimensions, thema):
+        """„Fenster“ und „Poesie“: das Wetter als Bild statt als Datenanzeige."""
+        pigmente = palette(device_config.get_config("display_type", default=""))
+        if thema == "eink":
+            farben = rollen_farben(pigmente)
+        else:
+            farben = dict(KUNST_FARBEN)
+        breite, hoehe = dimensions
+        template_params = {
+            "farben": farben,
+            "ort": (settings.get("ortName") or "").strip(),
+            "datum": datum_text(jetzt.date()),
+            "warnung": wetter.warnungen[0] if wetter.warnungen else None,
+            "basis_px": round((breite + hoehe) / 1280 * 16, 2),
+            "hochformat": hoehe > breite,
+            "plugin_settings": {},
+        }
+        if ansicht == "fenster":
+            template_params["szene"] = szene_fenster(wetter, jetzt)
+        else:
+            template_params["gedicht"] = poesie(wetter, jetzt)
+
+        image = self.render_image(dimensions, f"wetter_{ansicht}.html", "wetter_kunst.css", template_params)
+        if not image:
+            raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
+        if thema == "eink":
+            image = muster_einsetzen(image, pigmente)
         return image
 
     @staticmethod
@@ -145,7 +187,7 @@ class Wetter(BasePlugin):
             "forecast_days": 8,
             "wind_speed_unit": "kmh",
             "current": "temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,"
-                       "wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation",
+                       "wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,cloud_cover",
             "hourly": "temperature_2m,precipitation,precipitation_probability,weather_code,is_day,uv_index",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,"
                      "precipitation_probability_max,sunrise,sunset,uv_index_max",

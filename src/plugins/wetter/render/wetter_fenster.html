@@ -1,0 +1,179 @@
+{% extends "plugin.html" %}
+
+{% block content %}
+<div lang="de" class="kunst fenster" id="fenster"
+     style="font-size: {{ basis_px }}px;{% for name, wert in farben.items() %} --{{ name }}: {{ wert }};{% endfor %}">
+  {% if warnung %}
+  <div class="warnschild stufe{{ warnung.stufe }}"><b>⚠ {{ warnung.titel }}</b> {{ warnung.zeitraum }}</div>
+  {% endif %}
+  <svg class="szene" id="szene" viewBox="0 0 800 480" preserveAspectRatio="xMidYMax meet"></svg>
+</div>
+<script>
+// Landschaft, die das Wetter nachspielt. Alle Werte kommen aus kunst_daten.szene_fenster().
+const d = {{ szene|tojson }};
+const S = 'stroke="var(--schwarz)" stroke-linejoin="round" stroke-linecap="round"';
+// Fester Zufall: dieselbe Wetterlage ergibt immer dasselbe Bild
+const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+const wind = Math.min(d.wind, 70) / 70;
+let svg = '';
+
+// Himmel – auch hinter dem Bild, falls das Seitenverhältnis nicht 5:3 ist (Hochformat)
+const himmel = d.nacht ? 'var(--blau)' : (d.bewoelkung > 0.7 || d.schnee || d.nebel ? 'var(--hellgrau)' : 'var(--weiss)');
+document.getElementById('fenster').style.background = himmel;
+svg += `<rect x="-400" y="-800" width="1600" height="1400" fill="${himmel}"/>`;
+
+// Sterne und Mond in der richtigen Phase
+if (d.nacht) {
+  if (d.bewoelkung < 0.8) for (let i = 0; i < 34; i++) {
+    const x = 20 + rnd() * 760, y = 15 + rnd() * 230, r = rnd() < 0.25 ? 3 : 1.6;
+    svg += `<g stroke="var(--weiss)" stroke-width="${r > 2 ? 2 : 1.5}" stroke-linecap="round">
+      <line x1="${x - r}" y1="${y}" x2="${x + r}" y2="${y}"/><line x1="${x}" y1="${y - r}" x2="${x}" y2="${y + r}"/></g>`;
+  }
+  if (d.mond > 0.03 && d.mond < 0.97) {
+    // Helle Scheibe, verdeckt von einer verschobenen Himmelsscheibe (zunehmend: rechts hell)
+    const mx = 610, my = 95, mr = 38, versatz = (1 - Math.abs(d.mond - 0.5) * 2) * 2 * mr;
+    svg += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="var(--gelb)" ${S} stroke-width="3"/>`;
+    if (versatz < 2 * mr - 2) svg += `<circle cx="${mx + (d.mond < 0.5 ? -1 : 1) * versatz}" cy="${my - 4}" r="${mr + 2}" fill="var(--blau)"/>`;
+  }
+}
+
+// Sonne auf ihrem Tagesbogen
+if (!d.nacht && d.bewoelkung < 0.9) {
+  const t = d.sonnenstand, sx = 70 + 660 * t, sy = 300 - Math.sin(Math.PI * t) * 225, sr = 40;
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    svg += `<line x1="${sx + Math.cos(a) * (sr + 9)}" y1="${sy + Math.sin(a) * (sr + 9)}" x2="${sx + Math.cos(a) * (sr + 24)}" y2="${sy + Math.sin(a) * (sr + 24)}" ${S} stroke-width="4"/>`;
+  }
+  svg += `<circle cx="${sx}" cy="${sy}" r="${sr}" fill="var(--gelb)" ${S} stroke-width="4"/>`;
+}
+
+// Wolken: dicke schwarze Silhouette, darauf die Füllung – so entsteht eine gemeinsame Kontur
+function wolke(x, y, s, fuellung) {
+  const kreise = [[0, 0, 26], [28, -14, 30], [60, -4, 24], [84, 6, 18], [-24, 8, 18]];
+  let k = '', f = '';
+  kreise.forEach(([dx, dy, r]) => {
+    k += `<circle cx="${x + dx * s}" cy="${y + dy * s}" r="${r * s + 3.5}" fill="var(--schwarz)"/>`;
+    f += `<circle cx="${x + dx * s}" cy="${y + dy * s}" r="${r * s}" fill="${fuellung}"/>`;
+  });
+  k += `<rect x="${x - 27 * s - 3.5}" y="${y + 8 * s}" width="${125 * s + 7}" height="${18 * s + 3.5}" rx="${9 * s}" fill="var(--schwarz)"/>`;
+  f += `<rect x="${x - 27 * s}" y="${y + 8 * s}" width="${125 * s}" height="${18 * s}" rx="${9 * s}" fill="${fuellung}"/>`;
+  return k + f;
+}
+
+// Regen schräg im Wind, Schnee als Flocken – hinter den Wolken
+if (d.regen > 0) {
+  const dx = wind * 26;
+  for (let i = 0; i < 60 + 90 * Math.min(1, d.regen / 2); i++) {
+    const x = rnd() * 840 - 40, y = 120 + rnd() * 260;
+    svg += `<line x1="${x}" y1="${y}" x2="${x + dx}" y2="${y + 22}" ${S} stroke-width="2"/>`;
+  }
+}
+if (d.schnee) {
+  for (let i = 0; i < 120; i++) {
+    const x = rnd() * 800, y = 110 + rnd() * 300;
+    svg += `<circle cx="${x}" cy="${y}" r="${2.5 + rnd() * 2}" fill="var(--weiss)" stroke="var(--schwarz)" stroke-width="1.2"/>`;
+  }
+}
+const plaetze = [[150, 80, 1.2], [470, 60, 1.0], [330, 130, 0.8], [640, 150, 1.1], [60, 175, 0.75], [560, 215, 0.7], [250, 205, 0.9]];
+const anzahl = Math.round(d.bewoelkung * plaetze.length);
+const wolkenFarbe = d.gewitter ? 'var(--grau)' : (d.nacht ? 'var(--hellgrau)' : 'var(--weiss)');
+for (let i = 0; i < anzahl; i++) {
+  const [x, y, s] = plaetze[i];
+  svg += wolke(x + wind * 30, y, s, wolkenFarbe);
+}
+if (d.gewitter) {
+  svg += `<path d="M505 150 l-34 62 h28 l-22 58 l58 -80 h-30 l24 -40z" fill="var(--gelb)" ${S} stroke-width="3.5"/>`;
+}
+
+// Hügel mit Linoldruck-Schraffur
+const hinten = d.schnee ? 'var(--weiss)' : 'var(--mint)';
+const vorne = d.schnee ? 'var(--weiss)' : 'var(--gruen)';
+svg += `<path d="M-410 330 C 120 280, 230 290, 340 320 S 560 275, 1210 305 L 1210 490 L -410 490 Z" fill="${hinten}" ${S} stroke-width="4"/>`;
+svg += `<path d="M-410 400 C 140 345, 300 360, 430 385 S 680 350, 1210 372 L 1210 490 L -410 490 Z" fill="${vorne}" ${S} stroke-width="4"/>`;
+for (let i = 0; i < 22; i++) {
+  const x = 20 + i * 36 + (i % 3) * 7, y = 420 + (i % 4) * 14;
+  svg += `<path d="M${x} ${y} q 10 -6 22 0" fill="none" stroke="${d.schnee ? 'var(--schwarz)' : 'var(--weiss)'}" stroke-width="2.4" stroke-linecap="round"/>`;
+}
+// Nebel: helle Bänder über den Hügeln
+if (d.nebel) {
+  [[40, 300, 360], [380, 330, 400], [120, 360, 300]].forEach(([x, y, b]) => {
+    svg += `<rect x="${x}" y="${y}" width="${b}" height="22" rx="11" fill="var(--weiss)"/>`;
+  });
+}
+
+// Baum – biegt sich im Wind und verändert sich durch das Jahr
+function krone(x, y, fuellung) {
+  const kreise = [[0, -38, 40], [-42, -10, 34], [42, -12, 36], [-22, 22, 30], [24, 22, 30], [0, 6, 34]];
+  return kreise.map(([dx, dy, r]) => `<circle cx="${x + dx}" cy="${y + dy}" r="${r + 3.5}" fill="var(--schwarz)"/>`).join('')
+       + kreise.map(([dx, dy, r]) => `<circle cx="${x + dx}" cy="${y + dy}" r="${r}" fill="${fuellung}"/>`).join('');
+}
+function punkte(anzahl, farbe, r) {
+  let p = '';
+  for (let i = 0; i < anzahl; i++) {
+    p += `<circle cx="${180 + rnd() * 70}" cy="${215 + rnd() * 60}" r="${r}" fill="${farbe}" stroke="var(--schwarz)" stroke-width="1.5"/>`;
+  }
+  return p;
+}
+const aeste = [[215, 320, 175, 275], [215, 310, 253, 260], [196, 298, 184, 266], [234, 290, 254, 266], [215, 300, 217, 245]];
+const kahl = ['kahl', 'knospen', 'spaetherbst'].includes(d.baum);
+const neigung = (d.windrichtung > 180 ? 1 : -1) * wind * 16;
+svg += `<g transform="rotate(${neigung} 215 392)">`;
+if (kahl) {
+  svg += `<path d="M207 392 L211 300 L219 300 L223 392 Z" fill="var(--schwarz)"/>`;
+  svg += aeste.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${S} stroke-width="4"/>`).join('');
+  if (d.baum === 'knospen') {
+    svg += aeste.map(([, , x, y]) => `<circle cx="${x}" cy="${y}" r="6" fill="var(--mint)" stroke="var(--schwarz)" stroke-width="1.5"/>`).join('');
+  }
+  if (d.baum === 'spaetherbst') {
+    svg += aeste.slice(0, 4).map(([, , x, y]) => `<ellipse cx="${x + 4}" cy="${y + 8}" rx="6" ry="3.5" fill="var(--orange)" stroke="var(--schwarz)" stroke-width="1.5"/>`).join('');
+  }
+  if (d.schnee) {
+    svg += `<g fill="var(--weiss)" stroke="var(--schwarz)" stroke-width="1.5"><ellipse cx="180" cy="273" rx="10" ry="4"/><ellipse cx="252" cy="262" rx="11" ry="4"/><ellipse cx="217" cy="244" rx="8" ry="3.5"/></g>`;
+  }
+} else {
+  // Stamm reicht bis in die Krone und gabelt sich
+  svg += `<path d="M204 392 L210 300 L198 262 L205 258 L215 290 L226 250 L233 254 L221 300 L226 392 Z" fill="var(--schwarz)"/>`;
+  const farbeKrone = d.baum === 'herbst' ? 'var(--orange)' : 'var(--gruen)';
+  svg += krone(215, 250, farbeKrone);
+  if (d.baum === 'bluete') svg += punkte(12, 'var(--rosa)', 6);
+  if (d.baum === 'aepfel') svg += punkte(7, 'var(--rot)', 7);
+  if (d.baum === 'herbstbeginn') svg += punkte(6, 'var(--orange)', 11);
+  if (d.baum === 'herbst') svg += punkte(9, 'var(--rot)', 5);
+  if (d.schnee) svg += `<g fill="var(--weiss)" stroke="var(--schwarz)" stroke-width="1.5"><ellipse cx="215" cy="214" rx="26" ry="7"/><ellipse cx="174" cy="226" rx="18" ry="5"/><ellipse cx="258" cy="226" rx="18" ry="5"/></g>`;
+}
+svg += `</g>`;
+// Fliegende Blätter im Herbstwind, liegendes Laub im Spätherbst
+if (['herbst', 'spaetherbst'].includes(d.baum) && wind > 0.3) for (let i = 0; i < 6; i++) {
+  const x = 270 + i * 34 + rnd() * 20, y = 250 + rnd() * 90;
+  svg += `<ellipse cx="${x}" cy="${y}" rx="6" ry="3.5" transform="rotate(${rnd() * 90} ${x} ${y})" fill="var(--orange)" stroke="var(--schwarz)" stroke-width="1.5"/>`;
+}
+if (d.baum === 'spaetherbst' && !d.schnee) for (let i = 0; i < 7; i++) {
+  const x = 150 + i * 22 + rnd() * 10, y = 393 + rnd() * 10;
+  svg += `<ellipse cx="${x}" cy="${y}" rx="7" ry="3.5" fill="var(--orange)" stroke="var(--schwarz)" stroke-width="1.5"/>`;
+}
+
+// Haus – nachts leuchten die Fenster, bei Kälte raucht der Schornstein
+const hx = 540, hy = 300;
+if (d.temp < 12) {
+  const dx = wind * 60 + 8;
+  svg += `<path d="M${hx + 112} ${hy - 44} c ${-12 + dx * 0.2} -18, ${18 + dx * 0.5} -22, ${6 + dx * 0.6} -40 s ${16 + dx * 0.4} -24, ${dx} -44" fill="none" ${S} stroke-width="3" stroke-dasharray="10 7"/>`;
+}
+svg += `<rect x="${hx + 98}" y="${hy - 46}" width="20" height="40" fill="var(--weiss)" ${S} stroke-width="3.5"/>`;
+svg += `<path d="M${hx - 12} ${hy + 6} L${hx + 75} ${hy - 62} L${hx + 162} ${hy + 6} Z" fill="${d.schnee ? 'var(--weiss)' : 'var(--rot)'}" ${S} stroke-width="4"/>`;
+svg += `<rect x="${hx}" y="${hy + 6}" width="150" height="92" fill="var(--weiss)" ${S} stroke-width="4"/>`;
+const licht = d.nacht ? 'var(--gelb)' : 'var(--weiss)';
+[[hx + 18, hy + 26], [hx + 96, hy + 26]].forEach(([x, y]) => {
+  svg += `<rect x="${x}" y="${y}" width="36" height="32" fill="${licht}" ${S} stroke-width="3"/>
+          <line x1="${x + 18}" y1="${y}" x2="${x + 18}" y2="${y + 32}" ${S} stroke-width="2.5"/>
+          <line x1="${x}" y1="${y + 16}" x2="${x + 36}" y2="${y + 16}" ${S} stroke-width="2.5"/>`;
+});
+svg += `<rect x="${hx + 62}" y="${hy + 50}" width="26" height="48" fill="var(--schwarz)"/>`;
+
+// Schild mit der Temperatur
+svg += `<line x1="460" y1="356" x2="460" y2="410" ${S} stroke-width="5"/>`;
+svg += `<rect x="418" y="318" width="84" height="46" rx="6" fill="var(--weiss)" ${S} stroke-width="3.5"/>`;
+svg += `<text x="460" y="353" text-anchor="middle" font-size="31" font-weight="bold" font-family="Jost" fill="var(--schwarz)">${d.temp}°</text>`;
+
+document.getElementById('szene').innerHTML = svg;
+</script>
+{% endblock %}
