@@ -45,9 +45,16 @@
                         <button type="button" data-value="nie">Nie</button>
                     </div>
                 </div>
+                <a class="list-row" href="{{ url_for('loeschtest.loeschtest_page') }}">
+                    <span class="list-text">
+                        <span class="list-title">Löschtest</span>
+                        <span class="list-subtitle">Typische Bildwechsel auf dem Display ansehen und die Automatik danach einstellen</span>
+                    </span>
+                    <span class="list-chevron" aria-hidden="true"></span>
+                </a>
             </div>
             <p class="list-footer" data-clear-hint="immer">Vor jedem Bild wird das Display einmal weiß aufgebaut. Das entfernt Reste des vorigen Bilds (Geisterbilder), verdoppelt aber ungefähr die Dauer.</p>
-            <p class="list-footer" data-clear-hint="automatisch" hidden>Gelöscht wird nur, wenn es sich lohnt: beim ersten Bild nach einem Neustart, wenn sich mindestens 30&nbsp;% des Bilds ändern (z.&nbsp;B. Wechsel zu einer anderen Ansicht) und spätestens einmal am Tag. Kleine Änderungen wie eine neue Uhrzeit gehen ohne Löschen – also etwa doppelt so schnell.</p>
+            <p class="list-footer" data-clear-hint="automatisch" hidden>Gelöscht wird nur, wenn es sich lohnt: beim ersten Bild nach einem Neustart, wenn sich mindestens {{ clear_threshold }}&nbsp;% des Bilds ändern (z.&nbsp;B. Wechsel zu einer anderen Ansicht) und spätestens einmal am Tag. Kleine Änderungen wie eine neue Uhrzeit gehen ohne Löschen – also etwa doppelt so schnell.</p>
             <p class="list-footer" data-clear-hint="nie" hidden>Am schnellsten. Auf Dauer können schwache Reste früherer Bilder sichtbar bleiben.</p>
         </section>
 

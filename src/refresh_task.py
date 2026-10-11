@@ -118,12 +118,17 @@ class RefreshTask:
                                 refresh_action = PlaylistRefresh(playlist, plugin_instance)
 
                     if refresh_action:
-                        plugin_config = self.device_config.get_plugin(refresh_action.get_plugin_id())
-                        if plugin_config is None:
-                            raise ValueError(f"Plugin '{refresh_action.get_plugin_id()}' nicht gefunden")
-                        plugin = get_plugin_instance(plugin_config)
-                        title = (refresh_action.get_refresh_info().get("plugin_instance")
-                                 or plugin_config.get("display_name") or refresh_action.get_plugin_id())
+                        if isinstance(refresh_action, ImageRefresh):
+                            # Fertiges Bild (z. B. Löschtest), kein Plugin nötig
+                            plugin, image_settings, title = None, refresh_action.image_settings, refresh_action.title
+                        else:
+                            plugin_config = self.device_config.get_plugin(refresh_action.get_plugin_id())
+                            if plugin_config is None:
+                                raise ValueError(f"Plugin '{refresh_action.get_plugin_id()}' nicht gefunden")
+                            plugin = get_plugin_instance(plugin_config)
+                            image_settings = plugin.config.get("image_settings", [])
+                            title = (refresh_action.get_refresh_info().get("plugin_instance")
+                                     or plugin_config.get("display_name") or refresh_action.get_plugin_id())
                         self.display_manager.begin_job(title)
                         image = refresh_action.execute(plugin, self.device_config, current_dt)
                         if isinstance(refresh_action, ViewRefresh):
@@ -135,9 +140,10 @@ class RefreshTask:
                         refresh_info = refresh_action.get_refresh_info()
                         refresh_info.update({"refresh_time": current_dt.isoformat(), "image_hash": image_hash})
                         # check if image is the same as current image
-                        if image_hash != latest_refresh.image_hash:
+                        if image_hash != latest_refresh.image_hash or getattr(refresh_action, "always_show", False):
                             logger.info(f"Updating display. | refresh_info: {refresh_info}")
-                            pending_display = (image, plugin.config.get("image_settings", []), latest_refresh, title)
+                            pending_display = (image, image_settings, latest_refresh, title,
+                                               getattr(refresh_action, "clear", None))
                         else:
                             logger.info(f"Image already displayed, skipping refresh. | refresh_info: {refresh_info}")
 
@@ -166,10 +172,10 @@ class RefreshTask:
             if pending_display:
                 self._show(*pending_display)
 
-    def _show(self, image, image_settings, previous_refresh_info, title=None):
+    def _show(self, image, image_settings, previous_refresh_info, title=None, clear=None):
         """Sends the image to the display without holding the lock, so the web interface stays usable."""
         try:
-            self.display_manager.display_image(image, image_settings=image_settings, title=title)
+            self.display_manager.display_image(image, image_settings=image_settings, title=title, clear=clear)
         except Exception:
             logger.exception('Exception while updating the display')
             # Show the image again on the next refresh instead of skipping it as "already displayed"
@@ -255,7 +261,7 @@ class RefreshTask:
         Eine Ansicht aus dem Zeitplan („Jetzt anzeigen“ in den Ansichten) hebt das auf."""
         if not self.device_config.is_schedule_active():
             return
-        if isinstance(action, ManualRefresh):
+        if isinstance(action, ManualRefresh) and getattr(action, "hold", True):
             now = current_dt.replace(tzinfo=None)
             self.manual_hold_until = current_segment(self.device_config.get_schedule(), now).end
         else:
@@ -368,6 +374,36 @@ class ManualRefresh(RefreshAction):
     def get_plugin_id(self):
         """Return the plugin ID associated with this refresh."""
         return self.plugin_id
+
+class ImageRefresh(ManualRefresh):
+    """Zeigt ein fertiges Bild an, ohne Plugin – z. B. die Testbilder des Löschtests.
+
+    Attributes:
+        image: Das Bild (PIL.Image).
+        title: Name für die Statusanzeige.
+        clear: Altes Bild löschen erzwingen (True), auslassen (False) oder der Einstellung folgen (None).
+        hold: Wie „Jetzt anzeigen“ bis zum Ende des Zeitplan-Abschnitts stehen lassen.
+        refresh_info: Angaben, die als „aktuell angezeigt“ gespeichert werden (sonst als Löschtest).
+        always_show: Auch anzeigen, wenn genau dieses Bild schon zu sehen ist.
+    """
+
+    def __init__(self, image, title, clear=None, hold=True, refresh_info=None, image_settings=None, always_show=False):
+        super().__init__("loeschtest", {})
+        self.always_show = always_show
+        self.image = image
+        self.title = title
+        self.clear = clear
+        self.hold = hold
+        self.refresh_info = refresh_info
+        self.image_settings = image_settings if image_settings is not None else ["skip-enhancement"]
+
+    def execute(self, plugin, device_config, current_dt: datetime):
+        return self.image
+
+    def get_refresh_info(self):
+        if self.refresh_info:
+            return dict(self.refresh_info)
+        return {"refresh_type": "Manual Update", "plugin_id": self.plugin_id}
 
 class PlaylistRefresh(RefreshAction):
     """Performs a refresh using a plugin instance within a playlist context.

@@ -53,6 +53,7 @@ class SlowDisplay:
         self.release = threading.Event()
         self.shown = []
         self.jobs = []
+        self.clears = []
         self.fail = fail
 
     def begin_job(self, title=None):
@@ -61,8 +62,9 @@ class SlowDisplay:
     def end_job(self, error=None):
         pass
 
-    def display_image(self, image, image_settings=[], title=None):
+    def display_image(self, image, image_settings=[], title=None, clear=None):
         self.started.set()
+        self.clears.append(clear)
         self.release.wait(5)
         if self.fail:
             raise RuntimeError("Display kaputt")
@@ -283,3 +285,15 @@ def test_ansicht_von_hand_hebt_festhalten_auf(schedule_task):
 def erwartete_wartezeit_bis_10_uhr(t):
     """Erwartete Wartezeit bis 10:00 (+1 s), begrenzt auf eine Stunde."""
     return min(rt.MAX_SCHEDULE_SLEEP, (datetime(2026, 10, 10, 10, 0) - JETZT).total_seconds() + 1)
+
+
+def test_fertiges_bild_mit_vorgegebenem_loeschen(task):
+    display = SlowDisplay()
+    display.release.set()
+    t = task(display)
+    image = Image.new("RGB", (10, 10), "green")
+    assert t.manual_update(rt.ImageRefresh(image, "Löschtest", clear=False)) is True
+    t.stop()
+    assert display.shown == [(0, 128, 0)]
+    assert display.clears == [False]
+    assert display.jobs == ["Löschtest"]
