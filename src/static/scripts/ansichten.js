@@ -10,6 +10,8 @@
   const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
   const DURATIONS = [5, 10, 15, 20, 30, 60];
   const INTERVALS = [5, 15, 30, 60];
+  // „Jede Minute“ nur, wo es sich lohnt (die Uhr), sonst würden Plugins ihre Dienste ständig abfragen
+  const MINUTE_PLUGINS = ["clock"];
 
   let schedule = DATA.schedule;
   let sheet = null;
@@ -44,7 +46,7 @@
   const whenText = (f) => (f.date ? shortDate(f.date) : daysSummary(f.days));
   const rangeText = (f) => f.start + "–" + hm(endMin(f));
   const fixedSummary = (f) => whenText(f) + " · " + rangeText(f);
-  const refreshText = (n) => (n === 0 ? "nur beim Einblenden" : n === 60 ? "jede Stunde" : "alle " + n + " Min");
+  const refreshText = (n) => (n === 0 ? "nur beim Einblenden" : n === 1 ? "jede Minute" : n === 60 ? "jede Stunde" : "alle " + n + " Min");
 
   function refreshDescription(view) {
     const r = view.refresh || { mode: "auto" };
@@ -277,11 +279,12 @@
   function refreshSelect(v) {
     const r = v.refresh || { mode: "auto" };
     const current = r.mode === "interval" ? "i" + r.minutes : r.mode;
-    const intervals = INTERVALS.includes(r.minutes) || r.mode !== "interval" ? INTERVALS : INTERVALS.concat([r.minutes]).sort((a, b) => a - b);
+    const base = MINUTE_PLUGINS.includes(v.plugin_id) ? [1].concat(INTERVALS) : INTERVALS;
+    const intervals = base.includes(r.minutes) || r.mode !== "interval" ? base : base.concat([r.minutes]).sort((a, b) => a - b);
     const opt = (val, label) => '<option value="' + val + '"' + (val === current ? " selected" : "") + ">" + label + "</option>";
     return '<select data-f="refresh" aria-label="Daten aktualisieren">' +
       opt("auto", "Automatisch") + opt("on_show", "Nur beim Einblenden") +
-      intervals.map((n) => opt("i" + n, n === 60 ? "Jede Stunde" : "Alle " + n + " Min")).join("") +
+      intervals.map((n) => opt("i" + n, n === 1 ? "Jede Minute" : n === 60 ? "Jede Stunde" : "Alle " + n + " Min")).join("") +
       opt("daily", "Täglich um …") + "</select>";
   }
   function refreshFoot(v) {

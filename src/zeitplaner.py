@@ -262,6 +262,16 @@ def _daily_due(view, now):
     return due if due <= now else due - timedelta(days=1)
 
 
+def _interval_due(last, interval):
+    """Nächste fällige Intervall-Aktualisierung, auf die volle Minute abgerundet.
+
+    Der Planer wacht erst kurz nach dem fälligen Zeitpunkt auf; ohne Abrunden würde
+    sich jede Aktualisierung um diese Sekunden verschieben. So bleibt z. B. die Uhr
+    bei „Jede Minute“ im Takt der vollen Minuten.
+    """
+    return (last + timedelta(minutes=interval)).replace(second=0, microsecond=0)
+
+
 def needs_refresh(view, now, segment):
     """Muss die Ansicht jetzt neue Daten holen, bevor ihr Bild gezeigt wird?"""
     now = to_local(now)
@@ -273,7 +283,7 @@ def needs_refresh(view, now, segment):
         return last < _daily_due(view, now)
     if interval == 0:
         return last < segment.start
-    return now - last >= timedelta(minutes=interval)
+    return now >= _interval_due(last, interval)
 
 
 def next_refresh_at(view, now, segment):
@@ -286,7 +296,7 @@ def next_refresh_at(view, now, segment):
     if interval is None:
         upcoming = _daily_due(view, now) + timedelta(days=1)
     else:
-        upcoming = max(last + timedelta(minutes=interval), now)
+        upcoming = max(_interval_due(last, interval), now)
     return upcoming if upcoming < segment.end else None
 
 
