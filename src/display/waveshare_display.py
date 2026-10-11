@@ -125,9 +125,10 @@ class WaveshareDisplay(AbstractDisplay):
         self.report_phase("aufwecken")
         self.epd_display_init()
 
-        # Clear residual pixels before updating the image.
-        self.report_phase("loeschen")
-        self.epd_display.Clear()
+        # Clear residual pixels before updating the image (Einstellung „Altes Bild löschen“).
+        if self.clear_before_display:
+            self.report_phase("loeschen")
+            self.epd_display.Clear()
 
         # Bild auf die Farben des Displays umrechnen
         self.report_phase("farben")

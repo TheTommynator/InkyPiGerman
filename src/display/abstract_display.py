@@ -10,6 +10,8 @@ class AbstractDisplay:
 
     # Wird vom DisplayManager gesetzt; meldet der Weboberfläche den laufenden Schritt
     phase_callback = None
+    # Vom DisplayManager je Bild gesetzt: vorher das alte Bild löschen (siehe display/loeschen.py)
+    clear_before_display = True
 
     def report_phase(self, key):
         """Meldet einen neuen Schritt der Aktualisierung (Schlüssel aus display_manager.PHASE_LABELS)."""

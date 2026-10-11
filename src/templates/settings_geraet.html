@@ -35,6 +35,23 @@
         </section>
 
         <section class="list-section">
+            <h2 class="list-header">Altes Bild löschen</h2>
+            <div class="list-group">
+                <div class="list-row list-field">
+                    <span class="list-label">Vor neuem Bild</span>
+                    <div class="segmented" role="group" aria-label="Altes Bild löschen" data-setting="display_clear_mode">
+                        <button type="button" data-value="immer">Immer</button>
+                        <button type="button" data-value="automatisch">Automatisch</button>
+                        <button type="button" data-value="nie">Nie</button>
+                    </div>
+                </div>
+            </div>
+            <p class="list-footer" data-clear-hint="immer">Vor jedem Bild wird das Display einmal weiß aufgebaut. Das entfernt Reste des vorigen Bilds (Geisterbilder), verdoppelt aber ungefähr die Dauer.</p>
+            <p class="list-footer" data-clear-hint="automatisch" hidden>Gelöscht wird nur, wenn es sich lohnt: beim ersten Bild nach einem Neustart, wenn sich mindestens 30&nbsp;% des Bilds ändern (z.&nbsp;B. Wechsel zu einer anderen Ansicht) und spätestens einmal am Tag. Kleine Änderungen wie eine neue Uhrzeit gehen ohne Löschen – also etwa doppelt so schnell.</p>
+            <p class="list-footer" data-clear-hint="nie" hidden>Am schnellsten. Auf Dauer können schwache Reste früherer Bilder sichtbar bleiben.</p>
+        </section>
+
+        <section class="list-section">
             <h2 class="list-header">Zeit</h2>
             <div class="list-group">
                 <div class="list-row list-field">
@@ -79,7 +96,15 @@
             orientation: {{ (device_settings.orientation or 'horizontal') | tojson }},
             time_format: {{ (device_settings.time_format or '24h') | tojson }},
             timezone: {{ (device_settings.timezone or '') | tojson }},
+            display_clear_mode: {{ (device_settings.display_clear_mode or 'immer') | tojson }},
         };
+
+        // Erklärung zur gewählten Lösch-Einstellung
+        function showClearHint() {
+            document.querySelectorAll('[data-clear-hint]').forEach(function(hint) {
+                hint.hidden = hint.dataset.clearHint !== current.display_clear_mode;
+            });
+        }
 
         async function save(key, value) {
             const ok = await saveNow(SAVE_URL, { [key]: value });
@@ -99,10 +124,12 @@
                     if (b.dataset.value === current[key]) return;
                     await save(key, b.dataset.value);
                     mark();
+                    showClearHint();
                 });
             });
             mark();
         });
+        showClearHint();
 
         // Schalter
         document.querySelectorAll('.switch input[data-setting]').forEach(function(input) {

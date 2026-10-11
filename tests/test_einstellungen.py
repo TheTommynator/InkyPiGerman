@@ -64,6 +64,9 @@ def test_einzelne_einstellung_wird_sofort_gespeichert(env):
     client.post("/settings/geraet", json={"inverted_image": True, "log_system_stats": False})
     assert saved(path)["inverted_image"] is True and saved(path)["log_system_stats"] is False
 
+    client.post("/settings/geraet", json={"display_clear_mode": "automatisch"})
+    assert saved(path)["display_clear_mode"] == "automatisch"
+
 
 def test_zeitzone_weckt_den_zeitplan(env):
     client, path, task = env
@@ -79,6 +82,7 @@ def test_zeitzone_weckt_den_zeitplan(env):
     ({"name": "x" * 41}, "höchstens"),
     ({"orientation": "schief"}, "Ausrichtung"),
     ({"time_format": "13h"}, "Zeitformat"),
+    ({"display_clear_mode": "manchmal"}, "Löschen"),
     ({"timezone": "Mond/Krater"}, "keine bekannte Zeitzone"),
     ({}, "Keine Einstellung"),
 ])
