@@ -21,9 +21,10 @@ from plugins.base_plugin.base_plugin import BasePlugin
 from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV, waehle_kalender
 from zugangsdaten import ICLOUD_KONTEN, icloud_konten
 from plugins.icloud_kalender.kalender_daten import (
-    ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, eink_palette,
+    ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, kalender_rollen,
     naechste_farbe, normalisiere_url, parse_stunde, tagesbeginn, zeitraum,
 )
+from utils.eink_farben import ROLLEN, css_farbe, css_flaeche, muster_einsetzen, palette, pigmente_runden, schrift_auf
 
 logger = logging.getLogger(__name__)
 
@@ -77,12 +78,17 @@ class ICloudKalender(BasePlugin):
 
         thema = settings.get("thema") or "eink"
         akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
+        pigmente = palette(device_config.get_config("display_type", default=""))
+        hellgrau = ""
         if thema == "eink":
-            # Nur Farben, die das Display ohne Rastern darstellen kann
-            palette = eink_palette(device_config.get_config("display_type", default=""))
-            for k in kalender:
-                k["farbe"] = naechste_farbe(k["farbe"], palette)
-            akzent = naechste_farbe(akzent, palette)
+            # Jeder Kalender bekommt eine eigene Farbrolle aus dem Farbtest
+            # (Mischungen als Platzhalter, nach dem Screenshot als Pixelmuster)
+            for k, rolle in zip(kalender, kalender_rollen([k["farbe"] for k in kalender])):
+                k["farbe"] = css_farbe(ROLLEN[rolle], pigmente)
+                k["schrift"] = pigmente[schrift_auf(rolle)]
+            # Akzent für Heute-Markierung und Jetzt-Linie: nur Farben, die auch als Linie taugen
+            akzent = naechste_farbe(akzent, [pigmente["rot"], pigmente["gruen"], pigmente["schwarz"]])
+            hellgrau = css_flaeche(ROLLEN["hellgrau"], pigmente)
 
         termine, ladefehler = self.lade_termine(kalender, tz, von, bis)
         fehler += ladefehler
@@ -90,7 +96,7 @@ class ICloudKalender(BasePlugin):
             raise RuntimeError(f"Kalender konnte nicht abgerufen werden: {fehler[0]}")
 
         if ansicht == "tag":
-            daten = baue_tag(termine, jetzt, tz, von_h, bis_h, zeitformat)
+            daten = baue_tag(termine, jetzt, tz, zeitformat)
         elif ansicht == "woche":
             daten = baue_woche(termine, jetzt, tz, wochenstart, von_h, bis_h, zeitformat, wochenende)
         else:
@@ -102,6 +108,7 @@ class ICloudKalender(BasePlugin):
             "ansicht": ansicht,
             "daten": daten,
             "kalender": [k for k in kalender if k["name"]],
+            "hellgrau": hellgrau,
             "legende": settings.get("legende", "true") != "false",
             "stil": settings.get("stil") or "gefuellt",
             "thema": thema,
@@ -116,6 +123,9 @@ class ICloudKalender(BasePlugin):
         image = self.render_image(dimensions, "icloud_kalender.html", "icloud_kalender.css", template_params)
         if not image:
             raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
+        if thema == "eink":
+            # Mischfarben als Pixelmuster, Kanten auf reine Pigmente: scharfe Schrift ohne Raster
+            image = pigmente_runden(muster_einsetzen(image, pigmente), pigmente)
         return image
 
     @staticmethod
@@ -272,4 +282,5 @@ class ICloudKalender(BasePlugin):
             farbe=kalender["farbe"],
             kalender=kalender["name"],
             ort=str(event.get("location", "") or "").strip(),
+            schrift=kalender.get("schrift", ""),
         )

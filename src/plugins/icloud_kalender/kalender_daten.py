@@ -14,7 +14,7 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
-from utils.eink_farben import PALETTEN
+from utils.eink_farben import PALETTEN, ROLLEN
 
 ANSICHTEN = ("tag", "woche", "monat")
 
@@ -29,6 +29,9 @@ MONATE_KURZ = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
 MIN_DAUER_MINUTEN = 30
 # Tage, die in der Tagesansicht unter „Demnächst“ erscheinen
 VORSCHAU_TAGE = 6
+# Zeilen für ganztägige Balken: Woche und Monat
+SPUREN_WOCHE = 3
+SPUREN_MONAT = 2
 
 
 @dataclass
@@ -40,6 +43,7 @@ class Termin:
     farbe: str
     kalender: str = ""
     ort: str = ""
+    schrift: str = ""  # Schriftfarbe auf der Kalenderfarbe; leer = automatisch
 
 
 def normalisiere_url(url):
@@ -213,7 +217,7 @@ def _termin_info(termin, zeitformat):
         "titel": termin.titel,
         "farbe": termin.farbe,
         "tint": termin_tint(termin.farbe),
-        "text": kontrastfarbe(termin.farbe),
+        "text": termin.schrift or kontrastfarbe(termin.farbe),
         "kalender": termin.kalender,
         "ort": termin.ort,
         "zeit": "" if termin.ganztag else format_zeit(termin.start, zeitformat),
@@ -252,31 +256,113 @@ def _stunden(von_h, bis_h, zeitformat):
             for h in range(von_h, bis_h)]
 
 
-def baue_tag(termine, jetzt, tz, von_h=7, bis_h=21, zeitformat="24h"):
-    heute = jetzt.date()
-    ganz, zeitlich = termine_am_tag(termine, heute, tz)
-    von_h, bis_h = stundenbereich([zeitlich], von_h, bis_h)
+def _bis_text(termin, tag, tz):
+    """„bis 17.10.“, wenn ein ganztägiger Termin über `tag` hinaus dauert."""
+    letzter = (termin.ende - timedelta(seconds=1)).astimezone(tz).date()
+    return f"bis {letzter.day}.{letzter.month}." if letzter > tag else ""
 
+
+def _vorschau(termine, heute, tz, zeitformat, tage=VORSCHAU_TAGE):
+    """Termine der nächsten Tage. Mehrtägige ganztägige Termine (z. B. Ferien)
+    erscheinen nur einmal, mit „bis …“, statt an jedem Tag erneut."""
     vorschau = []
-    for i in range(1, VORSCHAU_TAGE + 1):
+    gezeigt = {id(t) for t in termine_am_tag(termine, heute, tz)[0]}
+    for i in range(1, tage + 1):
         tag = heute + timedelta(days=i)
         g, z = termine_am_tag(termine, tag, tz)
-        eintraege = [_termin_info(t, zeitformat) for t in g]
+        g = [t for t in g if id(t) not in gezeigt]
+        gezeigt |= {id(t) for t in g}
+        eintraege = [_termin_info(t, zeitformat) | {"bis": _bis_text(t, tag, tz)} for t in g]
         eintraege += [_termin_info(t, zeitformat) | {"zeit": format_zeit(max(t.start, tagesbeginn(tag, tz)), zeitformat)}
                       for t, _, _ in z]
         if eintraege:
             vorschau.append({"label": tag_bezeichnung(tag, heute), "termine": eintraege})
+    return vorschau
+
+
+def baue_tag(termine, jetzt, tz, zeitformat="24h"):
+    """Tagesansicht als Liste: heute groß, rechts „Demnächst“.
+
+    Ein Zeitraster bleibt auf einem kleinen Display meist leer; die Liste zeigt
+    dieselben Termine in großer Schrift. Vorbei = schon zu Ende, jetzt = läuft gerade.
+    """
+    heute = jetzt.date()
+    ganz, zeitlich = termine_am_tag(termine, heute, tz)
+    beginn = tagesbeginn(heute, tz)
+    liste = []
+    for t, start_min, ende_min in zeitlich:
+        von = beginn + timedelta(minutes=start_min)
+        bis = beginn + timedelta(minutes=ende_min)
+        liste.append(_termin_info(t, zeitformat) | {
+            "zeit": format_zeit(von, zeitformat),
+            "zeit_bis": format_zeit(bis, zeitformat) if ende_min > start_min else "",
+            "vorbei": bis <= jetzt and ende_min > start_min,
+            "jetzt": von <= jetzt < bis,
+        })
 
     return {
         "titel": WOCHENTAGE[heute.weekday()],
         "untertitel": datum_lang(heute),
-        "ganztag": [_termin_info(t, zeitformat) for t in ganz],
-        "bloecke": _zeitraster_spalte(zeitlich, von_h, bis_h, zeitformat),
-        "stunden": _stunden(von_h, bis_h, zeitformat),
-        "jetzt": _jetzt_position(jetzt, von_h, bis_h),
+        "tag_nummer": heute.day,
+        "monat": MONATE[heute.month - 1],
+        "ganztag": [_termin_info(t, zeitformat) | {"bis": _bis_text(t, heute, tz)} for t in ganz],
+        "termine": liste,
         "leer": not ganz and not zeitlich,
-        "vorschau": vorschau,
+        "vorschau": _vorschau(termine, heute, tz, zeitformat),
     }
+
+
+def balken(termine, tage, tz, zeitformat="24h", max_spuren=SPUREN_WOCHE):
+    """Ganztägige Termine als Balken über mehrere Tage (eine Zeile im Wochen-
+    oder Monatsraster). Statt „Ferien“ an jedem Tag einzeln steht ein Balken
+    von Montag bis Sonntag da.
+
+    Gibt {"balken", "spuren", "versteckt"} zurück: Balken mit Spalte (1-basiert),
+    Breite in Tagen und Spur (Zeile); `versteckt[i]` zählt die Balken, die an
+    Tag i keinen Platz mehr hatten.
+    """
+    reihenfolge, tage_je_termin = [], {}
+    for i, tag in enumerate(tage):
+        for t in termine_am_tag(termine, tag, tz)[0]:
+            if id(t) not in tage_je_termin:
+                tage_je_termin[id(t)] = []
+                reihenfolge.append(t)
+            tage_je_termin[id(t)].append(i)
+
+    # Zusammenhängende Abschnitte (bei ausgeblendetem Wochenende evtl. mehrere)
+    stuecke = []
+    for t in reihenfolge:
+        spalten = tage_je_termin[id(t)]
+        anfang = spalten[0]
+        for vorher, jetzt_ in zip(spalten, spalten[1:] + [None]):
+            if jetzt_ != vorher + 1:
+                stuecke.append((t, anfang, vorher))
+                anfang = jetzt_
+    stuecke.sort(key=lambda s: (s[1], -(s[2] - s[1]), s[0].start, s[0].titel.lower()))
+
+    belegt = []  # je Spur: Menge belegter Spalten
+    ergebnis, versteckt, spuren_je_tag = [], [0] * len(tage), [0] * len(tage)
+    for t, von, bis in stuecke:
+        spalten = set(range(von, bis + 1))
+        spur = next((i for i, b in enumerate(belegt) if not b & spalten), len(belegt))
+        if spur == len(belegt):
+            belegt.append(set())
+        belegt[spur] |= spalten
+        if spur >= max_spuren:
+            for c in spalten:
+                versteckt[c] += 1
+            continue
+        for c in spalten:
+            spuren_je_tag[c] = max(spuren_je_tag[c], spur + 1)
+        ergebnis.append(_termin_info(t, zeitformat) | {
+            "spalte": von + 1,
+            "breite": bis - von + 1,
+            "spur": spur + 1,
+            "links_offen": t.start < tagesbeginn(tage[von], tz),
+            "rechts_offen": t.ende > tagesbeginn(tage[bis] + timedelta(days=1), tz),
+        })
+    return {"balken": ergebnis, "spuren": min(len(belegt), max_spuren), "versteckt": versteckt,
+            "spuren_je_tag": spuren_je_tag}
 
 
 def baue_woche(termine, jetzt, tz, wochenstart=0, von_h=7, bis_h=21,
@@ -290,15 +376,16 @@ def baue_woche(termine, jetzt, tz, wochenstart=0, von_h=7, bis_h=21,
     aufgeteilt = [termine_am_tag(termine, tag, tz) for tag in tage]
     von_h, bis_h = stundenbereich([z for _, z in aufgeteilt], von_h, bis_h)
 
+    ganztag = balken(termine, tage, tz, zeitformat, SPUREN_WOCHE)
     spalten = []
-    for tag, (ganz, zeitlich) in zip(tage, aufgeteilt):
+    for i, (tag, (ganz, zeitlich)) in enumerate(zip(tage, aufgeteilt)):
         spalten.append({
             "kurz": WOCHENTAGE_KURZ[tag.weekday()],
             "nummer": tag.day,
             "heute": tag == heute,
             "vergangen": tag < heute,
             "wochenende": tag.weekday() >= 5,
-            "ganztag": [_termin_info(t, zeitformat) for t in ganz],
+            "versteckt": ganztag["versteckt"][i],
             "bloecke": _zeitraster_spalte(zeitlich, von_h, bis_h, zeitformat),
         })
 
@@ -306,7 +393,8 @@ def baue_woche(termine, jetzt, tz, wochenstart=0, von_h=7, bis_h=21,
         "titel": f"KW {heute.isocalendar()[1]}",
         "untertitel": wochen_titel(tage),
         "spalten": spalten,
-        "hat_ganztag": any(s["ganztag"] for s in spalten),
+        "ganztag": ganztag,
+        "hat_ganztag": bool(ganztag["balken"]) or any(s["versteckt"] for s in spalten),
         "stunden": _stunden(von_h, bis_h, zeitformat),
         "jetzt": _jetzt_position(jetzt, von_h, bis_h) if heute in tage else None,
     }
@@ -318,15 +406,17 @@ def baue_monat(termine, jetzt, tz, wochenstart=0, zeitformat="24h", wochenende=T
     for woche in monatsraster(heute.year, heute.month, wochenstart):
         if not wochenende:
             woche = [t for t in woche if t.weekday() < 5]
+        ganztag = balken(termine, woche, tz, zeitformat, SPUREN_MONAT)
         zellen = []
-        for tag in woche:
-            ganz, zeitlich = termine_am_tag(termine, tag, tz)
-            eintraege = [_termin_info(t, zeitformat) | {"ganztag": True} for t in ganz]
-            eintraege += [_termin_info(t, zeitformat) | {
+        for i, tag in enumerate(woche):
+            _, zeitlich = termine_am_tag(termine, tag, tz)
+            eintraege = [_termin_info(t, zeitformat) | {
                 "ganztag": False,
                 "zeit": format_zeit(max(t.start, tagesbeginn(tag, tz)), zeitformat),
             } for t, _, _ in zeitlich]
             zellen.append({
+                "versteckt": ganztag["versteckt"][i],
+                "spuren": ganztag["spuren_je_tag"][i],
                 "nummer": tag.day,
                 "heute": tag == heute,
                 "anderer_monat": tag.month != heute.month,
@@ -334,7 +424,7 @@ def baue_monat(termine, jetzt, tz, wochenstart=0, zeitformat="24h", wochenende=T
                 "wochenende": tag.weekday() >= 5,
                 "termine": eintraege,
             })
-        wochen.append(zellen)
+        wochen.append({"tage": zellen, "ganztag": ganztag})
 
     kopf = [WOCHENTAGE_KURZ[(wochenstart + i) % 7] for i in range(7)]
     if not wochenende:
@@ -387,6 +477,55 @@ def naechste_farbe(farbe, palette):
         return 3 * (r - r2) ** 2 + 4 * (g - g2) ** 2 + 2 * (b - b2) ** 2
 
     return min(palette, key=abstand)
+
+
+# So wirken die Farbrollen auf dem Display – als Anker für typische
+# Kalenderfarben (Apple: Rot #ff2968, Orange #ff9500, Gelb #ffcc00,
+# Grün #63da38, Blau #1badf8, Violett #cc73e1, Braun #a2845e).
+ROLLEN_ANKER = {
+    "rot": "#f02a3a", "orange": "#ff8c00", "gelb": "#ffcc00", "gruen": "#4cc83a",
+    "blau": "#1f8cf0", "violett": "#b464dc", "schwarz": "#202020",
+    "rosa": "#ff8fb0", "apricot": "#ffb46e", "mint": "#9be0a0", "grau": "#9a8c7a",
+}
+
+
+def _lab(farbe):
+    """sRGB → CIE-Lab (D65), für Farbabstände, die dem Auge entsprechen."""
+    def linear(c):
+        c /= 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (linear(c) for c in hex_zu_rgb(farbe))
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+
+    def f(t):
+        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+
+    fx, fy, fz = f(x), f(y), f(z)
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def _farbabstand(a, b):
+    la, lb = _lab(a), _lab(b)
+    return sum((p - q) ** 2 for p, q in zip(la, lb)) ** 0.5
+
+
+def kalender_rollen(farben):
+    """Ordnet jeder Kalenderfarbe eine Farbrolle zu – möglichst jedem Kalender
+    eine eigene. Die ähnlichsten Paare werden zuerst vergeben; erst wenn alle
+    Rollen belegt sind, teilen sich Kalender eine Rolle."""
+    rollen = [r for r in ROLLEN_ANKER if r in ROLLEN]
+    paare = sorted((_farbabstand(f, ROLLEN_ANKER[r]), i, r) for i, f in enumerate(farben) for r in rollen)
+    zuordnung, vergeben = {}, set()
+    for _, i, rolle in paare:
+        if i not in zuordnung and rolle not in vergeben:
+            zuordnung[i] = rolle
+            vergeben.add(rolle)
+    for _, i, rolle in paare:
+        zuordnung.setdefault(i, rolle)
+    return [zuordnung[i] for i in range(len(farben))]
 
 
 def termin_tint(farbe, anteil=0.18):

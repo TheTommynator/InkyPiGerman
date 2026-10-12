@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from utils.eink_farben import (  # noqa: E402
     MISCHUNGEN, NUR_FLAECHE, PALETTEN, PIGMENTE, PLATZHALTER, ROLLEN, css_farbe, css_flaeche, ist_farbe,
-    muster_einsetzen, muster_png, palette, png, rollen_farben, schrift_auf, titel,
+    muster_einsetzen, muster_png, palette, pigmente_runden, png, rollen_farben, schrift_auf, titel,
 )
 
 
@@ -120,6 +120,23 @@ def test_muster_einsetzen():
     # Alles andere bleibt unverändert
     assert ergebnis.getpixel((0, 0)) == (255, 255, 255) and ergebnis.getpixel((5, 0)) == (0, 0, 0)
 
+
+
+def test_pigmente_runden_macht_kanten_scharf():
+    for modul in ("PIL", "numpy"):
+        pytest.importorskip(modul)
+    from PIL import Image
+
+    farben = PALETTEN["waveshare"]
+    # Geglättete Kanten: Grau zwischen Schwarz und Weiß, Rosa zwischen Rot und Weiß,
+    # dunkles Gelb zwischen Schwarz und Gelb (Schrift auf gelber Fläche)
+    zeile = [(0, 0, 0), (90, 90, 90), (170, 170, 170), (255, 255, 255), (255, 110, 110), (60, 60, 0), (255, 0, 0)]
+    bild = Image.new("RGB", (len(zeile), 1))
+    for x, p in enumerate(zeile):
+        bild.putpixel((x, 0), p)
+    ergebnis = [pigmente_runden(bild, farben).getpixel((x, 0)) for x in range(len(zeile))]
+    assert ergebnis == [(0, 0, 0), (0, 0, 0), (255, 255, 255), (255, 255, 255), (255, 0, 0), (0, 0, 0), (255, 0, 0)]
+    assert set(ergebnis) <= {tuple(int(f[i:i + 2], 16) for i in (1, 3, 5)) for f in farben.values()}
 
 # --- Plugin (braucht die Laufzeit-Abhängigkeiten) ---
 

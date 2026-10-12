@@ -12,7 +12,8 @@ from plugins.icloud_kalender.icloud_caldav import (  # noqa: E402
     CalDAVFehler, ICloudCalDAV, apple_farbe, waehle_kalender,
 )
 from plugins.icloud_kalender.kalender_daten import (  # noqa: E402
-    EINK_PALETTEN, Termin, baue_monat, baue_tag, baue_woche, eink_palette, kontrastfarbe, monatsraster, naechste_farbe,
+    EINK_PALETTEN, Termin, balken, baue_monat, baue_tag, baue_woche, eink_palette, kalender_rollen, kontrastfarbe,
+    monatsraster, naechste_farbe,
     normalisiere_url, parse_stunde, spalten_verteilen, stundenbereich,
     termin_tint, termine_am_tag, wochen_titel, wochenanfang, zeitraum,
 )
@@ -162,18 +163,22 @@ def test_farben_werden_auf_displayfarben_gesetzt():
     assert all(naechste_farbe(f, inky) == f for f in inky)
 
 
-def test_baue_tag_mit_vorschau_und_jetzt_linie():
+def test_baue_tag_als_liste_mit_vorschau():
     jetzt = zeit(MI, 10, 30)
     termine = [
+        termin("Zahnarzt", zeit(MI, 8), zeit(MI, 9)),
         termin("Meeting", zeit(MI, 10), zeit(MI, 11)),
+        termin("Abendessen", zeit(MI, 19), zeit(MI, 20, 30)),
         termin("Morgen früh", zeit(MI + timedelta(days=1), 8), zeit(MI + timedelta(days=1), 9)),
         ganztags("Ausflug", MI + timedelta(days=3), MI + timedelta(days=4)),
     ]
-    daten = baue_tag(termine, jetzt, TZ, 8, 18)
+    daten = baue_tag(termine, jetzt, TZ)
     assert daten["titel"] == "Mittwoch"
     assert daten["untertitel"] == "14. Oktober 2026"
-    assert daten["bloecke"][0]["oben"] == pytest.approx(20.0)  # 10 Uhr bei 8–18 Uhr
-    assert daten["jetzt"] == pytest.approx(25.0)
+    liste = daten["termine"]
+    assert [(t["titel"], t["zeit"], t["zeit_bis"]) for t in liste] == [
+        ("Zahnarzt", "8:00", "9:00"), ("Meeting", "10:00", "11:00"), ("Abendessen", "19:00", "20:30")]
+    assert [(t["vorbei"], t["jetzt"]) for t in liste] == [(True, False), (False, True), (False, False)]
     assert [g["label"] for g in daten["vorschau"]] == ["Morgen", "Samstag, 17. Okt."]
     assert daten["vorschau"][0]["termine"][0]["zeit"] == "8:00"
     assert daten["vorschau"][1]["termine"][0]["zeit"] == ""
@@ -182,8 +187,17 @@ def test_baue_tag_mit_vorschau_und_jetzt_linie():
 
 def test_baue_tag_ohne_termine_ist_leer():
     daten = baue_tag([], zeit(MI, 6), TZ)
-    assert daten["leer"]
-    assert daten["jetzt"] is None  # 6 Uhr liegt vor dem Zeitraum 7–21 Uhr
+    assert daten["leer"] and daten["termine"] == [] and daten["vorschau"] == []
+
+
+def test_mehrtaegige_termine_in_der_vorschau_nur_einmal():
+    ferien = ganztags("Ferien", MI - timedelta(days=2), MI + timedelta(days=4))
+    messe = ganztags("Messe", MI + timedelta(days=1), MI + timedelta(days=3))
+    daten = baue_tag([ferien, messe], zeit(MI, 9), TZ)
+    # Ferien laufen heute schon: oben mit „bis“, in der Vorschau gar nicht mehr
+    assert [(t["titel"], t["bis"]) for t in daten["ganztag"]] == [("Ferien", "bis 17.10.")]
+    assert [(g["label"], [(t["titel"], t["bis"]) for t in g["termine"]]) for g in daten["vorschau"]] == [
+        ("Morgen", [("Messe", "bis 16.10.")])]
 
 
 def test_baue_woche_markiert_heute_und_blendet_wochenende_aus():
@@ -212,7 +226,7 @@ def test_baue_monat():
     daten = baue_monat(termine, zeit(MI, 9), TZ)
     assert daten["titel"] == "Oktober"
     assert daten["kopf"][0] == "Mo"
-    zellen = [z for woche in daten["wochen"] for z in woche]
+    zellen = [z for woche in daten["wochen"] for z in woche["tage"]]
     assert zellen[0]["anderer_monat"] and zellen[0]["nummer"] == 28
     heute = [z for z in zellen if z["heute"]]
     assert len(heute) == 1 and heute[0]["nummer"] == 14
@@ -222,7 +236,53 @@ def test_baue_monat():
 
     ohne_we = baue_monat([], zeit(MI, 9), TZ, wochenende=False)
     assert ohne_we["kopf"] == ["Mo", "Di", "Mi", "Do", "Fr"]
-    assert all(len(w) == 5 for w in ohne_we["wochen"])
+    assert all(len(w["tage"]) == 5 for w in ohne_we["wochen"])
+
+
+def test_ganztaegige_termine_als_balken():
+    mo = date(2026, 10, 12)
+    tage = [mo + timedelta(days=i) for i in range(7)]
+    termine = [
+        ganztags("Ferien", date(2026, 10, 5), date(2026, 10, 19)),        # ganze Woche, beginnt früher
+        ganztags("Urlaub", mo, date(2026, 10, 17)),                       # Mo–Fr
+        ganztags("Messe", date(2026, 10, 13), date(2026, 10, 20)),        # Di–So, endet später
+        ganztags("Kerb", date(2026, 10, 16), date(2026, 10, 18)),         # Fr–Sa: keine Spur mehr frei
+    ]
+    g = balken(termine, tage, TZ, max_spuren=3)
+    assert [(b["titel"], b["spalte"], b["breite"], b["spur"], b["links_offen"], b["rechts_offen"])
+            for b in g["balken"]] == [
+        ("Ferien", 1, 7, 1, True, False), ("Urlaub", 1, 5, 2, False, False), ("Messe", 2, 6, 3, False, True)]
+    assert g["spuren"] == 3
+    assert g["versteckt"] == [0, 0, 0, 0, 1, 1, 0]
+    assert g["spuren_je_tag"] == [2, 3, 3, 3, 3, 3, 3]
+
+    # Ohne Wochenende endet die Messe am Freitag
+    werktage = tage[:5]
+    g = balken(termine, werktage, TZ, max_spuren=2)
+    assert [(b["titel"], b["breite"]) for b in g["balken"]] == [("Ferien", 5), ("Urlaub", 5)]
+    assert g["versteckt"] == [0, 1, 1, 1, 2]
+
+
+def test_woche_und_monat_nutzen_balken():
+    termine = [ganztags("Ferien", date(2026, 10, 12), date(2026, 10, 15)),
+               termin("Zahnarzt", zeit(MI, 8), zeit(MI, 9))]
+    woche = baue_woche(termine, zeit(MI, 9), TZ)
+    assert woche["hat_ganztag"] and woche["ganztag"]["balken"][0]["breite"] == 3
+    monat = baue_monat(termine, zeit(MI, 9), TZ)
+    woche_42 = monat["wochen"][2]
+    assert woche_42["ganztag"]["balken"][0]["spalte"] == 1
+    assert [z["spuren"] for z in woche_42["tage"]] == [1, 1, 1, 0, 0, 0, 0]
+    assert woche_42["tage"][2]["termine"][0]["titel"] == "Zahnarzt"
+
+
+def test_kalender_bekommen_eigene_farbrollen():
+    # Max' Kalender: zwei orange, Braun, Gelb, Violett, Grün
+    rollen = kalender_rollen(["#ff9500", "#a2845e", "#ffcc00", "#ff9500", "#cc73e1", "#63da38"])
+    assert rollen[0] == "orange" and rollen[2] == "gelb" and rollen[4] == "violett" and rollen[5] == "gruen"
+    assert len(set(rollen)) == 6
+    assert kalender_rollen(["#ff2968", "#1badf8"]) == ["rot", "blau"]
+    # Mehr Kalender als Rollen: dann teilen sie sich Rollen
+    assert len(kalender_rollen(["#ff0000"] * 13)) == 13
 
 
 # --- iCal-Auswertung (braucht die Laufzeit-Abhängigkeiten) ---

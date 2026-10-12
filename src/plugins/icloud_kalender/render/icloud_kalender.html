@@ -1,9 +1,12 @@
 {% extends "plugin.html" %}
 
+{% macro farbe(t) -%}
+--farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};
+{%- endmacro %}
+
 {% macro termin_karte(t) -%}
 <div class="karte {{ stil }}"
-     style="top: {{ t.oben }}%; height: {{ t.hoehe }}%; left: {{ t.links }}%; width: {{ t.breite }}%;
-            --farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};">
+     style="top: {{ t.oben }}%; height: {{ t.hoehe }}%; left: {{ t.links }}%; width: {{ t.breite }}%; {{ farbe(t) }}">
   <div class="karte-innen">
     <span class="karte-titel">{{ t.titel }}</span>
     <span class="karte-zeit">{{ t.zeit }}<span class="bis"> – {{ t.zeit_bis }}</span></span>
@@ -12,23 +15,22 @@
 </div>
 {%- endmacro %}
 
-{% macro ganztag_chip(t) -%}
-<div class="chip {{ stil }}" style="--farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};">{{ t.titel }}</div>
-{%- endmacro %}
-
-{% macro stundenlinien(stunden) -%}
-{% for s in stunden %}<div class="linie" style="top: {{ s.oben }}%"></div>{% endfor %}
-{%- endmacro %}
-
-{% macro zeitachse(stunden) -%}
-<div class="zeitachse">
-  {% for s in stunden %}<div class="stunde" style="top: {{ s.oben }}%">{% if not loop.first %}{{ s.label }}{% endif %}</div>{% endfor %}
-</div>
+{# Ganztägige Termine als Balken über mehrere Tage; danach je Tag „+N“ für Balken ohne Platz #}
+{% macro balken_raster(g, versteckt, zeile=1) -%}
+{% for b in g.balken %}
+<div class="balken-termin {{ stil }}{% if b.links_offen %} links-offen{% endif %}{% if b.rechts_offen %} rechts-offen{% endif %}"
+     style="grid-column: {{ b.spalte }} / span {{ b.breite }}; grid-row: {{ zeile + b.spur - 1 }}; {{ farbe(b) }}">{{ b.titel }}</div>
+{% endfor %}
 {%- endmacro %}
 
 {% block content %}
+{% for f in font_faces if f.url.endswith('Jost.ttf') %}
+<style>
+  @font-face { font-family: "JostVar"; src: url({{ f.url }}) format("truetype"); font-weight: 100 900; }
+</style>
+{% endfor %}
 <div lang="de" class="kal thema-{{ thema }} ansicht-{{ ansicht }}{% if hochformat %} hochformat{% endif %}"
-     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};">
+     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};{% if hellgrau %} --band: {{ hellgrau }};{% endif %}">
 
   <header class="kopf">
     <div class="titelblock">
@@ -38,7 +40,7 @@
     <div class="meta">
       {% if legende and kalender %}
       <ul class="legende">
-        {% for k in kalender %}<li><span class="punkt" style="background: {{ k.farbe }}"></span>{{ k.name }}</li>{% endfor %}
+        {% for k in kalender %}<li class="{{ stil }}" style="--farbe: {{ k.farbe }}; --kontrast: {{ k.schrift or '#ffffff' }};">{{ k.name }}</li>{% endfor %}
       </ul>
       {% endif %}
       <div class="stand">
@@ -49,23 +51,33 @@
 
   {% if ansicht == "tag" %}
   <main class="tag-layout">
-    <section class="tag-raster">
+    <section class="tag-heute">
       {% if daten.ganztag %}
-      <div class="ganztag-zeile tag"><div class="ganztag-label">ganztägig</div>
-        <div class="ganztag-zelle">{% for t in daten.ganztag %}{{ ganztag_chip(t) }}{% endfor %}</div>
+      <div class="ganztag-reihe">
+        {% for t in daten.ganztag %}<div class="chip {{ stil }}" style="{{ farbe(t) }}">{{ t.titel }}{% if t.bis %}<span class="chip-bis"> · {{ t.bis }}</span>{% endif %}</div>{% endfor %}
       </div>
       {% endif %}
-      <div class="raster">
-        {{ zeitachse(daten.stunden) }}
-        <div class="spalten">
-          <div class="spalte">
-            {{ stundenlinien(daten.stunden) }}
-            {% for t in daten.bloecke %}{{ termin_karte(t) }}{% endfor %}
-            {% if daten.jetzt is not none %}<div class="jetzt" style="top: {{ daten.jetzt }}%"></div>{% endif %}
+      {% if daten.termine %}
+      <div class="agenda ueberlauf" data-mehr="weitere Termine">
+        {% for t in daten.termine %}
+        <div class="eintrag a-termin{% if t.vorbei %} vorbei{% endif %}{% if t.jetzt %} laeuft{% endif %}">
+          <div class="a-zeit">
+            {% if t.jetzt %}<span class="a-jetzt">Jetzt</span>{% endif %}
+            <span class="a-von">{{ t.zeit }}</span>
+            {% if t.zeit_bis %}<span class="a-bis">bis {{ t.zeit_bis }}</span>{% endif %}
+          </div>
+          <div class="a-karte {{ stil }}" style="{{ farbe(t) }}">
+            <span class="a-titel">{{ t.titel }}</span>
+            {% if t.ort %}<span class="a-ort">{{ t.ort }}</span>{% endif %}
           </div>
         </div>
-        {% if daten.leer %}<div class="leer">Heute keine Termine</div>{% endif %}
+        {% endfor %}
       </div>
+      {% elif not daten.ganztag %}
+      <div class="leer">Heute keine Termine</div>
+      {% else %}
+      <div class="leer klein">Sonst keine Termine heute</div>
+      {% endif %}
     </section>
 
     <aside class="vorschau">
@@ -74,10 +86,9 @@
         {% for gruppe in daten.vorschau %}
           <div class="vorschau-tag eintrag">{{ gruppe.label }}</div>
           {% for t in gruppe.termine %}
-          <div class="vorschau-termin eintrag" style="--farbe: {{ t.farbe }}">
-            <span class="balken"></span>
-            <span class="v-zeit">{{ t.zeit or "ganztägig" }}</span>
-            <span class="v-titel">{{ t.titel }}</span>
+          <div class="vorschau-termin eintrag">
+            <span class="v-zeit{% if t.bis %} v-bis{% endif %}">{{ t.zeit or t.bis }}</span>
+            <span class="v-titel {{ stil }}" style="{{ farbe(t) }}">{{ t.titel }}</span>
           </div>
           {% endfor %}
         {% else %}
@@ -88,31 +99,40 @@
   </main>
 
   {% elif ansicht == "woche" %}
-  <main class="woche-layout">
+  <main class="woche-layout" style="--tage: {{ daten.spalten | length }};">
     <div class="wochen-kopf">
       <div class="achsen-platz"></div>
-      {% for s in daten.spalten %}
-      <div class="tageskopf{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
-        <span class="wt">{{ s.kurz }}</span><span class="nr">{{ s.nummer }}</span>
+      <div class="tage-raster">
+        {% for s in daten.spalten %}
+        <div class="tageskopf{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
+          <span class="wt">{{ s.kurz }}</span><span class="nr">{{ s.nummer }}</span>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
     {% if daten.hat_ganztag %}
-    <div class="ganztag-zeile">
+    <div class="ganztag-bereich">
       <div class="achsen-platz"></div>
-      {% for s in daten.spalten %}
-      <div class="ganztag-zelle ueberlauf{% if s.heute %} heute{% endif %}" data-mehr="weitere">
-        {% for t in s.ganztag %}<div class="eintrag">{{ ganztag_chip(t) }}</div>{% endfor %}
+      <div class="tage-raster balken-raster">
+        {{ balken_raster(daten.ganztag, none) }}
+        {% for s in daten.spalten %}{% if s.versteckt %}
+        <div class="mehr" style="grid-column: {{ loop.index }}; grid-row: {{ daten.ganztag.spuren + 1 }};">+{{ s.versteckt }} weitere</div>
+        {% endif %}{% endfor %}
       </div>
-      {% endfor %}
     </div>
     {% endif %}
     <div class="raster">
-      {{ zeitachse(daten.stunden) }}
+      <div class="zeitachse">
+        {% for s in daten.stunden %}<div class="stunde" style="top: {{ s.oben }}%">{{ s.label }}</div>{% endfor %}
+      </div>
       <div class="spalten">
+        <div class="baender">
+          {% for s in daten.stunden %}{% if loop.index0 is even %}
+          <div class="band" style="top: {{ s.oben }}%; height: {{ 100 / (daten.stunden | length) }}%;"></div>
+          {% endif %}{% endfor %}
+        </div>
         {% for s in daten.spalten %}
-        <div class="spalte{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
-          {{ stundenlinien(daten.stunden) }}
+        <div class="spalte{% if s.heute %} heute{% endif %}">
           {% for t in s.bloecke %}{{ termin_karte(t) }}{% endfor %}
           {% if s.heute and daten.jetzt is not none %}<div class="jetzt" style="top: {{ daten.jetzt }}%"></div>{% endif %}
         </div>
@@ -122,27 +142,30 @@
   </main>
 
   {% else %}
-  <main class="monat-layout" style="--wochen: {{ daten.wochen | length }}; --tage: {{ daten.kopf | length }};">
-    <div class="monat-kopf">
+  <main class="monat-layout" style="--tage: {{ daten.kopf | length }};">
+    <div class="monat-kopf tage-raster">
       {% for k in daten.kopf %}<div>{{ k }}</div>{% endfor %}
     </div>
-    <div class="monat-raster">
-      {% for woche in daten.wochen %}{% for z in woche %}
-      <div class="zelle{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}{% if z.vergangen %} vergangen{% endif %}{% if z.wochenende %} we{% endif %}">
-        <div class="zelle-nr"><span>{{ z.nummer }}</span></div>
-        <div class="zelle-termine ueberlauf" data-mehr="weitere">
+    <div class="monat-raster" style="grid-template-rows: repeat({{ daten.wochen | length }}, 1fr);">
+      {% for woche in daten.wochen %}
+      {% set spuren = woche.ganztag.spuren %}
+      <div class="m-woche tage-raster" style="grid-template-rows: auto {% for _ in range(spuren) %}auto {% endfor %}1fr;">
+        {% for z in woche.tage %}
+        <div class="m-zelle{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}{% if z.wochenende %} we{% endif %}"
+             style="grid-column: {{ loop.index }}; grid-row: 1 / -1;"></div>
+        <div class="m-nr{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}" style="grid-column: {{ loop.index }}; grid-row: 1;"><span>{{ z.nummer }}</span></div>
+        {% endfor %}
+        {{ balken_raster(woche.ganztag, none, 2) }}
+        {% for z in woche.tage %}
+        <div class="m-liste ueberlauf" data-mehr="weitere" data-versteckt="{{ z.versteckt }}"
+             style="grid-column: {{ loop.index }}; grid-row: {{ z.spuren + 2 }} / -1;">
           {% for t in z.termine %}
-            {% if t.ganztag %}
-            <div class="eintrag">{{ ganztag_chip(t) }}</div>
-            {% else %}
-            <div class="eintrag m-termin" style="--farbe: {{ t.farbe }}">
-              <span class="punkt"></span><span class="m-zeit">{{ t.zeit }}</span><span class="m-titel">{{ t.titel }}</span>
-            </div>
-            {% endif %}
+          <div class="eintrag m-termin {{ stil }}" style="{{ farbe(t) }}"><span class="m-zeit">{{ t.zeit }}</span> {{ t.titel }}</div>
           {% endfor %}
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}{% endfor %}
+      {% endfor %}
     </div>
   </main>
   {% endif %}
@@ -151,9 +174,10 @@
 <script>
   // Erst nach dem Laden (inkl. Schriften) messen; der Screenshot folgt danach.
   window.addEventListener('load', function () {
-    // Terminkarten an den Platz anpassen: erst Ort, dann Uhrzeit weglassen, dann
-    // den Titel kürzen; ist auch für zwei Titelzeilen kein Platz, wird die Karte einzeilig.
     function laeuftUeber(el) { return el.scrollHeight > el.clientHeight + 1; }
+
+    // Terminkarten im Zeitraster an den Platz anpassen: erst Ort, dann Uhrzeit
+    // weglassen, dann den Titel kürzen; reicht es nicht für zwei Zeilen, wird die Karte einzeilig.
     document.querySelectorAll('.karte-innen').forEach(function (k) {
       var titel = k.querySelector('.karte-titel');
       var zeit = k.querySelector('.karte-zeit');
@@ -162,7 +186,7 @@
       if (laeuftUeber(k)) zeit.style.display = 'none';
       if (!laeuftUeber(k)) return;
       var zeile = parseFloat(getComputedStyle(titel).lineHeight) || titel.offsetHeight;
-      var zeilen = Math.floor((k.clientHeight - 4) / zeile);
+      var zeilen = Math.floor((k.clientHeight - 2) / zeile);
       if (zeilen >= 2) {
         titel.style.webkitLineClamp = zeilen;
         return;
@@ -173,14 +197,16 @@
     });
 
     // Was nicht in eine Zelle passt, wird ausgeblendet und als „+N weitere“ zusammengefasst.
+    // data-versteckt zählt Balken, die schon vorher keinen Platz mehr hatten.
     document.querySelectorAll('.ueberlauf').forEach(function (box) {
       var eintraege = Array.prototype.slice.call(box.querySelectorAll(':scope > .eintrag'));
-      if (box.scrollHeight <= box.clientHeight + 1) return;
+      var versteckt = parseInt(box.dataset.versteckt || '0', 10);
+      if (!versteckt && !laeuftUeber(box)) return;
       var mehr = document.createElement('div');
       mehr.className = 'mehr';
       box.appendChild(mehr);
-      var versteckt = 0;
-      for (var i = eintraege.length - 1; i >= 0 && box.scrollHeight > box.clientHeight + 1; i--) {
+      mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
+      for (var i = eintraege.length - 1; i >= 0 && laeuftUeber(box); i--) {
         eintraege[i].style.display = 'none';
         if (!eintraege[i].classList.contains('vorschau-tag')) versteckt++;
         mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
