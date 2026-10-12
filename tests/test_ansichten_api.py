@@ -171,6 +171,22 @@ def test_jetzt_anzeigen_und_beenden(env):
     assert json.loads(path.read_text())["schedule"]["override"] is None
 
 
+def test_anzeigen_von_der_plugin_seite_weckt_den_zeitplan_nicht(env):
+    # Sichern + Anzeigen in einer Anfrage: ein extra Wecken würde das Bild zweimal aufbauen
+    client, config, task, path = env
+    view = config.get_schedule().views[0]
+    view.latest_refresh_time = "2026-10-10T08:00:00"
+    response = client.post(f"/api/ansicht/{view.id}/anzeigen",
+                           data={"plugin_id": view.plugin_id, "farbe": "rot", "bis": "morgen"})
+    assert response.status_code == 200, response.get_json()
+    assert view.settings == {"farbe": "rot"}
+    assert view.latest_refresh_time is None
+    assert task.signals == 0
+    assert len(task.shown) == 1 and task.shown[0].view is view
+    assert config.get_schedule().override.until == "2026-10-11T06:00:00"
+    assert json.loads(path.read_text())["schedule"]["views"][0]["settings"] == {"farbe": "rot"}
+
+
 def test_bild_einer_ansicht(env):
     client, config, _, _ = env
     view = config.get_schedule().views[0]
