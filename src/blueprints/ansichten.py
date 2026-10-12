@@ -125,6 +125,17 @@ def create_view():
     })
 
 
+def _apply_settings(view):
+    """Übernimmt die Plugin-Einstellungen aus dem Formular der Plugin-Seite in die Ansicht."""
+    settings = parse_form(request.form)
+    settings.update(handle_request_files(request.files, request.form))
+    settings.pop("plugin_id", None)
+    settings.pop("view_name", None)
+    settings.pop("bis", None)
+    view.settings = settings
+    view.latest_refresh_time = None  # beim nächsten Anzeigen neu erzeugen
+
+
 @ansichten_bp.route("/api/ansicht/<view_id>/einstellungen", methods=["PUT"])
 def update_view_settings(view_id):
     """Plugin-Einstellungen einer Ansicht ändern (aus der Plugin-Seite)."""
@@ -134,12 +145,7 @@ def update_view_settings(view_id):
     if not view:
         return _error("Diese Ansicht gibt es nicht mehr.", 404)
     try:
-        settings = parse_form(request.form)
-        settings.update(handle_request_files(request.files, request.form))
-        settings.pop("plugin_id", None)
-        settings.pop("view_name", None)
-        view.settings = settings
-        view.latest_refresh_time = None  # beim nächsten Anzeigen neu erzeugen
+        _apply_settings(view)
         _save(device_config, refresh_task, schedule)
     except Exception as e:
         logger.exception("Einstellungen der Ansicht konnten nicht gespeichert werden")
@@ -206,13 +212,24 @@ def _show_now(device_config, refresh_task, schedule, view, duration, temporary=F
 
 @ansichten_bp.route("/api/ansicht/<view_id>/anzeigen", methods=["POST"])
 def show_view(view_id):
-    """„Jetzt anzeigen“ für eine Ansicht aus dem Zeitplan."""
+    """„Jetzt anzeigen“ für eine Ansicht aus dem Zeitplan (JSON {"bis": …} oder Formular der Plugin-Seite)."""
     device_config, refresh_task = _deps()
     schedule = device_config.get_schedule()
     view = schedule.get_view(view_id)
     if not view:
         return _error("Diese Ansicht gibt es nicht mehr.", 404)
-    duration = (request.get_json(silent=True) or {}).get("bis", "1h")
+    if request.form:
+        # Von der Plugin-Seite: Einstellungen und Dauer im Formular. Gesichert wird hier
+        # zusammen mit dem Anzeigen – ein getrenntes Sichern würde den Zeitplan wecken,
+        # der die Ansicht dann gleich ein zweites Mal aufbaut.
+        duration = request.form.get("bis", "1h")
+        try:
+            _apply_settings(view)
+        except Exception as e:
+            logger.exception("Einstellungen der Ansicht konnten nicht übernommen werden")
+            return _error(f"Ein Fehler ist aufgetreten: {e}", 500)
+    else:
+        duration = (request.get_json(silent=True) or {}).get("bis", "1h")
     return _show_now(device_config, refresh_task, schedule, view, duration)
 
 

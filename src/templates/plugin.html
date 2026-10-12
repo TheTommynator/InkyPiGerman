@@ -45,9 +45,13 @@
             } else if (action == "add_view") {
                 url = "{{ url_for('ansichten.create_view') }}";
                 formData.append("view_name", document.getElementById('viewName').value);
-            } else if (action == "update_view" || action == "show_view") {
+            } else if (action == "update_view") {
                 url = "/api/ansicht/" + encodeURIComponent(viewId) + "/einstellungen";
                 method = 'PUT';
+            } else if (action == "show_view") {
+                // Sichern und Anzeigen in einem Schritt, sonst baut das Display das Bild zweimal auf
+                url = "/api/ansicht/" + encodeURIComponent(viewId) + "/anzeigen";
+                formData.append("bis", until);
             } else if (action == "show_now") {
                 // Neuer Zeitplan: wie „Jetzt anzeigen“ in den Ansichten, mit gewählter Dauer
                 url = "{{ url_for('ansichten.show_plugin_now') }}";
@@ -61,12 +65,6 @@
             try {
                 let response = await fetch(url, {method: method, body: formData});
                 let result = await response.json();
-                if (response.ok && action == "show_view") {
-                    // Einstellungen sind gesichert, jetzt die Ansicht anzeigen
-                    response = await fetch("/api/ansicht/" + encodeURIComponent(viewId) + "/anzeigen", {
-                        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({bis: until})});
-                    result = await response.json();
-                }
                 // Neuer Zeitplan: nach dem Sichern zurück zu den Ansichten
                 if (response.ok && (action == "add_view" || action == "update_view")) {
                     window.location.href = result.url || "{{ url_for('ansichten.ansichten_page') }}";
