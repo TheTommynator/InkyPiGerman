@@ -22,12 +22,15 @@
         border: none; background: transparent; color: inherit; cursor: pointer; font: inherit; padding: 0 0.3rem;
     }
     .ik-gewaehlt .ik-alle { opacity: 0.75; }
+    .ik-gewaehlt .ik-chip .ik-konto { color: inherit; opacity: 0.85; font-size: 0.85em; }
+    .ik-kontoname { width: 100%; font-size: 0.85rem; font-weight: 600; opacity: 0.8; margin-top: 0.3rem; }
+    .ik-kontofehler { width: 100%; font-size: 0.85rem; color: var(--failure-color, #c0392b); }
 </style>
 
 <div class="form-group">
     <input type="hidden" name="icloudAktiv" id="icloudAktiv" value="false">
     <input type="checkbox" id="icloudAktivBox" onchange="ikCheckbox(this, 'icloudAktiv'); ikIcloudUmschalten()">
-    <span>Private Kalender aus meinem iCloud-Konto laden</span>
+    <span>Private Kalender aus meinen iCloud-Konten laden</span>
 </div>
 <div id="ikIcloud">
     <div class="form-group">
@@ -149,63 +152,93 @@
     }
 
     const IK_ZUGANG_URL = "{{ url_for('zugangsdaten.zugangsdaten_page', schluessel='ICLOUD_APPLE_ID') }}";
+    const IK_NEUES_KONTO_URL = "{{ url_for('zugangsdaten.zugangsdaten_page') }}?schluessel=";
+    const IK_MAX_KONTEN = 3;
+    const ikSuffix = nr => nr === 1 ? '' : `_${nr}`;
 
     async function ikKontoStatus() {
         const box = document.getElementById('ikKonto');
         try {
             const status = await (await fetch("{{ url_for('zugangsdaten.status') }}")).json();
-            const ok = status.ICLOUD_APPLE_ID && status.ICLOUD_APP_PASSWORT;
-            box.innerHTML = ok
-                ? `Apple-ID und app-spezifisches Passwort sind hinterlegt ✓ <a href="${IK_ZUGANG_URL}">Ändern</a>`
-                : `Noch keine iCloud-Zugangsdaten hinterlegt. <a href="${IK_ZUGANG_URL}">Jetzt unter Zugangsdaten eintragen →</a>`;
+            const konten = [];
+            for (let nr = 1; nr <= IK_MAX_KONTEN; nr++) {
+                if (status['ICLOUD_APPLE_ID' + ikSuffix(nr)] && status['ICLOUD_APP_PASSWORT' + ikSuffix(nr)]) konten.push(nr);
+            }
+            const frei = [1, 2, 3].find(nr => !konten.includes(nr));
+            const neu = frei && konten.length
+                ? ` · <a href="${IK_NEUES_KONTO_URL}ICLOUD_APPLE_ID${ikSuffix(frei)}">Weiteres Konto hinzufügen</a>` : '';
+            if (konten.length > 1) {
+                box.innerHTML = `${konten.length} iCloud-Konten hinterlegt ✓ <a href="${IK_ZUGANG_URL}">Ändern</a>${neu}`;
+            } else if (konten.length) {
+                box.innerHTML = `Apple-ID und app-spezifisches Passwort sind hinterlegt ✓ <a href="${IK_ZUGANG_URL}">Ändern</a>${neu}`;
+            } else {
+                box.innerHTML = `Noch keine iCloud-Zugangsdaten hinterlegt. <a href="${IK_ZUGANG_URL}">Jetzt unter Zugangsdaten eintragen →</a>`;
+            }
+            const ok = konten.length > 0;
             document.getElementById('ikKalenderLaden').hidden = !ok;
-            // Alte Komma-Auswahl gleich auf die echten Kalendernamen abbilden
-            if (ok && document.getElementById('icloudKalenderAlt').value) ikKalenderLaden();
+            // Alte Komma-Auswahl gleich auf die echten Kalendernamen abbilden;
+            // bei mehreren Konten die Namen der Konten für die Auswahl holen
+            if (ok && (document.getElementById('icloudKalenderAlt').value || (konten.length > 1 && ikAuswahl.length))) {
+                ikKalenderLaden();
+            }
         } catch (e) {
             box.textContent = 'Status der Zugangsdaten konnte nicht geladen werden.';
         }
     }
 
-    // Ausgewählte iCloud-Kalender. Jeder Name wird als eigenes Feld gespeichert,
-    // damit auch Namen mit Komma (z. B. „Job, Sport & Co“) heil bleiben.
-    let ikNamen = [];
+    // Ausgewählte iCloud-Kalender als {konto, name}. Jeder Name wird als eigenes
+    // Feld gespeichert, damit auch Namen mit Komma (z. B. „Job, Sport & Co“) heil
+    // bleiben; das Konto steht im gleichlangen Feld icloudKonto[].
+    let ikAuswahl = [];
+    let ikKontoNamen = {};
     const ikGleich = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const ikTreffer = (e, konto, name) => e.konto === konto && ikGleich(e.name, name);
 
     function ikGewaehltZeigen() {
         const box = document.getElementById('ikGewaehlt');
         const felder = document.getElementById('ikGewaehltFelder');
         box.innerHTML = '';
         felder.innerHTML = '';
-        if (!ikNamen.length) {
+        if (!ikAuswahl.length) {
             const alle = document.createElement('span');
             alle.className = 'ik-alle';
             alle.textContent = 'Alle Kalender – zum Eingrenzen unten laden und antippen';
             box.appendChild(alle);
         }
-        ikNamen.forEach(name => {
+        const mehrereKonten = Object.keys(ikKontoNamen).length > 1;
+        ikAuswahl.forEach(({ konto, name }) => {
             const chip = document.createElement('span');
             chip.className = 'ik-chip';
+            chip.appendChild(document.createTextNode(name));
+            if (mehrereKonten) {
+                const k = document.createElement('span');
+                k.className = 'ik-konto';
+                k.textContent = `· ${ikKontoNamen[konto] || 'iCloud-Konto ' + konto}`;
+                chip.appendChild(k);
+            }
             const weg = document.createElement('button');
             weg.type = 'button';
             weg.title = 'Entfernen';
             weg.textContent = '✕';
-            weg.onclick = () => ikAuswahlUmschalten(name);
-            chip.append(document.createTextNode(name), weg);
+            weg.onclick = () => ikAuswahlUmschalten(konto, name);
+            chip.appendChild(weg);
             box.appendChild(chip);
 
-            const feld = document.createElement('input');
-            feld.type = 'hidden';
-            feld.name = 'icloudKalender[]';
-            feld.value = name;
-            felder.appendChild(feld);
+            [['icloudKalender[]', name], ['icloudKonto[]', String(konto)]].forEach(([n, wert]) => {
+                const feld = document.createElement('input');
+                feld.type = 'hidden';
+                feld.name = n;
+                feld.value = wert;
+                felder.appendChild(feld);
+            });
         });
         document.querySelectorAll('#ikAuswahl button').forEach(b =>
-            b.classList.toggle('an', ikNamen.some(n => ikGleich(n, b.dataset.name))));
+            b.classList.toggle('an', ikAuswahl.some(e => ikTreffer(e, Number(b.dataset.konto), b.dataset.name))));
     }
 
-    function ikAuswahlUmschalten(name) {
-        const vorhanden = ikNamen.some(n => ikGleich(n, name));
-        ikNamen = vorhanden ? ikNamen.filter(n => !ikGleich(n, name)) : [...ikNamen, name];
+    function ikAuswahlUmschalten(konto, name) {
+        const vorhanden = ikAuswahl.some(e => ikTreffer(e, konto, name));
+        ikAuswahl = vorhanden ? ikAuswahl.filter(e => !ikTreffer(e, konto, name)) : [...ikAuswahl, { konto, name }];
         // Die alte Komma-Liste wird durch die neue Auswahl ersetzt
         document.getElementById('icloudKalenderAlt').value = '';
         ikGewaehltZeigen();
@@ -240,26 +273,42 @@
         knopf.textContent = 'Lade …';
         auswahl.innerHTML = '';
         try {
-            const response = await fetch("{{ url_for('zugangsdaten.icloud_test') }}", { method: "POST" });
+            const response = await fetch("{{ url_for('zugangsdaten.icloud_alle_kalender') }}", { method: "POST" });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error);
-            const namen = result.kalender.map(k => k.name);
-            // Ältere Auswahl (Komma-Text) auf die echten Namen abbilden
+            ikKontoNamen = Object.fromEntries(result.konten.map(k => [k.nr, k.name]));
+            const mehrereKonten = result.konten.length > 1;
+            // Ältere Auswahl (Komma-Text) auf die echten Namen von Konto 1 abbilden
             const alt = document.getElementById('icloudKalenderAlt').value;
-            if (alt && !ikNamen.length) {
-                ikNamen = ikTextZuNamen(alt, namen);
-                ikGewaehltZeigen();
+            const konto1 = result.konten.find(k => k.nr === 1);
+            if (alt && !ikAuswahl.length && konto1) {
+                ikAuswahl = ikTextZuNamen(alt, konto1.kalender.map(k => k.name)).map(name => ({ konto: 1, name }));
             }
-            result.kalender.forEach(k => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.title = 'Antippen zum Auswählen';
-                const punkt = document.createElement('span');
-                punkt.style.background = k.farbe || '#2f6fde';
-                b.append(punkt, document.createTextNode(k.name));
-                b.dataset.name = k.name;
-                b.onclick = () => ikAuswahlUmschalten(k.name);
-                auswahl.appendChild(b);
+            result.konten.forEach(konto => {
+                if (mehrereKonten) {
+                    const titel = document.createElement('div');
+                    titel.className = 'ik-kontoname';
+                    titel.textContent = konto.name;
+                    auswahl.appendChild(titel);
+                }
+                if (konto.error) {
+                    const f = document.createElement('div');
+                    f.className = 'ik-kontofehler';
+                    f.textContent = konto.error;
+                    auswahl.appendChild(f);
+                }
+                konto.kalender.forEach(k => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.title = 'Antippen zum Auswählen';
+                    const punkt = document.createElement('span');
+                    punkt.style.background = k.farbe || '#2f6fde';
+                    b.append(punkt, document.createTextNode(k.name));
+                    b.dataset.name = k.name;
+                    b.dataset.konto = konto.nr;
+                    b.onclick = () => ikAuswahlUmschalten(konto.nr, k.name);
+                    auswahl.appendChild(b);
+                });
             });
             ikGewaehltZeigen();
         } catch (e) {
@@ -342,11 +391,11 @@
         const icloud = s.icloudAktiv === 'true';
         document.getElementById('icloudAktiv').value = icloud ? 'true' : 'false';
         document.getElementById('icloudAktivBox').checked = icloud;
-        ikNamen = alsListe(s['icloudKalender[]']);
+        const konten = alsListe(s['icloudKonto[]']);
+        ikAuswahl = alsListe(s['icloudKalender[]']).map((name, i) => ({ konto: Number(konten[i]) || 1, name }));
         // Ältere Einstellungen: Komma-Text bleibt erhalten, bis die Kalender geladen sind
-        if (!ikNamen.length && s.icloudKalender) {
+        if (!ikAuswahl.length && s.icloudKalender) {
             document.getElementById('icloudKalenderAlt').value = s.icloudKalender;
-            ikNamen = [];
         }
         ikGewaehltZeigen();
         if (document.getElementById('icloudKalenderAlt').value) {

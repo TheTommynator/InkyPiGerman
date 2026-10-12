@@ -72,10 +72,10 @@
             </div>
             {% endfor %}
 
-            {% if g.gruppe == "iCloud-Kalender" %}
+            {% if g.icloud_konto %}
             <div class="zd-test">
-                <button type="button" class="zd-btn" id="icloudTest">Verbindung testen</button>
-                <ul class="zd-kalender" id="icloudKalender"></ul>
+                <button type="button" class="zd-btn icloud-test" data-konto="{{ g.icloud_konto }}">Verbindung testen</button>
+                <ul class="zd-kalender"></ul>
             </div>
             {% endif %}
         </section>
@@ -137,15 +137,14 @@
             });
         });
 
-        const testKnopf = document.getElementById('icloudTest');
-        if (testKnopf) {
+        document.querySelectorAll('.icloud-test').forEach(testKnopf => {
             testKnopf.addEventListener('click', async () => {
-                const liste = document.getElementById('icloudKalender');
+                const liste = testKnopf.nextElementSibling;
                 testKnopf.disabled = true;
                 testKnopf.textContent = 'Verbinde …';
                 liste.innerHTML = '';
                 try {
-                    const response = await fetch("{{ url_for('zugangsdaten.icloud_test') }}", { method: "POST" });
+                    const response = await fetch("{{ url_for('zugangsdaten.icloud_test') }}?konto=" + testKnopf.dataset.konto, { method: "POST" });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error);
                     result.kalender.forEach(k => {
@@ -163,7 +162,7 @@
                     testKnopf.textContent = 'Verbindung testen';
                 }
             });
-        }
+        });
 
         const ziel = document.querySelector('.zd-eintrag.ziel');
         if (ziel) {

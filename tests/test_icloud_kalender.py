@@ -460,11 +460,18 @@ def test_icloud_auswahl_aus_einstellungen():
         pytest.importorskip(modul)
     from plugins.icloud_kalender.icloud_kalender import ICloudKalender
 
-    assert ICloudKalender.icloud_auswahl({"icloudKalender[]": ["Job, Sport & Co"], "icloudKalender": "x"}) == \
-        ["Job, Sport & Co"]
-    assert ICloudKalender.icloud_auswahl({"icloudKalender[]": "Privat"}) == ["Privat"]
-    assert ICloudKalender.icloud_auswahl({"icloudKalender": "Privat, Arbeit"}) == "Privat, Arbeit"
-    assert ICloudKalender.icloud_auswahl({}) == ""
+    auswahl = ICloudKalender.icloud_auswahl
+    # Ältere Einstellungen gehören zu Konto 1
+    assert auswahl({"icloudKalender[]": ["Job, Sport & Co"], "icloudKalender": "x"}) == {1: ["Job, Sport & Co"]}
+    assert auswahl({"icloudKalender[]": "Privat"}) == {1: ["Privat"]}
+    assert auswahl({"icloudKalender": "Privat, Arbeit"}) == {1: "Privat, Arbeit"}
+    assert auswahl({}) == {}
+    assert auswahl({"icloudKalender[]": []}) == {}
+    # Mehrere Konten: Namen und Kontonummern als gleich lange Listen
+    assert auswahl({"icloudKalender[]": ["Privat", "Privat", "Job, Sport & Co"],
+                    "icloudKonto[]": ["1", "2", "1"]}) == {1: ["Privat", "Job, Sport & Co"], 2: ["Privat"]}
+    assert auswahl({"icloudKalender[]": "Privat", "icloudKonto[]": "3"}) == {3: ["Privat"]}
+    assert auswahl({"icloudKalender[]": ["A", "B"], "icloudKonto[]": ["9"]}) == {1: ["A", "B"]}
 
 
 class Geraet:
@@ -490,7 +497,8 @@ def test_icloud_konto_im_plugin(monkeypatch):
         plugin.icloud_kalender({}, Geraet({}), start, ende)
 
     geraet = Geraet({"ICLOUD_APPLE_ID": " ich@icloud.com ", "ICLOUD_APP_PASSWORT": "pw"})
-    kalender = plugin.icloud_kalender({"icloudKalender": "Arbeit, Privat"}, geraet, start, ende)
+    kalender, fehler = plugin.icloud_kalender({"icloudKalender": "Arbeit, Privat"}, geraet, start, ende)
+    assert fehler == []
     assert [(k["name"], k["farbe"]) for k in kalender] == [("Arbeit", "#2f6fde"), ("Privat", "#ff2968")]
 
     termine, fehler = plugin.lade_termine(kalender, TZ, date(2026, 10, 12), date(2026, 10, 19))
@@ -498,3 +506,94 @@ def test_icloud_konto_im_plugin(monkeypatch):
     titel = sorted({t.titel for t in termine if t.kalender == "Privat"})
     assert "Telefonat USA" in titel and "Stand-up" in titel
     assert server.anfragen[0][4] == ("ich@icloud.com", "pw")
+
+
+class ZweiKonten(ICloudAttrappe):
+    """Ein Server für mehrere Apple-IDs; `gesperrt` bekommt „falsches Passwort“."""
+
+    def __init__(self, gesperrt=()):
+        super().__init__()
+        self.gesperrt = gesperrt
+
+    def request(self, methode, url, data=None, headers=None, auth=None, timeout=None):
+        if auth[0] in self.gesperrt:
+            self.anfragen.append((methode, url, headers["Depth"], data.decode(), auth))
+            return Antwort(401, "", url)
+        return super().request(methode, url, data, headers, auth, timeout)
+
+
+ZWEI_KONTEN = {
+    "ICLOUD_APPLE_ID": "max@icloud.com", "ICLOUD_APP_PASSWORT": "pw1",
+    "ICLOUD_APPLE_ID_2": "nicole@icloud.com", "ICLOUD_APP_PASSWORT_2": "pw2", "ICLOUD_KONTO_NAME_2": "Nicole",
+}
+
+
+def test_icloud_konten_aus_env():
+    from zugangsdaten import icloud_konten, icloud_schluessel
+
+    assert icloud_schluessel(1)["apple_id"] == "ICLOUD_APPLE_ID"
+    assert icloud_schluessel(3)["passwort"] == "ICLOUD_APP_PASSWORT_3"
+    konten = icloud_konten(ZWEI_KONTEN.get)
+    assert [(k["nr"], k["name"], k["apple_id"], k["passwort"]) for k in konten] == [
+        (1, "iCloud-Konto 1", "max@icloud.com", "pw1"), (2, "Nicole", "nicole@icloud.com", "pw2")]
+    # Ohne Passwort zählt ein Konto nicht
+    assert [k["nr"] for k in icloud_konten({**ZWEI_KONTEN, "ICLOUD_APP_PASSWORT": " "}.get)] == [2]
+    assert icloud_konten({}.get) == []
+
+
+def test_mehrere_icloud_konten_im_plugin(monkeypatch):
+    for modul in ("icalendar", "recurring_ical_events", "requests", "PIL", "jinja2"):
+        pytest.importorskip(modul)
+    import requests
+    from plugins.icloud_kalender.icloud_kalender import ICloudKalender
+
+    server = ZweiKonten()
+    monkeypatch.setattr(requests, "Session", lambda: server)
+    plugin = ICloudKalender({"id": "icloud_kalender"})
+    start, ende = zeit(date(2026, 10, 12), 0), zeit(date(2026, 10, 19), 0)
+
+    # Leere Auswahl: alle Kalender aller Konten
+    kalender, fehler = plugin.icloud_kalender({}, Geraet(ZWEI_KONTEN), start, ende)
+    assert fehler == [] and [k["name"] for k in kalender] == ["Privat", "Arbeit", "Privat", "Arbeit"]
+
+    # Gleichnamige Kalender werden über das Konto unterschieden
+    einstellungen = {"icloudKalender[]": ["Privat", "Arbeit"], "icloudKonto[]": ["2", "1"]}
+    kalender, fehler = plugin.icloud_kalender(einstellungen, Geraet(ZWEI_KONTEN), start, ende)
+    # Reihenfolge nach Konto
+    assert fehler == [] and [k["name"] for k in kalender] == ["Arbeit", "Privat"]
+    server.anfragen.clear()
+    termine, _ = plugin.lade_termine(kalender[1:], TZ, date(2026, 10, 12), date(2026, 10, 19))
+    assert termine and {a[4] for a in server.anfragen} == {("nicole@icloud.com", "pw2")}
+
+    # Nur Konto 1 ausgewählt: Konto 2 wird gar nicht abgefragt
+    server.anfragen.clear()
+    kalender, _ = plugin.icloud_kalender({"icloudKalender[]": ["Arbeit"], "icloudKonto[]": ["1"]},
+                                         Geraet(ZWEI_KONTEN), start, ende)
+    assert [k["name"] for k in kalender] == ["Arbeit"]
+    assert {a[4][0] for a in server.anfragen} == {"max@icloud.com"}
+
+
+def test_ein_kaputtes_konto_stoert_die_anderen_nicht(monkeypatch):
+    for modul in ("icalendar", "recurring_ical_events", "requests", "PIL", "jinja2"):
+        pytest.importorskip(modul)
+    import requests
+    from plugins.icloud_kalender.icloud_kalender import ICloudKalender
+
+    monkeypatch.setattr(requests, "Session", lambda: ZweiKonten(gesperrt=("nicole@icloud.com",)))
+    plugin = ICloudKalender({"id": "icloud_kalender"})
+    start, ende = zeit(date(2026, 10, 12), 0), zeit(date(2026, 10, 19), 0)
+
+    kalender, fehler = plugin.icloud_kalender({}, Geraet(ZWEI_KONTEN), start, ende)
+    assert [k["name"] for k in kalender] == ["Privat", "Arbeit"]
+    assert len(fehler) == 1 and fehler[0].startswith("Nicole: iCloud-Anmeldung fehlgeschlagen")
+
+    # Ausgewähltes Konto, dessen Zugangsdaten inzwischen gelöscht wurden
+    einstellungen = {"icloudKalender[]": ["Privat", "Privat"], "icloudKonto[]": ["1", "3"]}
+    kalender, fehler = plugin.icloud_kalender(einstellungen, Geraet(ZWEI_KONTEN), start, ende)
+    assert [k["name"] for k in kalender] == ["Privat"]
+    assert fehler == ["iCloud-Konto 3: Zugangsdaten fehlen – bitte unter Einstellungen → Zugangsdaten eintragen"]
+
+    # Nur das kaputte Konto ausgewählt: Fehler wie bisher
+    with pytest.raises(RuntimeError, match="Nicole: iCloud-Anmeldung"):
+        plugin.icloud_kalender({"icloudKalender[]": ["Privat"], "icloudKonto[]": ["2"]},
+                               Geraet(ZWEI_KONTEN), start, ende)

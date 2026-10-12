@@ -3,10 +3,10 @@
 Zwei Quellen, auch gemischt:
   - öffentliche iCal-Links (Kalender-App: Kalender teilen → „Öffentlicher
     Kalender“; ebenso jeder andere iCal-Link, z. B. von Google oder Outlook)
-  - private Kalender direkt aus dem iCloud-Konto per CalDAV. Apple-ID und
-    app-spezifisches Passwort werden unter Einstellungen → Zugangsdaten
-    hinterlegt (landen in der .env als ICLOUD_APPLE_ID / ICLOUD_APP_PASSWORT),
-    nicht in den Plugin-Einstellungen.
+  - private Kalender direkt aus bis zu drei iCloud-Konten per CalDAV. Apple-ID
+    und app-spezifisches Passwort werden unter Einstellungen → Zugangsdaten
+    hinterlegt (landen in der .env als ICLOUD_APPLE_ID / ICLOUD_APP_PASSWORT,
+    weitere Konten mit _2 / _3), nicht in den Plugin-Einstellungen.
 """
 
 import logging
@@ -19,6 +19,7 @@ import requests
 
 from plugins.base_plugin.base_plugin import BasePlugin
 from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV, waehle_kalender
+from zugangsdaten import ICLOUD_KONTEN, icloud_konten
 from plugins.icloud_kalender.kalender_daten import (
     ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, eink_palette,
     naechste_farbe, normalisiere_url, parse_stunde, tagesbeginn, zeitraum,
@@ -67,7 +68,9 @@ class ICloudKalender(BasePlugin):
         fehler = []
         if icloud_aktiv:
             try:
-                kalender += self.icloud_kalender(settings, device_config, start, ende)
+                icloud, icloud_fehler = self.icloud_kalender(settings, device_config, start, ende)
+                kalender += icloud
+                fehler += icloud_fehler
             except Exception as e:
                 logger.error(f"iCloud-Konto fehlgeschlagen: {e}")
                 fehler.append(str(e))
@@ -147,32 +150,71 @@ class ICloudKalender(BasePlugin):
         return liste
 
     def icloud_kalender(self, settings, device_config, start, ende):
-        """Kalender aus dem iCloud-Konto; jeder bekommt eine Funktion, die seine Termine lädt."""
-        apple_id = device_config.load_env_key("ICLOUD_APPLE_ID")
-        passwort = device_config.load_env_key("ICLOUD_APP_PASSWORT")
-        if not apple_id or not passwort:
+        """Kalender aus den iCloud-Konten; jeder bekommt eine Funktion, die seine Termine lädt.
+
+        Gibt (kalender, fehler) zurück: Ein Konto mit falschem Passwort oder
+        fehlendem Kalender verhindert nicht die Termine der anderen Konten.
+        """
+        konten = icloud_konten(device_config.load_env_key)
+        if not konten:
             raise RuntimeError("iCloud-Zugangsdaten fehlen – bitte unter Einstellungen → Zugangsdaten eintragen")
+        auswahl = self.icloud_auswahl(settings)
+        mehrere = len(konten) > 1
 
-        client = ICloudCalDAV(requests.Session(), apple_id.strip(), passwort.strip())
-        ausgewaehlt = waehle_kalender(client.kalender(), self.icloud_auswahl(settings))
+        kalender, fehler = [], []
+        fehlend = sorted(set(auswahl) - {k["nr"] for k in konten})
+        for nr in fehlend:
+            fehler.append(f"iCloud-Konto {nr}: Zugangsdaten fehlen – bitte unter Einstellungen → Zugangsdaten eintragen")
 
-        def lader(url):
-            return lambda: [icalendar.Calendar.from_ical(text) for text in client.termine_ical(url, start, ende)]
+        for konto in konten:
+            if auswahl and konto["nr"] not in auswahl:
+                continue
+            client = ICloudCalDAV(requests.Session(), konto["apple_id"], konto["passwort"])
+            try:
+                ausgewaehlt = waehle_kalender(client.kalender(), auswahl.get(konto["nr"], []))
+            except Exception as e:
+                logger.error(f"iCloud-Konto {konto['nr']} fehlgeschlagen: {e}")
+                fehler.append(f"{konto['name']}: {e}" if mehrere else str(e))
+                continue
 
-        return [{
-            "url": k["url"],
-            "name": k["name"],
-            "farbe": k["farbe"] or STANDARD_FARBE,
-            "laden": lader(k["url"]),
-        } for k in ausgewaehlt]
+            def lader(c, url):
+                return lambda: [icalendar.Calendar.from_ical(text) for text in c.termine_ical(url, start, ende)]
+
+            kalender += [{
+                "url": k["url"],
+                "name": k["name"],
+                "farbe": k["farbe"] or STANDARD_FARBE,
+                "laden": lader(client, k["url"]),
+            } for k in ausgewaehlt]
+
+        if fehler and not kalender:
+            raise RuntimeError(fehler[0])
+        return kalender, fehler
 
     @staticmethod
     def icloud_auswahl(settings):
-        """Ausgewählte iCloud-Kalender: Liste (aktuell) oder Komma-Text (ältere Einstellungen)."""
-        if "icloudKalender[]" in settings:
-            auswahl = settings["icloudKalender[]"]
-            return [auswahl] if isinstance(auswahl, str) else auswahl
-        return settings.get("icloudKalender") or ""
+        """Ausgewählte iCloud-Kalender je Konto: {kontonummer: namen}, leer = alle Kalender.
+
+        Aktuell zwei gleich lange Listen `icloudKalender[]` (Namen) und
+        `icloudKonto[]` (Kontonummer). Ältere Einstellungen kennen nur Konto 1:
+        Namensliste ohne Konten oder ein Komma-Text in `icloudKalender`.
+        """
+        if "icloudKalender[]" not in settings:
+            text = settings.get("icloudKalender") or ""
+            return {1: text} if text.strip() else {}
+
+        def als_liste(wert):
+            return [wert] if isinstance(wert, str) else list(wert or [])
+
+        namen = als_liste(settings["icloudKalender[]"])
+        konten = als_liste(settings.get("icloudKonto[]"))
+        auswahl = {}
+        for i, name in enumerate(namen):
+            nr = konten[i] if i < len(konten) else "1"
+            nr = int(nr) if str(nr).isdigit() and 1 <= int(nr) <= ICLOUD_KONTEN else 1
+            if str(name).strip():
+                auswahl.setdefault(nr, []).append(name)
+        return auswahl
 
     def lade_termine(self, kalender, tz, von, bis):
         """Lädt alle Kalender; ein nicht erreichbarer Kalender bricht die Anzeige nicht ab."""

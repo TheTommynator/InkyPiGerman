@@ -108,3 +108,10 @@ Für das Plugin „iCloud-Kalender“, wenn Kalender direkt aus dem iCloud-Konto
     ICLOUD_APP_PASSWORT=abcd-efgh-ijkl-mnop
     ```
 - Das Passwort lässt sich jederzeit auf account.apple.com widerrufen.
+- **Mehrere iCloud-Konten:** Unter **Zugangsdaten** gibt es Platz für bis zu drei Konten („iCloud-Konto 1“ bis „3“), z. B. für mehrere Personen im Haushalt. Jedes Konto braucht eine eigene Apple-ID und ein eigenes app-spezifisches Passwort; ein optionaler Name (z. B. „Nicole“) unterscheidet gleichnamige Kalender in der Auswahl. In der .env stehen weitere Konten mit Nummer:
+    ```
+    ICLOUD_APPLE_ID_2=zweite@apple-id.de
+    ICLOUD_APP_PASSWORT_2=qrst-uvwx-yzab-cdef
+    ICLOUD_KONTO_NAME_2=Nicole
+    ```
+  Im Plugin lädt **„Meine iCloud-Kalender laden“** dann die Kalender aller Konten, nach Konto gruppiert. Ein Konto mit falschem Passwort verhindert nicht die Termine der anderen.

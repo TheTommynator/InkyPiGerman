@@ -142,3 +142,39 @@ def test_icloud_test(client, monkeypatch):
     monkeypatch.setattr(requests, "Session", lambda: ICloudAttrappe(status=401))
     antwort = c.post("/zugangsdaten/icloud/test")
     assert antwort.status_code == 502 and "app-spezifisches Passwort" in antwort.get_json()["error"]
+
+
+def test_icloud_konten_im_katalog(client, monkeypatch):
+    c, _, _ = client
+    gruppen = [g for g in KATALOG if g.get("icloud_konto")]
+    assert [g["gruppe"] for g in gruppen] == ["iCloud-Konto 1", "iCloud-Konto 2", "iCloud-Konto 3"]
+    assert {"ICLOUD_APPLE_ID", "ICLOUD_APP_PASSWORT", "ICLOUD_APPLE_ID_3", "ICLOUD_KONTO_NAME_2"} <= BEKANNTE
+    seite = c.get("/zugangsdaten").get_data(as_text=True)
+    assert seite.count('class="zd-btn icloud-test"') == 3 and 'data-konto="2"' in seite
+
+
+def test_icloud_mehrere_konten(client, monkeypatch):
+    for modul in ("requests",):
+        pytest.importorskip(modul)
+    import requests
+    from tests.test_icloud_kalender import ZweiKonten
+
+    c, _, _ = client
+    assert c.post("/zugangsdaten/icloud/kalender").status_code == 400
+    for key, wert in (("ICLOUD_APPLE_ID", "max@icloud.com"), ("ICLOUD_APP_PASSWORT", "pw1"),
+                      ("ICLOUD_APPLE_ID_2", "nicole@icloud.com"), ("ICLOUD_APP_PASSWORT_2", "pw2"),
+                      ("ICLOUD_KONTO_NAME_2", "Nicole")):
+        c.post("/zugangsdaten", json={"key": key, "wert": wert})
+    monkeypatch.setattr(requests, "Session", lambda: ZweiKonten(gesperrt=("nicole@icloud.com",)))
+
+    konten = c.post("/zugangsdaten/icloud/kalender").get_json()["konten"]
+    assert [(k["nr"], k["name"], [x["name"] for x in k["kalender"]]) for k in konten] == [
+        (1, "iCloud-Konto 1", ["Privat", "Arbeit"]), (2, "Nicole", [])]
+    assert "app-spezifisches Passwort" in konten[1]["error"] and "error" not in konten[0]
+    # Werte der Zugangsdaten tauchen nicht auf
+    assert "pw1" not in c.post("/zugangsdaten/icloud/kalender").get_data(as_text=True)
+
+    assert c.post("/zugangsdaten/icloud/test?konto=1").status_code == 200
+    assert c.post("/zugangsdaten/icloud/test?konto=2").status_code == 502
+    assert c.post("/zugangsdaten/icloud/test?konto=3").status_code == 400
+    assert c.post("/zugangsdaten/icloud/test?konto=x").status_code == 400
