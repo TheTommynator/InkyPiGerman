@@ -129,6 +129,7 @@ def test_als_naechstes_zeigt_den_naechsten_termin_gross():
     held = daten["held"]
     assert (held["label"], held["zeit"], held["titel"], held["wann"]) == ("Als Nächstes", "12:00", "Essen bei Toni", "in 1 Std.")
     assert daten["held_heute"]
+    assert held["tag"] == ""
     # Vorbei (Zahnarzt) und der große Termin selbst stehen nicht mehr in der Liste
     assert [(t["zeit"], t["titel"]) for t in daten["spaeter"]] == [("15:05", "Klavier"), ("19:30", "Elternabend")]
     # Morgen: das neu beginnende Turnier, dann die Uhrzeiten
@@ -139,11 +140,13 @@ def test_als_naechstes_zeigt_den_naechsten_termin_gross():
 def test_als_naechstes_laufender_termin_und_morgen():
     daten = baue_naechstes(beispiel(), zeit(MO, 12, 30), TZ)
     assert daten["held"]["label"] == "Läuft gerade"
-    assert daten["held"]["wann"] == "noch bis 13:30"
+    assert daten["held"]["wann"] == "noch bis 13:30" and daten["held"]["tag"] == ""
 
     # Abends: der nächste Termin ist morgen, „Später heute“ entfällt
     daten = baue_naechstes(beispiel(), zeit(MO, 21, 30), TZ)
     assert (daten["held"]["titel"], daten["held"]["wann"]) == ("Max Training", "Morgen")
+    # Der Tag steht groß über der Uhrzeit, oben das Datum des Termins statt des heutigen
+    assert (daten["held"]["tag"], daten["held"]["datum"]) == ("Morgen", "Dienstag 13. Oktober")
     assert not daten["held_heute"] and daten["spaeter"] == []
     assert [t["titel"] for t in daten["morgen"]] == ["Denmark Open", "Mariella Training"]
 
