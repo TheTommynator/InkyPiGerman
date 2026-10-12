@@ -65,48 +65,16 @@
 <div class="form-group">
     <label class="form-label">Ansicht</label>
     <div class="button-group" id="ikAnsichtWahl">
-        <button type="button" data-value="tag" onclick="ikAnsichtWaehlen(this.dataset.value)">Tag</button>
-        <button type="button" data-value="woche" onclick="ikAnsichtWaehlen(this.dataset.value)">Woche</button>
-        <button type="button" data-value="monat" onclick="ikAnsichtWaehlen(this.dataset.value)">Monat</button>
+        <button type="button" data-value="naechstes" onclick="ikAnsichtWaehlen(this.dataset.value)">Als Nächstes</button>
+        <button type="button" data-value="wochenzettel" onclick="ikAnsichtWaehlen(this.dataset.value)">Wochenzettel</button>
+        <button type="button" data-value="tagesblatt" onclick="ikAnsichtWaehlen(this.dataset.value)">Tagesblatt</button>
     </div>
-    <input type="hidden" name="ansicht" id="ansicht" value="woche">
+    <input type="hidden" name="ansicht" id="ansicht" value="naechstes">
 </div>
-
-<div class="form-group nowrap" data-ansichten="woche">
-    <label class="form-label">Zeitraum (Stunden)</label>
-    <input type="number" id="vonStunde" name="vonStunde" class="form-input" min="0" max="23" value="7">
-    –
-    <input type="number" id="bisStunde" name="bisStunde" class="form-input" min="1" max="24" value="21">
-</div>
-<div class="ik-hinweis" data-ansichten="woche">Termine außerhalb des Zeitraums erweitern ihn automatisch.</div>
-
-<div class="form-group nowrap" data-ansichten="woche,monat">
-    <label for="wochenstart" class="form-label">Woche beginnt am</label>
-    <select id="wochenstart" name="wochenstart" class="form-input">
-        <option value="0">Montag</option>
-        <option value="6">Sonntag</option>
-    </select>
-</div>
-
-<div class="form-group" data-ansichten="woche,monat">
-    <input type="hidden" name="wochenende" id="wochenende" value="true">
-    <input type="checkbox" id="wochenendeBox" checked onchange="ikCheckbox(this, 'wochenende')">
-    <span>Wochenende anzeigen</span>
-</div>
-
-<div class="form-group">
-    <input type="hidden" name="legende" id="legende" value="true">
-    <input type="checkbox" id="legendeBox" checked onchange="ikCheckbox(this, 'legende')">
-    <span>Legende mit Kalendernamen anzeigen</span>
-</div>
-
-<div class="form-group nowrap">
-    <label for="stil" class="form-label">Termine</label>
-    <select id="stil" name="stil" class="form-input">
-        <option value="gefuellt">Gefüllt (kräftig, ideal für E-Ink)</option>
-        <option value="dezent">Dezent (heller Hintergrund mit Farbbalken)</option>
-    </select>
-</div>
+<div class="ik-hinweis" data-ansichten="naechstes">Der nächste Termin ganz groß mit Countdown, daneben der Rest von heute und morgen, unten ein kurzer Ausblick auf die Woche.</div>
+<div class="ik-hinweis" data-ansichten="wochenzettel">Die nächsten acht Tage ab heute als kurze Listen; Ferien, Urlaub und andere mehrtägige Termine stehen einmal darüber.</div>
+<div class="ik-hinweis" data-ansichten="tagesblatt">Großes Datum und alle Termine von heute; Vergangenes wird durchgestrichen, darunter eine Zeile für morgen.</div>
+<div class="ik-hinweis">Tipp: Im Zeitplan kannst du mehrere Instanzen mit verschiedenen Ansichten abwechseln lassen.</div>
 
 <div class="form-group nowrap">
     <label for="thema" class="form-label">Thema</label>
@@ -118,11 +86,11 @@
 </div>
 
 <div class="form-group nowrap">
-    <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt)</label>
+    <label for="akzentfarbe" class="form-label">Akzentfarbe (nächster Termin)</label>
     <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
 </div>
 
-<div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ bekommt jeder Kalender eine eigene Displayfarbe aus dem Farbtest, möglichst nah an seiner iCloud-Farbe. Schrift wird ohne Graustufen gezeichnet – so bleibt alles ohne Punktraster scharf.</div>
+<div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ ist alles Schwarz auf Weiß, nur die Akzentfarbe wird zu reinem Rot, Grün oder Schwarz. Schrift wird ohne Graustufen gezeichnet – so bleibt alles ohne Punktraster scharf.</div>
 
 <div class="form-group nowrap">
     <label for="schriftgroesse" class="form-label">Schriftgröße</label>
@@ -135,6 +103,7 @@
 </div>
 
 <script>
+    const IK_ANSICHTEN = ['naechstes', 'wochenzettel', 'tagesblatt'];
     const IK_FARBEN = ['#2f6fde', '#e0393e', '#1f9d55', '#f08c00', '#8e44ad', '#111418'];
 
     function ikAnsichtWaehlen(ansicht) {
@@ -379,13 +348,8 @@
         urls.forEach((url, i) => ikKalenderHinzufuegen(url, namen[i] || '', farben[i] || null));
         if (!urls.length && s.icloudAktiv !== 'true') ikKalenderHinzufuegen();
 
-        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
+        ['thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
             if (s[feld]) document.getElementById(feld).value = s[feld];
-        });
-        ['wochenende', 'legende'].forEach(feld => {
-            const an = s[feld] !== 'false';
-            document.getElementById(feld).value = an ? 'true' : 'false';
-            document.getElementById(feld + 'Box').checked = an;
         });
 
         const icloud = s.icloudAktiv === 'true';
@@ -408,6 +372,9 @@
 
         document.getElementById('thema').addEventListener('change', ikThemaHinweis);
         ikThemaHinweis();
-        ikAnsichtWaehlen(s.ansicht || 'woche');
+        // Frühere Rasteransichten auf die neuen Ansichten umdeuten
+        const alt = { tag: 'tagesblatt', woche: 'wochenzettel', monat: 'wochenzettel' };
+        const ansicht = alt[s.ansicht] || s.ansicht;
+        ikAnsichtWaehlen(IK_ANSICHTEN.includes(ansicht) ? ansicht : 'naechstes');
     });
 </script>
