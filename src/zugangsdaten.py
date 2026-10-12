@@ -12,20 +12,58 @@ testbar sind.
 import re
 
 # Bekannte Schlüssel, nach Plugin gruppiert. "geheim": Eingabe als Passwortfeld.
-KATALOG = [
-    {
-        "gruppe": "iCloud-Kalender",
-        "hinweis": "Nur nötig, wenn private Kalender direkt aus dem iCloud-Konto geladen werden. "
-                   "Öffentliche Kalender-Links brauchen keine Zugangsdaten.",
+# Bis zu drei iCloud-Konten, z. B. für mehrere Personen im Haushalt. Konto 1
+# nutzt die bisherigen Namen ohne Nummer, damit bestehende .env-Dateien passen.
+ICLOUD_KONTEN = 3
+
+
+def icloud_schluessel(nr):
+    """.env-Namen für iCloud-Konto `nr` (1, 2, 3)."""
+    s = "" if nr == 1 else f"_{nr}"
+    return {"name": f"ICLOUD_KONTO_NAME{s}", "apple_id": f"ICLOUD_APPLE_ID{s}",
+            "passwort": f"ICLOUD_APP_PASSWORT{s}"}
+
+
+def icloud_konten(lade):
+    """Alle iCloud-Konten mit Apple-ID und Passwort. `lade(key)` liest einen .env-Wert."""
+    konten = []
+    for nr in range(1, ICLOUD_KONTEN + 1):
+        k = icloud_schluessel(nr)
+        apple_id, passwort = (lade(k["apple_id"]) or "").strip(), (lade(k["passwort"]) or "").strip()
+        if apple_id and passwort:
+            name = (lade(k["name"]) or "").strip() or f"iCloud-Konto {nr}"
+            konten.append({"nr": nr, "name": name, "apple_id": apple_id, "passwort": passwort})
+    return konten
+
+
+def _icloud_gruppe(nr):
+    k = icloud_schluessel(nr)
+    if nr == 1:
+        hinweis = ("Nur nötig, wenn private Kalender direkt aus dem iCloud-Konto geladen werden. "
+                   "Öffentliche Kalender-Links brauchen keine Zugangsdaten.")
+    else:
+        hinweis = ("Optional: ein weiteres iCloud-Konto, z. B. das einer anderen Person im Haushalt. "
+                   "Seine Kalender erscheinen dann zusätzlich im iCloud-Kalender.")
+    return {
+        "gruppe": f"iCloud-Konto {nr}",
+        "icloud_konto": nr,
+        "hinweis": hinweis,
         "schluessel": [
-            {"key": "ICLOUD_APPLE_ID", "name": "Apple-ID", "geheim": False,
-             "hilfe": "Die E-Mail-Adresse deiner Apple-ID."},
-            {"key": "ICLOUD_APP_PASSWORT", "name": "App-spezifisches Passwort", "geheim": True,
-             "hilfe": "Nicht dein normales Apple-Passwort! Erstellen unter account.apple.com → "
+            {"key": k["name"], "name": "Name des Kontos (optional)", "geheim": False,
+             "hilfe": "Erscheint in den Kalender-Einstellungen, z. B. „Max“. "
+                      "Hilft, wenn mehrere Konten gleich benannte Kalender haben."},
+            {"key": k["apple_id"], "name": "Apple-ID", "geheim": False,
+             "hilfe": "Die E-Mail-Adresse der Apple-ID."},
+            {"key": k["passwort"], "name": "App-spezifisches Passwort", "geheim": True,
+             "hilfe": "Nicht das normale Apple-Passwort! Erstellen unter account.apple.com → "
                       "Anmeldung und Sicherheit → App-spezifische Passwörter.",
              "link": "https://account.apple.com"},
         ],
-    },
+    }
+
+
+# Bekannte Schlüssel, nach Plugin gruppiert. "geheim": Eingabe als Passwortfeld.
+KATALOG = [_icloud_gruppe(nr) for nr in range(1, ICLOUD_KONTEN + 1)] + [
     {
         "gruppe": "Wetter & Tagesdashboard",
         "schluessel": [

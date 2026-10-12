@@ -6,7 +6,7 @@ import logging
 
 from flask import Blueprint, current_app, jsonify, render_template, request
 
-from zugangsdaten import katalog_mit_status, pruefe
+from zugangsdaten import ICLOUD_KONTEN, icloud_konten, katalog_mit_status, pruefe
 
 logger = logging.getLogger(__name__)
 zugangsdaten_bp = Blueprint("zugangsdaten", __name__)
@@ -54,23 +54,50 @@ def speichern():
     return jsonify({"success": True, "message": meldung, "gesetzt": bool(wert)})
 
 
-@zugangsdaten_bp.route("/zugangsdaten/icloud/test", methods=["POST"])
-def icloud_test():
-    """Meldet sich mit den hinterlegten Daten bei iCloud an und listet die Kalender."""
+def _icloud_kalender(konto):
     import requests
     from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV
 
+    kalender = ICloudCalDAV(requests.Session(), konto["apple_id"], konto["passwort"]).kalender()
+    return [{"name": k["name"], "farbe": k["farbe"]} for k in kalender]
+
+
+@zugangsdaten_bp.route("/zugangsdaten/icloud/test", methods=["POST"])
+def icloud_test():
+    """Meldet sich mit den hinterlegten Daten eines Kontos (?konto=1..3) bei iCloud an
+    und listet dessen Kalender."""
     device_config = current_app.config["DEVICE_CONFIG"]
-    apple_id = device_config.load_env_key("ICLOUD_APPLE_ID")
-    passwort = device_config.load_env_key("ICLOUD_APP_PASSWORT")
-    if not apple_id or not passwort:
+    nr = request.args.get("konto", "1")
+    if not nr.isdigit() or not 1 <= int(nr) <= ICLOUD_KONTEN:
+        return jsonify({"error": "Unbekanntes iCloud-Konto"}), 400
+    konto = next((k for k in icloud_konten(device_config.load_env_key) if k["nr"] == int(nr)), None)
+    if not konto:
         return jsonify({"error": "Bitte zuerst Apple-ID und app-spezifisches Passwort hinterlegen."}), 400
     try:
-        kalender = ICloudCalDAV(requests.Session(), apple_id.strip(), passwort.strip()).kalender()
+        kalender = _icloud_kalender(konto)
     except Exception as e:
         return jsonify({"error": str(e)}), 502
     return jsonify({
         "success": True,
         "message": f"Verbindung klappt – {len(kalender)} Kalender gefunden.",
-        "kalender": [{"name": k["name"], "farbe": k["farbe"]} for k in kalender],
+        "kalender": kalender,
     })
+
+
+@zugangsdaten_bp.route("/zugangsdaten/icloud/kalender", methods=["POST"])
+def icloud_alle_kalender():
+    """Kalender aller hinterlegten iCloud-Konten, für die Auswahl im Plugin.
+    Ein fehlerhaftes Konto liefert seine Fehlermeldung, die anderen trotzdem ihre Kalender."""
+    device_config = current_app.config["DEVICE_CONFIG"]
+    konten = icloud_konten(device_config.load_env_key)
+    if not konten:
+        return jsonify({"error": "Bitte zuerst Apple-ID und app-spezifisches Passwort hinterlegen."}), 400
+    antwort = []
+    for konto in konten:
+        eintrag = {"nr": konto["nr"], "name": konto["name"], "kalender": []}
+        try:
+            eintrag["kalender"] = _icloud_kalender(konto)
+        except Exception as e:
+            eintrag["error"] = str(e)
+        antwort.append(eintrag)
+    return jsonify({"success": True, "konten": antwort})
