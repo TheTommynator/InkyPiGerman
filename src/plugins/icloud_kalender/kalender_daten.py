@@ -1,22 +1,30 @@
 """Reine Kalender-Logik für das iCloud-Kalender-Plugin.
 
 Bewusst ohne Fremdbibliotheken (kein icalendar, requests, PIL), damit sich
-Zeiträume, Tagesaufteilung, Spaltenlayout und die Ansichtsdaten auch in der
-GitHub Action ohne Laufzeit-Abhängigkeiten testen lassen.
+Zeiträume, Tagesaufteilung und die Ansichtsdaten auch in der GitHub Action
+ohne Laufzeit-Abhängigkeiten testen lassen.
+
+Die Ansichten sind keine klassischen Kalenderraster, sondern auf einen Blick
+lesbare Listen in großer Schrift – für alles Weitere gibt es Handy und PC:
+  - „Als Nächstes“: der nächste Termin riesig, daneben der Rest von heute und morgen
+  - „Wochenzettel“: die nächsten acht Tage als kurze Listen
+  - „Tagesblatt“: großes Datum und die Termine von heute
 
 Alle Zeitangaben sind zeitzonenbehaftete datetime-Objekte. Ganztägige Termine
 beginnen um 0:00 Uhr ihres ersten Tages und enden (exklusiv) um 0:00 Uhr nach
 ihrem letzten Tag.
 """
 
-import calendar
 import math
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
-from utils.eink_farben import PALETTEN, ROLLEN
+from utils.eink_farben import PALETTEN
 
-ANSICHTEN = ("tag", "woche", "monat")
+ANSICHTEN = ("naechstes", "wochenzettel", "tagesblatt")
+STANDARD_ANSICHT = "naechstes"
+# Frühere Rasteransichten landen bei der neuen Ansicht, die ihnen am nächsten kommt
+ALTE_ANSICHTEN = {"tag": "tagesblatt", "woche": "wochenzettel", "monat": "wochenzettel"}
 
 WOCHENTAGE = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 WOCHENTAGE_KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
@@ -25,13 +33,8 @@ MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
 MONATE_KURZ = ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli",
                "Aug.", "Sept.", "Okt.", "Nov.", "Dez."]
 
-# Kürzeste Dauer, mit der ein Termin im Zeitraster gezeichnet wird
-MIN_DAUER_MINUTEN = 30
-# Tage, die in der Tagesansicht unter „Demnächst“ erscheinen
-VORSCHAU_TAGE = 6
-# Zeilen für ganztägige Balken: Woche und Monat
-SPUREN_WOCHE = 3
-SPUREN_MONAT = 2
+# So viele Tage (ab heute) zeigt der Wochenzettel; so weit schaut „Als Nächstes“ voraus
+TAGE = 8
 
 
 @dataclass
@@ -54,46 +57,19 @@ def normalisiere_url(url):
     return url
 
 
-def parse_stunde(wert, standard):
-    try:
-        stunde = int(str(wert).strip())
-    except (TypeError, ValueError):
-        return standard
-    return max(0, min(24, stunde))
+def ansicht_aus(wert):
+    """Gültige Ansicht aus der Einstellung; alte Werte (tag, woche, monat) werden umgedeutet."""
+    wert = ALTE_ANSICHTEN.get(wert, wert)
+    return wert if wert in ANSICHTEN else STANDARD_ANSICHT
 
 
 def tagesbeginn(tag, tz):
     return datetime.combine(tag, time(), tzinfo=tz)
 
 
-def wochenanfang(tag, wochenstart=0):
-    """Erster Tag der Woche, in der `tag` liegt (wochenstart: 0 = Montag … 6 = Sonntag)."""
-    return tag - timedelta(days=(tag.weekday() - wochenstart) % 7)
-
-
-def monatsraster(jahr, monat, wochenstart=0):
-    """Vollständige Wochen (Listen von 7 Daten), die den Monat abdecken."""
-    erster = date(jahr, monat, 1)
-    letzter = date(jahr, monat, calendar.monthrange(jahr, monat)[1])
-    tag = wochenanfang(erster, wochenstart)
-    wochen = []
-    while tag <= letzter:
-        wochen.append([tag + timedelta(days=i) for i in range(7)])
-        tag += timedelta(days=7)
-    return wochen
-
-
-def zeitraum(ansicht, heute, wochenstart=0):
-    """Datumsbereich [von, bis) dessen Termine für die Ansicht geladen werden."""
-    if ansicht == "tag":
-        return heute, heute + timedelta(days=1 + VORSCHAU_TAGE)
-    if ansicht == "woche":
-        von = wochenanfang(heute, wochenstart)
-        return von, von + timedelta(days=7)
-    if ansicht == "monat":
-        wochen = monatsraster(heute.year, heute.month, wochenstart)
-        return wochen[0][0], wochen[-1][-1] + timedelta(days=1)
-    raise ValueError(f"Unbekannte Ansicht: {ansicht}")
+def zeitraum(heute):
+    """Datumsbereich [von, bis), dessen Termine geladen werden – für alle Ansichten gleich."""
+    return heute, heute + timedelta(days=TAGE)
 
 
 def termine_am_tag(termine, tag, tz):
@@ -124,57 +100,12 @@ def termine_am_tag(termine, tag, tz):
     return ganztaegig, zeitlich
 
 
-def spalten_verteilen(segmente, min_dauer=MIN_DAUER_MINUTEN):
-    """Verteilt überlappende Termine nebeneinander.
-
-    `segmente` sind (termin, start_min, ende_min). Rückgabe: Liste von
-    (termin, start_min, ende_min, spalte, spalten_anzahl) in Eingabereihenfolge
-    nach Startzeit. Termine, die sich (auch indirekt) überlappen, bilden eine
-    Gruppe und teilen sich deren Breite.
-    """
-    sortiert = sorted(segmente, key=lambda s: (s[1], -s[2]))
-    ergebnis = []
-    gruppe = []          # [(segment, spalte)]
-    spalten_ende = []    # sichtbares Ende je Spalte der aktuellen Gruppe
-    gruppen_ende = None
-
-    def gruppe_abschliessen():
-        anzahl = len(spalten_ende)
-        for seg, spalte in gruppe:
-            ergebnis.append((*seg, spalte, anzahl))
-
-    for seg in sortiert:
-        start, ende = seg[1], max(seg[2], seg[1] + min_dauer)
-        if gruppen_ende is not None and start >= gruppen_ende:
-            gruppe_abschliessen()
-            gruppe, spalten_ende, gruppen_ende = [], [], None
-        for i, belegt_bis in enumerate(spalten_ende):
-            if belegt_bis <= start:
-                spalten_ende[i] = ende
-                spalte = i
-                break
-        else:
-            spalten_ende.append(ende)
-            spalte = len(spalten_ende) - 1
-        gruppe.append((seg, spalte))
-        gruppen_ende = ende if gruppen_ende is None else max(gruppen_ende, ende)
-    if gruppe:
-        gruppe_abschliessen()
-    return ergebnis
-
-
 def format_zeit(dt, zeitformat="24h"):
     if zeitformat == "12h":
         stunde = dt.hour % 12 or 12
         suffix = "AM" if dt.hour < 12 else "PM"
         return f"{stunde}:{dt.minute:02d} {suffix}" if dt.minute else f"{stunde} {suffix}"
     return f"{dt.hour}:{dt.minute:02d}"
-
-
-def format_stunde(stunde, zeitformat="24h"):
-    if zeitformat == "12h":
-        return f"{stunde % 12 or 12} {'AM' if stunde % 24 < 12 else 'PM'}"
-    return f"{stunde}:00"
 
 
 def datum_lang(tag):
@@ -189,252 +120,201 @@ def tag_bezeichnung(tag, heute):
     return f"{WOCHENTAGE[tag.weekday()]}, {tag.day}. {MONATE_KURZ[tag.month - 1]}"
 
 
-def wochen_titel(tage):
-    erster, letzter = tage[0], tage[-1]
-    if erster.month == letzter.month:
-        bereich = f"{erster.day}.–{letzter.day}. {MONATE[letzter.month - 1]} {letzter.year}"
-    elif erster.year == letzter.year:
-        bereich = f"{erster.day}. {MONATE_KURZ[erster.month - 1]} – {letzter.day}. {MONATE_KURZ[letzter.month - 1]} {letzter.year}"
-    else:
-        bereich = f"{datum_lang(erster)} – {datum_lang(letzter)}"
-    return bereich
+def tag_kurz(tag, heute):
+    """„heute“, „morgen“, „Sa“ in den nächsten sechs Tagen, sonst „25.10.“."""
+    if tag == heute:
+        return "heute"
+    if tag == heute + timedelta(days=1):
+        return "morgen"
+    if heute < tag < heute + timedelta(days=7):
+        return WOCHENTAGE_KURZ[tag.weekday()]
+    return f"{tag.day}.{tag.month}."
 
 
-def stundenbereich(segmente_je_tag, von_h, bis_h):
-    """Erweitert den eingestellten Stundenbereich, damit kein Termin abgeschnitten wird."""
-    if bis_h <= von_h:
-        von_h, bis_h = 0, 24
-    for segmente in segmente_je_tag:
-        for _, start_min, ende_min in segmente:
-            ende_min = max(ende_min, start_min + MIN_DAUER_MINUTEN)
-            von_h = min(von_h, start_min // 60)
-            bis_h = max(bis_h, min(24, math.ceil(ende_min / 60)))
-    return von_h, bis_h
+def _erster_letzter(termin, tz):
+    """Erster und letzter (inklusiver) Tag eines Termins."""
+    erster = termin.start.astimezone(tz).date()
+    letzter = (max(termin.ende, termin.start + timedelta(seconds=1)) - timedelta(seconds=1)).astimezone(tz).date()
+    return erster, letzter
 
 
-def _termin_info(termin, zeitformat):
-    return {
-        "titel": termin.titel,
-        "farbe": termin.farbe,
-        "tint": termin_tint(termin.farbe),
-        "text": termin.schrift or kontrastfarbe(termin.farbe),
-        "kalender": termin.kalender,
-        "ort": termin.ort,
-        "zeit": "" if termin.ganztag else format_zeit(termin.start, zeitformat),
-        "zeit_bis": "" if termin.ganztag else format_zeit(termin.ende, zeitformat),
-    }
+def mehrtaegig(termin, tz):
+    erster, letzter = _erster_letzter(termin, tz)
+    return letzter > erster
 
 
-def _zeitraster_spalte(segmente, von_h, bis_h, zeitformat):
-    """Positionen (in % der Rasterhöhe) der Termine einer Tagesspalte."""
-    gesamt = (bis_h - von_h) * 60
-    bloecke = []
-    for termin, start_min, ende_min, spalte, anzahl in spalten_verteilen(segmente):
-        sichtbar_ende = max(ende_min, start_min + MIN_DAUER_MINUTEN)
-        info = _termin_info(termin, zeitformat)
-        info.update({
-            "oben": (start_min - von_h * 60) / gesamt * 100,
-            "hoehe": (sichtbar_ende - start_min) / gesamt * 100,
-            "links": spalte / anzahl * 100,
-            "breite": 100 / anzahl,
-            "minuten": ende_min - start_min,
-        })
-        bloecke.append(info)
-    return bloecke
+def spanne(termin, heute, tz):
+    """Kurztext für mehrtägige Termine: „bis Sa“, „Di–So“, „ab 20.10.“."""
+    erster, letzter = _erster_letzter(termin, tz)
+    if erster <= heute:
+        return f"bis {tag_kurz(letzter, heute)}"
+    if letzter < heute + timedelta(days=7):
+        return f"{WOCHENTAGE_KURZ[erster.weekday()]}–{WOCHENTAGE_KURZ[letzter.weekday()]}"
+    return f"ab {tag_kurz(erster, heute)}"
 
 
-def _jetzt_position(jetzt, von_h, bis_h):
-    minute = jetzt.hour * 60 + jetzt.minute
-    if not (von_h * 60 <= minute <= bis_h * 60):
-        return None
-    return (minute - von_h * 60) / ((bis_h - von_h) * 60) * 100
+def countdown(minuten):
+    """„in 20 Min.“, „in 1 Std. 20 Min.“"""
+    minuten = max(0, int(minuten))
+    if minuten < 1:
+        return "gleich"
+    stunden, rest = divmod(minuten, 60)
+    if not stunden:
+        return f"in {rest} Min."
+    return f"in {stunden} Std." + (f" {rest} Min." if rest else "")
 
 
-def _stunden(von_h, bis_h, zeitformat):
-    return [{"label": format_stunde(h, zeitformat),
-             "oben": (h - von_h) / (bis_h - von_h) * 100}
-            for h in range(von_h, bis_h)]
+def _zeit_am_tag(termin, tag, tz, zeitformat):
+    """Uhrzeit eines Termins an `tag`; leer, wenn er schon am Vortag begonnen hat."""
+    return format_zeit(termin.start, zeitformat) if termin.start >= tagesbeginn(tag, tz) else ""
 
 
-def _bis_text(termin, tag, tz):
-    """„bis 17.10.“, wenn ein ganztägiger Termin über `tag` hinaus dauert."""
-    letzter = (termin.ende - timedelta(seconds=1)).astimezone(tz).date()
-    return f"bis {letzter.day}.{letzter.month}." if letzter > tag else ""
+def _eintrag(termin, zeit=""):
+    return {"titel": termin.titel, "zeit": zeit, "ort": termin.ort}
 
 
-def _vorschau(termine, heute, tz, zeitformat, tage=VORSCHAU_TAGE):
-    """Termine der nächsten Tage. Mehrtägige ganztägige Termine (z. B. Ferien)
-    erscheinen nur einmal, mit „bis …“, statt an jedem Tag erneut."""
-    vorschau = []
-    gezeigt = {id(t) for t in termine_am_tag(termine, heute, tz)[0]}
-    for i in range(1, tage + 1):
+def _tagesliste(termine, tag, tz, zeitformat, ohne=(), jetzt=None):
+    """Einträge eines Tages: eintägige Ganztagstermine zuerst, dann nach Uhrzeit.
+    Mehrtägige Ganztagstermine (Ferien, Urlaub) stehen nicht an jedem Tag, sondern gesondert.
+    Mit `jetzt` werden Termine markiert, die schon vorbei sind."""
+    ganz, zeitlich = termine_am_tag(termine, tag, tz)
+    liste = [_eintrag(t) | {"vorbei": False} for t in ganz if not mehrtaegig(t, tz) and id(t) not in ohne]
+    liste += [_eintrag(t, _zeit_am_tag(t, tag, tz, zeitformat))
+              | {"vorbei": jetzt is not None and t.start < t.ende <= jetzt}
+              for t, _, _ in zeitlich if id(t) not in ohne]
+    return liste
+
+
+def _ganztag_heute(termine, heute, tz):
+    """Ganztägige Termine, die heute stattfinden – mehrtägige mit „bis …“."""
+    ganz, _ = termine_am_tag(termine, heute, tz)
+    return [{"titel": t.titel, "spanne": spanne(t, heute, tz) if mehrtaegig(t, tz) else ""} for t in ganz]
+
+
+def baue_naechstes(termine, jetzt, tz, zeitformat="24h"):
+    """„Als Nächstes“: der nächste (oder laufende) Termin groß, daneben der Rest
+    von heute und morgen, unten ein kurzer Ausblick auf die Woche."""
+    heute = jetzt.date()
+    morgen = heute + timedelta(days=1)
+    grenze = tagesbeginn(heute + timedelta(days=TAGE), tz)
+    kandidaten = sorted(
+        (t for t in termine if not t.ganztag and t.start < grenze
+         and (t.start > jetzt or t.start <= jetzt < t.ende)),
+        key=lambda t: (t.start, t.titel.lower()))
+
+    held = None
+    if kandidaten:
+        t = kandidaten[0]
+        start_tag = t.start.astimezone(tz).date()
+        laeuft = t.start <= jetzt
+        if laeuft:
+            ende_tag = t.ende.astimezone(tz).date()
+            bis = format_zeit(t.ende, zeitformat) if ende_tag == heute else tag_kurz(ende_tag, heute)
+            label, wann = "Läuft gerade", f"noch bis {bis}"
+        elif start_tag == heute:
+            label, wann = "Als Nächstes", countdown((t.start - jetzt).total_seconds() / 60)
+        else:
+            label, wann = "Als Nächstes", tag_bezeichnung(start_tag, heute)
+        held = _eintrag(t, format_zeit(t.start, zeitformat)) | {"label": label, "wann": wann, "laeuft": laeuft}
+
+    ohne = {id(kandidaten[0])} if kandidaten else set()
+    morgen_beginn = tagesbeginn(morgen, tz)
+    spaeter = [_eintrag(t, format_zeit(t.start, zeitformat)) for t in kandidaten[1:] if t.start < morgen_beginn]
+
+    # Ausblick ab übermorgen: je Tag die Einträge; mehrtägige erscheinen einmal mit Spanne
+    morgen_ganz, morgen_zeitlich = termine_am_tag(termine, morgen, tz)
+    gezeigt = {id(t) for t in termine_am_tag(termine, heute, tz)[0] + morgen_ganz}
+    gezeigt |= {id(t) for t, _, _ in morgen_zeitlich} | ohne
+    ausblick = []
+    for i in range(2, 7):
         tag = heute + timedelta(days=i)
-        g, z = termine_am_tag(termine, tag, tz)
-        g = [t for t in g if id(t) not in gezeigt]
-        gezeigt |= {id(t) for t in g}
-        eintraege = [_termin_info(t, zeitformat) | {"bis": _bis_text(t, tag, tz)} for t in g]
-        eintraege += [_termin_info(t, zeitformat) | {"zeit": format_zeit(max(t.start, tagesbeginn(tag, tz)), zeitformat)}
-                      for t, _, _ in z]
-        if eintraege:
-            vorschau.append({"label": tag_bezeichnung(tag, heute), "termine": eintraege})
-    return vorschau
-
-
-def baue_tag(termine, jetzt, tz, zeitformat="24h"):
-    """Tagesansicht als Liste: heute groß, rechts „Demnächst“.
-
-    Ein Zeitraster bleibt auf einem kleinen Display meist leer; die Liste zeigt
-    dieselben Termine in großer Schrift. Vorbei = schon zu Ende, jetzt = läuft gerade.
-    """
-    heute = jetzt.date()
-    ganz, zeitlich = termine_am_tag(termine, heute, tz)
-    beginn = tagesbeginn(heute, tz)
-    liste = []
-    for t, start_min, ende_min in zeitlich:
-        von = beginn + timedelta(minutes=start_min)
-        bis = beginn + timedelta(minutes=ende_min)
-        liste.append(_termin_info(t, zeitformat) | {
-            "zeit": format_zeit(von, zeitformat),
-            "zeit_bis": format_zeit(bis, zeitformat) if ende_min > start_min else "",
-            "vorbei": bis <= jetzt and ende_min > start_min,
-            "jetzt": von <= jetzt < bis,
-        })
+        ganz, zeitlich = termine_am_tag(termine, tag, tz)
+        titel = []
+        for t in ganz + [t for t, _, _ in zeitlich]:
+            if id(t) in gezeigt:
+                continue
+            gezeigt.add(id(t))
+            if t.ganztag and mehrtaegig(t, tz):
+                titel.append(f"{t.titel} bis {tag_kurz(_erster_letzter(t, tz)[1], heute)}")
+            else:
+                titel.append(t.titel)
+        if titel:
+            ausblick.append({"tag": WOCHENTAGE_KURZ[tag.weekday()], "titel": titel})
 
     return {
-        "titel": WOCHENTAGE[heute.weekday()],
-        "untertitel": datum_lang(heute),
-        "tag_nummer": heute.day,
-        "monat": MONATE[heute.month - 1],
-        "ganztag": [_termin_info(t, zeitformat) | {"bis": _bis_text(t, heute, tz)} for t in ganz],
-        "termine": liste,
-        "leer": not ganz and not zeitlich,
-        "vorschau": _vorschau(termine, heute, tz, zeitformat),
+        "wochentag": WOCHENTAGE[heute.weekday()],
+        "datum": f"{heute.day}. {MONATE[heute.month - 1]}",
+        "ganztag": _ganztag_heute(termine, heute, tz),
+        "held": held,
+        "held_heute": bool(kandidaten) and kandidaten[0].start < morgen_beginn,
+        "spaeter": spaeter,
+        "morgen": [_eintrag(t) for t in termine_am_tag(termine, morgen, tz)[0]
+                   if mehrtaegig(t, tz) and t.start >= morgen_beginn]
+        + _tagesliste(termine, morgen, tz, zeitformat, ohne),
+        "ausblick": ausblick,
     }
 
 
-def balken(termine, tage, tz, zeitformat="24h", max_spuren=SPUREN_WOCHE):
-    """Ganztägige Termine als Balken über mehrere Tage (eine Zeile im Wochen-
-    oder Monatsraster). Statt „Ferien“ an jedem Tag einzeln steht ein Balken
-    von Montag bis Sonntag da.
-
-    Gibt {"balken", "spuren", "versteckt"} zurück: Balken mit Spalte (1-basiert),
-    Breite in Tagen und Spur (Zeile); `versteckt[i]` zählt die Balken, die an
-    Tag i keinen Platz mehr hatten.
-    """
-    reihenfolge, tage_je_termin = [], {}
-    for i, tag in enumerate(tage):
-        for t in termine_am_tag(termine, tag, tz)[0]:
-            if id(t) not in tage_je_termin:
-                tage_je_termin[id(t)] = []
-                reihenfolge.append(t)
-            tage_je_termin[id(t)].append(i)
-
-    # Zusammenhängende Abschnitte (bei ausgeblendetem Wochenende evtl. mehrere)
-    stuecke = []
-    for t in reihenfolge:
-        spalten = tage_je_termin[id(t)]
-        anfang = spalten[0]
-        for vorher, jetzt_ in zip(spalten, spalten[1:] + [None]):
-            if jetzt_ != vorher + 1:
-                stuecke.append((t, anfang, vorher))
-                anfang = jetzt_
-    stuecke.sort(key=lambda s: (s[1], -(s[2] - s[1]), s[0].start, s[0].titel.lower()))
-
-    belegt = []  # je Spur: Menge belegter Spalten
-    ergebnis, versteckt, spuren_je_tag = [], [0] * len(tage), [0] * len(tage)
-    for t, von, bis in stuecke:
-        spalten = set(range(von, bis + 1))
-        spur = next((i for i, b in enumerate(belegt) if not b & spalten), len(belegt))
-        if spur == len(belegt):
-            belegt.append(set())
-        belegt[spur] |= spalten
-        if spur >= max_spuren:
-            for c in spalten:
-                versteckt[c] += 1
-            continue
-        for c in spalten:
-            spuren_je_tag[c] = max(spuren_je_tag[c], spur + 1)
-        ergebnis.append(_termin_info(t, zeitformat) | {
-            "spalte": von + 1,
-            "breite": bis - von + 1,
-            "spur": spur + 1,
-            "links_offen": t.start < tagesbeginn(tage[von], tz),
-            "rechts_offen": t.ende > tagesbeginn(tage[bis] + timedelta(days=1), tz),
-        })
-    return {"balken": ergebnis, "spuren": min(len(belegt), max_spuren), "versteckt": versteckt,
-            "spuren_je_tag": spuren_je_tag}
-
-
-def baue_woche(termine, jetzt, tz, wochenstart=0, von_h=7, bis_h=21,
-               zeitformat="24h", wochenende=True):
+def baue_wochenzettel(termine, jetzt, tz, zeitformat="24h", tage=TAGE):
+    """„Wochenzettel“: die nächsten Tage ab heute als kurze Listen.
+    Mehrtägige Ganztagstermine stehen einmal in einer Zeile darüber."""
     heute = jetzt.date()
-    start = wochenanfang(heute, wochenstart)
-    tage = [start + timedelta(days=i) for i in range(7)]
-    if not wochenende:
-        tage = [t for t in tage if t.weekday() < 5]
+    letzter_tag = heute + timedelta(days=tage - 1)
+    beginn, ende = tagesbeginn(heute, tz), tagesbeginn(letzter_tag + timedelta(days=1), tz)
+    band = sorted((t for t in termine if t.ganztag and mehrtaegig(t, tz) and t.start < ende and t.ende > beginn),
+                  key=lambda t: (t.start, t.titel.lower()))
 
-    aufgeteilt = [termine_am_tag(termine, tag, tz) for tag in tage]
-    von_h, bis_h = stundenbereich([z for _, z in aufgeteilt], von_h, bis_h)
-
-    ganztag = balken(termine, tage, tz, zeitformat, SPUREN_WOCHE)
     spalten = []
-    for i, (tag, (ganz, zeitlich)) in enumerate(zip(tage, aufgeteilt)):
+    for i in range(tage):
+        tag = heute + timedelta(days=i)
+        # Was heute schon vorbei ist, wird durchgestrichen
+        liste = _tagesliste(termine, tag, tz, zeitformat, jetzt=jetzt if tag == heute else None)
         spalten.append({
             "kurz": WOCHENTAGE_KURZ[tag.weekday()],
-            "nummer": tag.day,
+            "nummer": f"{tag.day}.",
             "heute": tag == heute,
-            "vergangen": tag < heute,
             "wochenende": tag.weekday() >= 5,
-            "versteckt": ganztag["versteckt"][i],
-            "bloecke": _zeitraster_spalte(zeitlich, von_h, bis_h, zeitformat),
+            "termine": liste,
         })
 
+    if heute.month == letzter_tag.month:
+        bereich = f"{heute.day}.–{letzter_tag.day}. {MONATE[heute.month - 1]}"
+    else:
+        bereich = f"{heute.day}. {MONATE_KURZ[heute.month - 1]} – {letzter_tag.day}. {MONATE_KURZ[letzter_tag.month - 1]}"
     return {
-        "titel": f"KW {heute.isocalendar()[1]}",
-        "untertitel": wochen_titel(tage),
-        "spalten": spalten,
-        "ganztag": ganztag,
-        "hat_ganztag": bool(ganztag["balken"]) or any(s["versteckt"] for s in spalten),
-        "stunden": _stunden(von_h, bis_h, zeitformat),
-        "jetzt": _jetzt_position(jetzt, von_h, bis_h) if heute in tage else None,
+        "titel": "Diese Woche",
+        "bereich": bereich,
+        "kw": heute.isocalendar()[1],
+        "band": [{"titel": t.titel, "spanne": spanne(t, heute, tz)} for t in band],
+        "tage": spalten,
     }
 
 
-def baue_monat(termine, jetzt, tz, wochenstart=0, zeitformat="24h", wochenende=True):
+def baue_tagesblatt(termine, jetzt, tz, zeitformat="24h"):
+    """„Tagesblatt“: großes Datum, die Termine von heute und eine Zeile für morgen."""
     heute = jetzt.date()
-    wochen = []
-    for woche in monatsraster(heute.year, heute.month, wochenstart):
-        if not wochenende:
-            woche = [t for t in woche if t.weekday() < 5]
-        ganztag = balken(termine, woche, tz, zeitformat, SPUREN_MONAT)
-        zellen = []
-        for i, tag in enumerate(woche):
-            _, zeitlich = termine_am_tag(termine, tag, tz)
-            eintraege = [_termin_info(t, zeitformat) | {
-                "ganztag": False,
-                "zeit": format_zeit(max(t.start, tagesbeginn(tag, tz)), zeitformat),
-            } for t, _, _ in zeitlich]
-            zellen.append({
-                "versteckt": ganztag["versteckt"][i],
-                "spuren": ganztag["spuren_je_tag"][i],
-                "nummer": tag.day,
-                "heute": tag == heute,
-                "anderer_monat": tag.month != heute.month,
-                "vergangen": tag < heute,
-                "wochenende": tag.weekday() >= 5,
-                "termine": eintraege,
-            })
-        wochen.append({"tage": zellen, "ganztag": ganztag})
+    morgen = heute + timedelta(days=1)
+    _, zeitlich = termine_am_tag(termine, heute, tz)
+    liste, naechst_gefunden = [], False
+    for t, _, _ in zeitlich:
+        laeuft = t.start <= jetzt < t.ende
+        vorbei = t.ende <= jetzt and not laeuft
+        naechst = not vorbei and not naechst_gefunden
+        naechst_gefunden |= naechst
+        liste.append(_eintrag(t, _zeit_am_tag(t, heute, tz, zeitformat))
+                     | {"vorbei": vorbei, "laeuft": laeuft, "naechst": naechst})
 
-    kopf = [WOCHENTAGE_KURZ[(wochenstart + i) % 7] for i in range(7)]
-    if not wochenende:
-        kopf = [k for k in kopf if k not in ("Sa", "So")]
-
+    morgen_ganz, morgen_zeitlich = termine_am_tag(termine, morgen, tz)
+    morgen_liste = [t.titel for t in morgen_ganz if t.start >= tagesbeginn(morgen, tz)]
+    morgen_liste += [f"{format_zeit(t.start, zeitformat)} {t.titel}" if z else t.titel
+                     for t, z in ((t, t.start >= tagesbeginn(morgen, tz)) for t, _, _ in morgen_zeitlich)]
     return {
-        "titel": MONATE[heute.month - 1],
-        "untertitel": str(heute.year),
-        "kopf": kopf,
-        "wochen": wochen,
+        "wochentag": WOCHENTAGE[heute.weekday()],
+        "nummer": heute.day,
+        "monat": MONATE[heute.month - 1],
+        "ganztag": _ganztag_heute(termine, heute, tz),
+        "termine": liste,
+        "morgen": morgen_liste,
     }
 
 
@@ -446,12 +326,6 @@ def hex_zu_rgb(farbe):
         return tuple(int(farbe[i:i + 2], 16) for i in (0, 2, 4))
     except (ValueError, IndexError):
         return (0, 0, 0)
-
-
-def kontrastfarbe(farbe):
-    """Schwarz oder Weiß – je nachdem, was auf der Farbe besser lesbar ist."""
-    r, g, b = hex_zu_rgb(farbe)
-    return "#000000" if (r * 299 + g * 587 + b * 114) / 1000 >= 150 else "#ffffff"
 
 
 # Farben, die 7-Farben-Displays ohne Rastern darstellen. Pimoronis Inky-Bibliothek
@@ -477,59 +351,3 @@ def naechste_farbe(farbe, palette):
         return 3 * (r - r2) ** 2 + 4 * (g - g2) ** 2 + 2 * (b - b2) ** 2
 
     return min(palette, key=abstand)
-
-
-# So wirken die Farbrollen auf dem Display – als Anker für typische
-# Kalenderfarben (Apple: Rot #ff2968, Orange #ff9500, Gelb #ffcc00,
-# Grün #63da38, Blau #1badf8, Violett #cc73e1, Braun #a2845e).
-ROLLEN_ANKER = {
-    "rot": "#f02a3a", "orange": "#ff8c00", "gelb": "#ffcc00", "gruen": "#4cc83a",
-    "blau": "#1f8cf0", "violett": "#b464dc", "schwarz": "#202020",
-    "rosa": "#ff8fb0", "apricot": "#ffb46e", "mint": "#9be0a0", "grau": "#9a8c7a",
-}
-
-
-def _lab(farbe):
-    """sRGB → CIE-Lab (D65), für Farbabstände, die dem Auge entsprechen."""
-    def linear(c):
-        c /= 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
-
-    r, g, b = (linear(c) for c in hex_zu_rgb(farbe))
-    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
-    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
-    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
-
-    def f(t):
-        return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
-
-    fx, fy, fz = f(x), f(y), f(z)
-    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
-
-
-def _farbabstand(a, b):
-    la, lb = _lab(a), _lab(b)
-    return sum((p - q) ** 2 for p, q in zip(la, lb)) ** 0.5
-
-
-def kalender_rollen(farben):
-    """Ordnet jeder Kalenderfarbe eine Farbrolle zu – möglichst jedem Kalender
-    eine eigene. Die ähnlichsten Paare werden zuerst vergeben; erst wenn alle
-    Rollen belegt sind, teilen sich Kalender eine Rolle."""
-    rollen = [r for r in ROLLEN_ANKER if r in ROLLEN]
-    paare = sorted((_farbabstand(f, ROLLEN_ANKER[r]), i, r) for i, f in enumerate(farben) for r in rollen)
-    zuordnung, vergeben = {}, set()
-    for _, i, rolle in paare:
-        if i not in zuordnung and rolle not in vergeben:
-            zuordnung[i] = rolle
-            vergeben.add(rolle)
-    for _, i, rolle in paare:
-        zuordnung.setdefault(i, rolle)
-    return [zuordnung[i] for i in range(len(farben))]
-
-
-def termin_tint(farbe, anteil=0.18):
-    """Helle Variante der Kalenderfarbe als Hintergrund für den Stil „Dezent“."""
-    r, g, b = hex_zu_rgb(farbe)
-    mische = lambda c: round(255 - (255 - c) * anteil)  # noqa: E731
-    return "#{:02x}{:02x}{:02x}".format(mische(r), mische(g), mische(b))

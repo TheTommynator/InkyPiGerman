@@ -1,4 +1,4 @@
-"""iCloud-Kalender: mehrere (iCloud-)Kalender als Tages-, Wochen- oder Monatsansicht.
+"""iCloud-Kalender: Termine aus mehreren (iCloud-)Kalendern, groß und auf einen Blick lesbar.
 
 Zwei Quellen, auch gemischt:
   - öffentliche iCal-Links (Kalender-App: Kalender teilen → „Öffentlicher
@@ -21,10 +21,10 @@ from plugins.base_plugin.base_plugin import BasePlugin
 from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV, waehle_kalender
 from zugangsdaten import ICLOUD_KONTEN, icloud_konten
 from plugins.icloud_kalender.kalender_daten import (
-    ANSICHTEN, Termin, baue_monat, baue_tag, baue_woche, kalender_rollen,
-    naechste_farbe, normalisiere_url, parse_stunde, tagesbeginn, zeitraum,
+    Termin, ansicht_aus, baue_naechstes, baue_tagesblatt, baue_wochenzettel,
+    naechste_farbe, normalisiere_url, tagesbeginn, zeitraum,
 )
-from utils.eink_farben import ROLLEN, css_farbe, css_flaeche, muster_einsetzen, palette, pigmente_runden, schrift_auf
+from utils.eink_farben import palette, pigmente_runden
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,7 @@ class ICloudKalender(BasePlugin):
         return template_params
 
     def generate_image(self, settings, device_config):
-        ansicht = settings.get("ansicht") or "woche"
-        if ansicht not in ANSICHTEN:
-            raise RuntimeError("Ungültige Ansicht")
+        ansicht = ansicht_aus(settings.get("ansicht"))
 
         kalender = self.kalender_liste(settings)
         icloud_aktiv = settings.get("icloudAktiv") == "true"
@@ -58,12 +56,7 @@ class ICloudKalender(BasePlugin):
         zeitformat = device_config.get_config("time_format", default="24h")
         jetzt = self.jetzt(tz)
 
-        wochenstart = 6 if settings.get("wochenstart") == "6" else 0
-        von_h = parse_stunde(settings.get("vonStunde"), 7)
-        bis_h = parse_stunde(settings.get("bisStunde"), 21)
-        wochenende = settings.get("wochenende", "true") != "false"
-
-        von, bis = zeitraum(ansicht, jetzt.date(), wochenstart)
+        von, bis = zeitraum(jetzt.date())
         start, ende = tagesbeginn(von, tz), tagesbeginn(bis, tz)
 
         fehler = []
@@ -76,47 +69,31 @@ class ICloudKalender(BasePlugin):
                 logger.error(f"iCloud-Konto fehlgeschlagen: {e}")
                 fehler.append(str(e))
 
-        thema = settings.get("thema") or "eink"
-        akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
-        pigmente = palette(device_config.get_config("display_type", default=""))
-        hellgrau = ""
-        if thema == "eink":
-            # Jeder Kalender bekommt eine eigene Farbrolle aus dem Farbtest
-            # (Mischungen als Platzhalter, nach dem Screenshot als Pixelmuster)
-            for k, rolle in zip(kalender, kalender_rollen([k["farbe"] for k in kalender])):
-                k["farbe"] = css_farbe(ROLLEN[rolle], pigmente)
-                k["schrift"] = pigmente[schrift_auf(rolle)]
-            # Akzent für Heute-Markierung und Jetzt-Linie: nur Farben, die auch als Linie taugen
-            akzent = naechste_farbe(akzent, [pigmente["rot"], pigmente["gruen"], pigmente["schwarz"]])
-            hellgrau = css_flaeche(ROLLEN["hellgrau"], pigmente)
-
         termine, ladefehler = self.lade_termine(kalender, tz, von, bis)
         fehler += ladefehler
         if fehler and not termine and len(ladefehler) == len(kalender):
             raise RuntimeError(f"Kalender konnte nicht abgerufen werden: {fehler[0]}")
 
-        if ansicht == "tag":
-            daten = baue_tag(termine, jetzt, tz, zeitformat)
-        elif ansicht == "woche":
-            daten = baue_woche(termine, jetzt, tz, wochenstart, von_h, bis_h, zeitformat, wochenende)
-        else:
-            daten = baue_monat(termine, jetzt, tz, wochenstart, zeitformat, wochenende)
+        thema = settings.get("thema") or "eink"
+        akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
+        pigmente = palette(device_config.get_config("display_type", default=""))
+        if thema == "eink":
+            # Schwarz auf Weiß, Akzent nur in einer reinen Farbe, die auch als Schrift taugt
+            akzent = naechste_farbe(akzent, [pigmente["rot"], pigmente["gruen"], pigmente["schwarz"]])
+
+        bauen = {"naechstes": baue_naechstes, "wochenzettel": baue_wochenzettel, "tagesblatt": baue_tagesblatt}
+        daten = bauen[ansicht](termine, jetzt, tz, zeitformat)
 
         breite, hoehe = dimensions
         skala = SCHRIFTGROESSEN.get(settings.get("schriftgroesse"), 1.0)
         template_params = {
             "ansicht": ansicht,
             "daten": daten,
-            "kalender": [k for k in kalender if k["name"]],
-            "hellgrau": hellgrau,
-            "legende": settings.get("legende", "true") != "false",
-            "stil": settings.get("stil") or "gefuellt",
             "thema": thema,
             "akzent": akzent,
             "basis_px": round((breite + hoehe) / 1280 * 15 * skala, 2),
             "hochformat": hoehe > breite,
             "fehler": len(fehler),
-            "stand": f"{jetzt.hour}:{jetzt.minute:02d}",
             "plugin_settings": {},
         }
 
@@ -124,8 +101,8 @@ class ICloudKalender(BasePlugin):
         if not image:
             raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
         if thema == "eink":
-            # Mischfarben als Pixelmuster, Kanten auf reine Pigmente: scharfe Schrift ohne Raster
-            image = pigmente_runden(muster_einsetzen(image, pigmente), pigmente)
+            # Kanten auf reine Pigmente runden: scharfe Schrift ohne Punktraster
+            image = pigmente_runden(image, pigmente)
         return image
 
     @staticmethod

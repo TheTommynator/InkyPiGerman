@@ -1,26 +1,7 @@
 {% extends "plugin.html" %}
 
-{% macro farbe(t) -%}
---farbe: {{ t.farbe }}; --tint: {{ t.tint }}; --kontrast: {{ t.text }};
-{%- endmacro %}
-
-{% macro termin_karte(t) -%}
-<div class="karte {{ stil }}"
-     style="top: {{ t.oben }}%; height: {{ t.hoehe }}%; left: {{ t.links }}%; width: {{ t.breite }}%; {{ farbe(t) }}">
-  <div class="karte-innen">
-    <span class="karte-titel">{{ t.titel }}</span>
-    <span class="karte-zeit">{{ t.zeit }}<span class="bis"> – {{ t.zeit_bis }}</span></span>
-    {% if t.ort %}<span class="karte-ort">{{ t.ort }}</span>{% endif %}
-  </div>
-</div>
-{%- endmacro %}
-
-{# Ganztägige Termine als Balken über mehrere Tage; danach je Tag „+N“ für Balken ohne Platz #}
-{% macro balken_raster(g, versteckt, zeile=1) -%}
-{% for b in g.balken %}
-<div class="balken-termin {{ stil }}{% if b.links_offen %} links-offen{% endif %}{% if b.rechts_offen %} rechts-offen{% endif %}"
-     style="grid-column: {{ b.spalte }} / span {{ b.breite }}; grid-row: {{ zeile + b.spur - 1 }}; {{ farbe(b) }}">{{ b.titel }}</div>
-{% endfor %}
+{% macro ganztag_text(liste) -%}
+{% for g in liste %}{{ g.titel }}{% if g.spanne %} {{ g.spanne }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
 {%- endmacro %}
 
 {% block content %}
@@ -30,194 +11,129 @@
 </style>
 {% endfor %}
 <div lang="de" class="kal thema-{{ thema }} ansicht-{{ ansicht }}{% if hochformat %} hochformat{% endif %}"
-     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};{% if hellgrau %} --band: {{ hellgrau }};{% endif %}">
+     style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};">
 
+  {% if ansicht == "naechstes" %}
+  {# ---------- Als Nächstes: der nächste Termin riesig ---------- #}
   <header class="kopf">
-    <div class="titelblock">
-      <h1>{{ daten.titel }}</h1>
-      <div class="untertitel">{{ daten.untertitel }}</div>
-    </div>
-    <div class="meta">
-      {% if legende and kalender %}
-      <ul class="legende">
-        {% for k in kalender %}<li class="{{ stil }}" style="--farbe: {{ k.farbe }}; --kontrast: {{ k.schrift or '#ffffff' }};">{{ k.name }}</li>{% endfor %}
-      </ul>
-      {% endif %}
-      <div class="stand">
-        {% if fehler %}<span class="warnung">{{ fehler }} Kalender nicht erreichbar</span> · {% endif %}Stand {{ stand }}
-      </div>
-    </div>
+    <span class="kopf-datum"><b>{{ daten.wochentag }}</b> {{ daten.datum }}</span>
+    {% if daten.ganztag %}<span class="kopf-ganztag">{{ ganztag_text(daten.ganztag) }}</span>{% endif %}
   </header>
-
-  {% if ansicht == "tag" %}
-  <main class="tag-layout">
-    <section class="tag-heute">
-      {% if daten.ganztag %}
-      <div class="ganztag-reihe">
-        {% for t in daten.ganztag %}<div class="chip {{ stil }}" style="{{ farbe(t) }}">{{ t.titel }}{% if t.bis %}<span class="chip-bis"> · {{ t.bis }}</span>{% endif %}</div>{% endfor %}
-      </div>
-      {% endif %}
-      {% if daten.termine %}
-      <div class="agenda ueberlauf" data-mehr="weitere Termine">
-        {% for t in daten.termine %}
-        <div class="eintrag a-termin{% if t.vorbei %} vorbei{% endif %}{% if t.jetzt %} laeuft{% endif %}">
-          <div class="a-zeit">
-            {% if t.jetzt %}<span class="a-jetzt">Jetzt</span>{% endif %}
-            <span class="a-von">{{ t.zeit }}</span>
-            {% if t.zeit_bis %}<span class="a-bis">bis {{ t.zeit_bis }}</span>{% endif %}
-          </div>
-          <div class="a-karte {{ stil }}" style="{{ farbe(t) }}">
-            <span class="a-titel">{{ t.titel }}</span>
-            {% if t.ort %}<span class="a-ort">{{ t.ort }}</span>{% endif %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% elif not daten.ganztag %}
-      <div class="leer">Heute keine Termine</div>
-      {% else %}
-      <div class="leer klein">Sonst keine Termine heute</div>
-      {% endif %}
-    </section>
-
-    <aside class="vorschau">
-      <h2>Demnächst</h2>
-      <div class="vorschau-liste ueberlauf" data-mehr="weitere Termine">
-        {% for gruppe in daten.vorschau %}
-          <div class="vorschau-tag eintrag">{{ gruppe.label }}</div>
-          {% for t in gruppe.termine %}
-          <div class="vorschau-termin eintrag">
-            <span class="v-zeit{% if t.bis %} v-bis{% endif %}">{{ t.zeit or t.bis }}</span>
-            <span class="v-titel {{ stil }}" style="{{ farbe(t) }}">{{ t.titel }}</span>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="vorschau-leer">Keine weiteren Termine in den nächsten Tagen</div>
-        {% endfor %}
-      </div>
-    </aside>
-  </main>
-
-  {% elif ansicht == "woche" %}
-  <main class="woche-layout" style="--tage: {{ daten.spalten | length }};">
-    <div class="wochen-kopf">
-      <div class="achsen-platz"></div>
-      <div class="tage-raster">
-        {% for s in daten.spalten %}
-        <div class="tageskopf{% if s.heute %} heute{% endif %}{% if s.vergangen %} vergangen{% endif %}">
-          <span class="wt">{{ s.kurz }}</span><span class="nr">{{ s.nummer }}</span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% if daten.hat_ganztag %}
-    <div class="ganztag-bereich">
-      <div class="achsen-platz"></div>
-      <div class="tage-raster balken-raster">
-        {{ balken_raster(daten.ganztag, none) }}
-        {% for s in daten.spalten %}{% if s.versteckt %}
-        <div class="mehr" style="grid-column: {{ loop.index }}; grid-row: {{ daten.ganztag.spuren + 1 }};">+{{ s.versteckt }} weitere</div>
-        {% endif %}{% endfor %}
-      </div>
-    </div>
+  <section class="held">
+    {% if daten.held %}
+    <div class="label">{{ daten.held.label }}</div>
+    <div class="held-zeit">{{ daten.held.zeit }}</div>
+    <div class="held-titel">{{ daten.held.titel }}</div>
+    {% if daten.held.ort %}<div class="held-ort">{{ daten.held.ort }}</div>{% endif %}
+    <div class="held-wann akzent">{{ daten.held.wann }}</div>
+    {% else %}
+    <div class="label">Als Nächstes</div>
+    <div class="held-leer">Keine Termine in den nächsten Tagen</div>
     {% endif %}
-    <div class="raster">
-      <div class="zeitachse">
-        {% for s in daten.stunden %}<div class="stunde" style="top: {{ s.oben }}%">{{ s.label }}</div>{% endfor %}
-      </div>
-      <div class="spalten">
-        <div class="baender">
-          {% for s in daten.stunden %}{% if loop.index0 is even %}
-          <div class="band" style="top: {{ s.oben }}%; height: {{ 100 / (daten.stunden | length) }}%;"></div>
-          {% endif %}{% endfor %}
-        </div>
-        {% for s in daten.spalten %}
-        <div class="spalte{% if s.heute %} heute{% endif %}">
-          {% for t in s.bloecke %}{{ termin_karte(t) }}{% endfor %}
-          {% if s.heute and daten.jetzt is not none %}<div class="jetzt" style="top: {{ daten.jetzt }}%"></div>{% endif %}
-        </div>
+  </section>
+  <section class="rechts ueberlauf" data-mehr="weitere">
+    {% if daten.held_heute %}
+    <div class="label eintrag">Später heute</div>
+    {% for t in daten.spaeter %}
+    <div class="zeile eintrag"><span class="z">{{ t.zeit }}</span><span class="t">{{ t.titel }}</span></div>
+    {% else %}
+    <div class="zeile eintrag frei">nichts mehr</div>
+    {% endfor %}
+    {% endif %}
+    <div class="label eintrag{% if daten.held_heute %} abstand{% endif %}">Morgen</div>
+    {% for t in daten.morgen %}
+    <div class="zeile eintrag"><span class="z">{{ t.zeit }}</span><span class="t">{{ t.titel }}</span></div>
+    {% else %}
+    <div class="zeile eintrag frei">frei</div>
+    {% endfor %}
+  </section>
+  {% if daten.ausblick %}
+  <footer class="fuss ueberlauf">
+    {% for a in daten.ausblick %}<span class="eintrag"><b>{{ a.tag }}</b> {{ a.titel | join(", ") }}</span>{% endfor %}
+  </footer>
+  {% endif %}
+
+  {% elif ansicht == "wochenzettel" %}
+  {# ---------- Wochenzettel: acht Tage als kurze Listen ---------- #}
+  <header class="kopf">
+    <b>{{ daten.titel }}</b>
+    <span>{{ daten.bereich }} · KW {{ daten.kw }}</span>
+  </header>
+  {% if daten.band %}<div class="band">{{ ganztag_text(daten.band) }}</div>{% endif %}
+  <main class="tage">
+    {% for tag in daten.tage %}
+    <div class="tag{% if tag.heute %} tag-heute{% endif %}">
+      <div class="wt">{{ tag.kurz }}<small>{{ tag.nummer }}</small></div>
+      <ul class="ueberlauf" data-mehr="weitere">
+        {% for t in tag.termine %}
+        <li class="eintrag{% if t.vorbei %} vorbei{% endif %}">{% if t.zeit %}<i>{{ t.zeit }}</i>{% endif %}{{ t.titel }}</li>
+        {% else %}
+        <li class="frei">frei</li>
         {% endfor %}
-      </div>
+      </ul>
     </div>
+    {% endfor %}
   </main>
 
   {% else %}
-  <main class="monat-layout" style="--tage: {{ daten.kopf | length }};">
-    <div class="monat-kopf tage-raster">
-      {% for k in daten.kopf %}<div>{{ k }}</div>{% endfor %}
+  {# ---------- Tagesblatt: großes Datum, die Termine von heute ---------- #}
+  <aside class="datum">
+    <div>
+      <div class="d-wt">{{ daten.wochentag }}</div>
+      <div class="d-nr">{{ daten.nummer }}</div>
+      <div class="d-mo">{{ daten.monat }}</div>
     </div>
-    <div class="monat-raster" style="grid-template-rows: repeat({{ daten.wochen | length }}, 1fr);">
-      {% for woche in daten.wochen %}
-      {% set spuren = woche.ganztag.spuren %}
-      <div class="m-woche tage-raster" style="grid-template-rows: auto {% for _ in range(spuren) %}auto {% endfor %}1fr;">
-        {% for z in woche.tage %}
-        <div class="m-zelle{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}{% if z.wochenende %} we{% endif %}"
-             style="grid-column: {{ loop.index }}; grid-row: 1 / -1;"></div>
-        <div class="m-nr{% if z.heute %} heute{% endif %}{% if z.anderer_monat %} fremd{% endif %}" style="grid-column: {{ loop.index }}; grid-row: 1;"><span>{{ z.nummer }}</span></div>
-        {% endfor %}
-        {{ balken_raster(woche.ganztag, none, 2) }}
-        {% for z in woche.tage %}
-        <div class="m-liste ueberlauf" data-mehr="weitere" data-versteckt="{{ z.versteckt }}"
-             style="grid-column: {{ loop.index }}; grid-row: {{ z.spuren + 2 }} / -1;">
-          {% for t in z.termine %}
-          <div class="eintrag m-termin {{ stil }}" style="{{ farbe(t) }}"><span class="m-zeit">{{ t.zeit }}</span> {{ t.titel }}</div>
-          {% endfor %}
-        </div>
-        {% endfor %}
+    {% if daten.ganztag %}
+    <div class="d-info">{% for g in daten.ganztag %}<div>{{ g.titel }}{% if g.spanne %} {{ g.spanne }}{% endif %}</div>{% endfor %}</div>
+    {% endif %}
+  </aside>
+  <main class="liste">
+    <div class="label">Heute</div>
+    <div class="liste-termine ueberlauf" data-mehr="weitere">
+      {% for t in daten.termine %}
+      <div class="eintrag posten{% if t.vorbei %} vorbei{% endif %}{% if t.naechst %} naechst{% endif %}">
+        <b>{{ t.zeit }}</b><span>{{ t.titel }}</span>
       </div>
+      {% else %}
+      <div class="t-leer">Heute keine Termine</div>
       {% endfor %}
     </div>
+    {% if daten.morgen %}
+    <div class="morgen"><b>Morgen:</b> {{ daten.morgen | join(" · ") }}</div>
+    {% endif %}
   </main>
   {% endif %}
+
+  {% if fehler %}<div class="warnung">{{ fehler }} Kalender nicht erreichbar</div>{% endif %}
 </div>
 
 <script>
   // Erst nach dem Laden (inkl. Schriften) messen; der Screenshot folgt danach.
+  // Was nicht passt, wird von hinten ausgeblendet und als „+N weitere“ zusammengefasst.
   window.addEventListener('load', function () {
     function laeuftUeber(el) { return el.scrollHeight > el.clientHeight + 1; }
 
-    // Terminkarten im Zeitraster an den Platz anpassen: erst Ort, dann Uhrzeit
-    // weglassen, dann den Titel kürzen; reicht es nicht für zwei Zeilen, wird die Karte einzeilig.
-    document.querySelectorAll('.karte-innen').forEach(function (k) {
-      var titel = k.querySelector('.karte-titel');
-      var zeit = k.querySelector('.karte-zeit');
-      var ort = k.querySelector('.karte-ort');
-      if (ort && laeuftUeber(k)) ort.style.display = 'none';
-      if (laeuftUeber(k)) zeit.style.display = 'none';
-      if (!laeuftUeber(k)) return;
-      var zeile = parseFloat(getComputedStyle(titel).lineHeight) || titel.offsetHeight;
-      var zeilen = Math.floor((k.clientHeight - 2) / zeile);
-      if (zeilen >= 2) {
-        titel.style.webkitLineClamp = zeilen;
-        return;
-      }
-      zeit.style.display = '';
-      k.parentNode.classList.add('kurz');
-      if (zeit.scrollWidth > zeit.clientWidth + 1) zeit.style.display = 'none';
-    });
-
-    // Was nicht in eine Zelle passt, wird ausgeblendet und als „+N weitere“ zusammengefasst.
-    // data-versteckt zählt Balken, die schon vorher keinen Platz mehr hatten.
     document.querySelectorAll('.ueberlauf').forEach(function (box) {
+      if (!laeuftUeber(box)) return;
       var eintraege = Array.prototype.slice.call(box.querySelectorAll(':scope > .eintrag'));
-      var versteckt = parseInt(box.dataset.versteckt || '0', 10);
-      if (!versteckt && !laeuftUeber(box)) return;
+      // Ohne data-mehr (Ausblick) wird nur gekürzt, ohne „+N“
       var mehr = document.createElement('div');
       mehr.className = 'mehr';
-      box.appendChild(mehr);
-      mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
+      if (box.dataset.mehr) box.appendChild(mehr);
+      var versteckt = 0;
       for (var i = eintraege.length - 1; i >= 0 && laeuftUeber(box); i--) {
         eintraege[i].style.display = 'none';
-        if (!eintraege[i].classList.contains('vorschau-tag')) versteckt++;
+        if (!eintraege[i].classList.contains('label')) versteckt++;
         mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
       }
-      // Keine verwaiste Tagesüberschrift am Ende der Vorschau stehen lassen
+      // Keine Überschrift ohne Einträge am Ende stehen lassen
       for (var j = i; j >= 0; j--) {
         if (eintraege[j].style.display === 'none') continue;
-        if (eintraege[j].classList.contains('vorschau-tag')) eintraege[j].style.display = 'none';
+        if (eintraege[j].classList.contains('label')) eintraege[j].style.display = 'none';
         break;
       }
     });
+
   });
 </script>
 {% endblock %}
