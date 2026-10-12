@@ -8,63 +8,63 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 for module in ("PIL", "numpy"):
     pytest.importorskip(module)
 
-from display import loeschen  # noqa: E402
-from utils import loeschtest  # noqa: E402
+from utils import eink_farben, loeschtest  # noqa: E402
+
+PIGMENTE = {eink_farben._rgb(farbe) for farbe in eink_farben.palette("waveshare").values()}
 
 
 @pytest.mark.parametrize("groesse", [(800, 480), (480, 800)])
-def test_szenen_nutzen_nur_pigmente_und_werden_groesser(groesse):
-    anteile = []
-    pigmente = set(loeschtest_pigmente())
-    for szenen_id in loeschtest.SZENEN_IDS:
-        vorher, nachher = loeschtest.bilder(szenen_id, groesse)
-        assert vorher.size == nachher.size == groesse
-        # Text wird kantengeglättet, die Flächen müssen aber reine Pigmente sein
-        for bild in (vorher, nachher):
+def test_ablaeufe_nutzen_nur_pigmente(groesse):
+    for ablauf_id in loeschtest.ABLAUF_IDS:
+        for schritt in (0, loeschtest.schritte(ablauf_id)):
+            bild = loeschtest.bild(ablauf_id, schritt, groesse)
+            assert bild.size == groesse
+            # Schrift ist kantengeglättet, Flächen und Mischungen bestehen aus reinen Pigmenten
             farben = bild.getcolors(1 << 24)
-            anteil_rein = sum(n for n, farbe in farben if farbe in pigmente) / (groesse[0] * groesse[1])
-            assert anteil_rein > 0.95
-        anteile.append(loeschen.anteil_geaendert(loeschen.pigment_bild(vorher), loeschen.pigment_bild(nachher)))
-    assert anteile[0] < 0.15 and anteile[-1] > 0.6
-    assert anteile == sorted(anteile)
+            rein = sum(n for n, farbe in farben if farbe in PIGMENTE) / (groesse[0] * groesse[1])
+            assert rein > 0.95
 
 
-def loeschtest_pigmente():
-    return [loeschtest.SCHWARZ, loeschtest.WEISS, loeschtest.ROT, loeschtest.GRUEN,
-            loeschtest.BLAU, loeschtest.GELB, loeschtest.ORANGE]
+def test_ablaeufe_bilden_den_alltag_ab():
+    g = (800, 480)
+    uhr = loeschtest.verlauf_bis("uhr", loeschtest.schritte("uhr"), g)
+    assert uhr.bilder >= 10 and loeschtest.flaeche(uhr) < 15      # viele Bilder, wenig Fläche
+    tag = [loeschtest.flaeche(loeschtest.verlauf_bis("tag", k, g)) for k in range(1, loeschtest.schritte("tag") + 1)]
+    assert tag == sorted(tag) and tag[0] < 20 and tag[-1] > 40   # Fläche wächst über den Tag
+    wechsel = loeschtest.verlauf_bis("wechsel", 2, g)
+    assert loeschtest.flaeche(wechsel) > 80                        # Ansichtswechsel: fast alles
 
 
-def e(anteil, bewertung):
-    return {"anteil": anteil, "bewertung": bewertung}
+def e(ablauf, bilder, flaeche, bewertung):
+    return {"ablauf": ablauf, "bilder": bilder, "flaeche": flaeche, "bewertung": bewertung}
 
 
-def test_empfehlung_schwelle_zwischen_sauber_und_stoerend():
-    result = loeschtest.empfehlung([e(4, "sauber"), e(12, "leicht"), e(22, "sauber"), e(45, "stoerend"), e(85, "stoerend")])
-    assert result["modus"] == "automatisch"
-    assert 22 < result["schwelle"] <= 45
+def test_empfehlung_aus_uhr_und_flaeche():
+    ergebnisse = [e("uhr", k, 3 + k * 0.5, "sauber") for k in range(1, 6)] + [e("uhr", 6, 6, "stoerend")]
+    ergebnisse += [e("tag", 1, 12, "sauber"), e("tag", 2, 13, "sauber"), e("tag", 3, 25, "leicht"),
+                   e("tag", 4, 31, "stoerend")]
+    ergebnisse += [e("wechsel", 1, 70, "stoerend")]
+    r = loeschtest.empfehlung(ergebnisse)
+    assert r["modus"] == "automatisch"
+    assert r["max_bilder"] == 5
+    assert 25 < r["schwelle"] <= 31
 
 
 def test_empfehlung_ohne_stoerende_reste():
-    result = loeschtest.empfehlung([e(4, "sauber"), e(85, "leicht")])
-    assert result == {**result, "modus": "automatisch", "schwelle": 100}
+    r = loeschtest.empfehlung([e("uhr", k, 3, "sauber") for k in range(1, 13)] + [e("wechsel", 7, 100, "leicht")])
+    assert (r["modus"], r["max_bilder"], r["schwelle"]) == ("automatisch", 12, 100)
+    assert "länger konnte der Test nicht prüfen" in r["text"]
 
 
 def test_empfehlung_immer_loeschen():
-    assert loeschtest.empfehlung([e(4, "stoerend"), e(40, "stoerend")])["modus"] == "immer"
+    assert loeschtest.empfehlung([e("uhr", 1, 3, "stoerend")])["modus"] == "immer"
 
 
-def test_empfehlung_bei_widerspruch_vorsichtig():
-    result = loeschtest.empfehlung([e(4, "sauber"), e(20, "stoerend"), e(50, "sauber")])
-    assert result["schwelle"] <= 20 and "Hinweis" in result["text"]
+def test_stoerung_durch_viele_bilder_senkt_nicht_die_flaeche():
+    # Bei der Uhr stört Bild 8 – das liegt an der Zahl, nicht an der kleinen Fläche
+    r = loeschtest.empfehlung([e("uhr", k, 3 + k * 0.5, "sauber") for k in range(1, 8)] + [e("uhr", 8, 7, "stoerend")])
+    assert r["max_bilder"] == 7 and r["schwelle"] == 100
 
 
 def test_ohne_bewertung_keine_empfehlung():
     assert loeschtest.empfehlung([]) is None
-
-
-def test_schwelle_aus_der_einstellung():
-    a = loeschen.pigment_bild(loeschtest.bilder("uhr", (800, 480))[0])
-    b = loeschen.pigment_bild(loeschtest.bilder("wetter", (800, 480))[1])
-    anteil = loeschen.anteil_geaendert(a, b) * 100
-    assert loeschen.entscheiden("automatisch", a, b, 1000, jetzt=2000, schwelle=anteil - 1)[0] is True
-    assert loeschen.entscheiden("automatisch", a, b, 1000, jetzt=2000, schwelle=anteil + 1)[0] is False

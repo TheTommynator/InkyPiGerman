@@ -72,9 +72,11 @@ def test_einzelne_einstellung_wird_sofort_gespeichert(env):
     client.post("/settings/geraet", json={"inverted_image": True, "log_system_stats": False})
     assert saved(path)["inverted_image"] is True and saved(path)["log_system_stats"] is False
 
-    client.post("/settings/geraet", json={"display_clear_mode": "automatisch", "display_clear_threshold": 45})
+    client.post("/settings/geraet", json={"display_clear_mode": "automatisch", "display_clear_threshold": 45,
+                                                "display_clear_max_updates": 12})
     assert saved(path)["display_clear_mode"] == "automatisch"
     assert saved(path)["display_clear_threshold"] == 45
+    assert saved(path)["display_clear_max_updates"] == 12
 
 
 def test_zeitzone_weckt_den_zeitplan(env):
@@ -94,6 +96,7 @@ def test_zeitzone_weckt_den_zeitplan(env):
     ({"display_clear_mode": "manchmal"}, "Löschen"),
     ({"display_clear_threshold": 2}, "zwischen 5 und 100"),
     ({"display_clear_threshold": "viel"}, "ganze Zahl"),
+    ({"display_clear_max_updates": 0}, "zwischen 1 und 500"),
     ({"timezone": "Mond/Krater"}, "keine bekannte Zeitzone"),
     ({}, "Keine Einstellung"),
 ])
@@ -126,23 +129,24 @@ def test_seiten_werden_angezeigt(env, url, text):
     assert text in response.get_data(as_text=True)
 
 
-def test_loeschtest_zeigt_szene_mit_und_ohne_loeschen(env):
+def test_loeschtest_zeigt_ablauf_erst_sauber_dann_ohne_loeschen(env):
     client, _, task = env
-    response = client.post("/settings/loeschtest/zeigen", json={"szene": "wetter", "bild": "vorher"})
-    assert response.status_code == 200
-    anteil = response.get_json()["anteil"]
-    assert 5 < anteil < 40
-    client.post("/settings/loeschtest/zeigen", json={"szene": "wetter", "bild": "nachher"})
+    first = client.post("/settings/loeschtest/zeigen", json={"ablauf": "tag", "schritt": 0}).get_json()
+    assert (first["bilder"], first["flaeche"]) == (0, 0.0)
+    second = client.post("/settings/loeschtest/zeigen", json={"ablauf": "tag", "schritt": 2}).get_json()
+    assert second["bilder"] == 2 and second["flaeche"] > 5
     assert [action.clear for action in task.shown] == [True, False]
     assert all(action.always_show for action in task.shown)
 
-    assert client.post("/settings/loeschtest/zeigen", json={"szene": "mond", "bild": "vorher"}).status_code == 400
+    assert client.post("/settings/loeschtest/zeigen", json={"ablauf": "mond", "schritt": 0}).status_code == 400
+    assert client.post("/settings/loeschtest/zeigen", json={"ablauf": "tag", "schritt": 99}).status_code == 400
 
 
 def test_loeschtest_auswertung(env):
     client, _, _ = env
     response = client.post("/settings/loeschtest/auswerten", json={"ergebnisse": [
-        {"anteil": 6, "bewertung": "sauber"}, {"anteil": 34, "bewertung": "stoerend"}]})
+        {"ablauf": "uhr", "bilder": 1, "flaeche": 3, "bewertung": "sauber"},
+        {"ablauf": "uhr", "bilder": 2, "flaeche": 4, "bewertung": "stoerend"}]})
     empfehlung = response.get_json()["empfehlung"]
-    assert empfehlung["modus"] == "automatisch" and 6 < empfehlung["schwelle"] <= 34
+    assert empfehlung["modus"] == "automatisch" and empfehlung["max_bilder"] == 1
     assert client.post("/settings/loeschtest/auswerten", json={"ergebnisse": []}).status_code == 400

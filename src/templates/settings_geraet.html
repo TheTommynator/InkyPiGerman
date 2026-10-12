@@ -54,7 +54,7 @@
                 </a>
             </div>
             <p class="list-footer" data-clear-hint="immer">Vor jedem Bild wird das Display einmal weiß aufgebaut. Das entfernt Reste des vorigen Bilds (Geisterbilder), verdoppelt aber ungefähr die Dauer.</p>
-            <p class="list-footer" data-clear-hint="automatisch" hidden>Gelöscht wird nur, wenn es sich lohnt: beim ersten Bild nach einem Neustart, wenn sich mindestens {{ clear_threshold }}&nbsp;% des Bilds ändern (z.&nbsp;B. Wechsel zu einer anderen Ansicht) und spätestens einmal am Tag. Kleine Änderungen wie eine neue Uhrzeit gehen ohne Löschen – also etwa doppelt so schnell.</p>
+            <p class="list-footer" data-clear-hint="automatisch" hidden>Gelöscht wird nur, wenn es sich lohnt: beim ersten Bild nach einem Neustart, nach spätestens {{ clear_max_updates }} Bildern ohne Löschen (Reste stapeln sich, z.&nbsp;B. bei einer Uhr im Minutentakt), sobald sich seit dem letzten Löschen {% if clear_threshold < 100 %}{{ clear_threshold }}&nbsp;% der Fläche verändert haben{% else %}fast das ganze Bild verändert hat{% endif %} und spätestens einmal am Tag. Mit dem Löschtest stellst du beide Grenzen passend zu deinem Display ein.</p>
             <p class="list-footer" data-clear-hint="nie" hidden>Am schnellsten. Auf Dauer können schwache Reste früherer Bilder sichtbar bleiben.</p>
         </section>
 
