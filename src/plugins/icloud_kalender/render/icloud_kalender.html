@@ -14,59 +14,52 @@
      style="font-size: {{ basis_px }}px; --akzent: {{ akzent }};">
 
   {% if ansicht == "naechstes" %}
-  {# ---------- Als Nächstes: der nächste Termin riesig ---------- #}
-  <header class="kopf">
-    <span class="kopf-datum"><b>{{ daten.wochentag }}</b> {{ daten.datum }}</span>
-    {% if daten.ganztag %}<span class="kopf-ganztag">{{ ganztag_text(daten.ganztag) }}</span>{% endif %}
-  </header>
+  {# ---------- Widgets: der nächste Termin groß, daneben heute und morgen ---------- #}
   <section class="held">
+    <div class="ober">{{ daten.wochentag }} {{ daten.datum }}{% if daten.ganztag %}<span> · {{ ganztag_text(daten.ganztag) }}</span>{% endif %}</div>
     {% if daten.held %}
-    <div class="label">{{ daten.held.label }}</div>
     <div class="held-zeit">{{ daten.held.zeit }}</div>
     <div class="held-titel">{{ daten.held.titel }}</div>
-    {% if daten.held.ort %}<div class="held-ort">{{ daten.held.ort }}</div>{% endif %}
-    <div class="held-wann akzent">{{ daten.held.wann }}</div>
+    <div class="pille akzent-pille">{{ daten.held.wann }}</div>
     {% else %}
-    <div class="label">Als Nächstes</div>
     <div class="held-leer">Keine Termine in den nächsten Tagen</div>
     {% endif %}
   </section>
-  <section class="rechts ueberlauf" data-mehr="weitere">
-    {% if daten.held_heute %}
+  <section class="kachel ueberlauf" data-mehr="weitere" style="background: {{ kachel_a }};">
     <div class="label eintrag">Später heute</div>
     {% for t in daten.spaeter %}
-    <div class="zeile eintrag"><span class="z">{{ t.zeit }}</span><span class="t">{{ t.titel }}</span></div>
+    <div class="zeile eintrag"><b>{{ t.zeit }}</b><span>{{ t.titel }}</span></div>
     {% else %}
     <div class="zeile eintrag frei">nichts mehr</div>
     {% endfor %}
-    {% endif %}
-    <div class="label eintrag{% if daten.held_heute %} abstand{% endif %}">Morgen</div>
+  </section>
+  <section class="kachel ueberlauf" data-mehr="weitere" style="background: {{ kachel_b }};">
+    <div class="label eintrag">Morgen</div>
     {% for t in daten.morgen %}
-    <div class="zeile eintrag"><span class="z">{{ t.zeit }}</span><span class="t">{{ t.titel }}</span></div>
+    <div class="zeile eintrag"><b>{{ t.zeit }}</b><span>{{ t.titel }}</span></div>
     {% else %}
     <div class="zeile eintrag frei">frei</div>
     {% endfor %}
   </section>
-  {% if daten.ausblick %}
-  <footer class="fuss ueberlauf">
-    {% for a in daten.ausblick %}<span class="eintrag"><b>{{ a.tag }}</b> {{ a.titel | join(", ") }}</span>{% endfor %}
-  </footer>
-  {% endif %}
 
   {% elif ansicht == "wochenzettel" %}
-  {# ---------- Wochenzettel: acht Tage als kurze Listen ---------- #}
+  {# ---------- Wochenkarten: acht Tage, Termine als Pillen in der Kalenderfarbe ---------- #}
   <header class="kopf">
-    <b>{{ daten.titel }}</b>
-    <span>{{ daten.bereich }} · KW {{ daten.kw }}</span>
+    <b class="monat">{{ daten.monat }}</b>
+    <span class="kw">KW {{ daten.kw }}</span>
+    {% if daten.band %}
+    <div class="band">
+      {% for b in daten.band %}<span class="pille" style="background: {{ b.farbe }};">{{ b.titel }} {{ b.spanne }}</span>{% endfor %}
+    </div>
+    {% endif %}
   </header>
-  {% if daten.band %}<div class="band">{{ ganztag_text(daten.band) }}</div>{% endif %}
   <main class="tage">
     {% for tag in daten.tage %}
     <div class="tag{% if tag.heute %} tag-heute{% endif %}">
-      <div class="wt">{{ tag.kurz }}<small>{{ tag.nummer }}</small></div>
-      <ul class="ueberlauf" data-mehr="weitere">
+      <div class="tag-kopf"><span class="nr">{{ tag.nummer | replace('.', '') }}</span><span class="wt">{{ tag.kurz }}</span></div>
+      <ul class="chips ueberlauf" data-mehr="weitere">
         {% for t in tag.termine %}
-        <li class="eintrag{% if t.vorbei %} vorbei{% endif %}">{% if t.zeit %}<i>{{ t.zeit }}</i>{% endif %}{{ t.titel }}</li>
+        <li class="eintrag pille{% if t.vorbei %} vorbei{% endif %}" style="background: {{ t.farbe }};">{% if t.zeit %}<b>{{ t.zeit }}</b> {% endif %}{{ t.titel }}</li>
         {% else %}
         <li class="frei">frei</li>
         {% endfor %}
@@ -76,30 +69,34 @@
   </main>
 
   {% else %}
-  {# ---------- Tagesblatt: großes Datum, die Termine von heute ---------- #}
-  <aside class="datum">
-    <div>
-      <div class="d-wt">{{ daten.wochentag }}</div>
-      <div class="d-nr">{{ daten.nummer }}</div>
-      <div class="d-mo">{{ daten.monat }}</div>
+  {# ---------- Kalenderblatt: das Kalender-Icon groß, daneben die Termine von heute ---------- #}
+  <aside class="blatt">
+    <div class="icon">
+      <div class="icon-band">{{ daten.wochentag }}</div>
+      <div class="icon-nr">{{ daten.nummer }}</div>
     </div>
+    <div class="blatt-monat">{{ daten.monat }} {{ daten.jahr }}</div>
     {% if daten.ganztag %}
-    <div class="d-info">{% for g in daten.ganztag %}<div>{{ g.titel }}{% if g.spanne %} {{ g.spanne }}{% endif %}</div>{% endfor %}</div>
+    <div class="blatt-pillen">
+      {% for g in daten.ganztag %}<span class="pille" style="background: {{ g.farbe }};">{{ g.titel }}{% if g.spanne %} {{ g.spanne }}{% endif %}</span>{% endfor %}
+    </div>
     {% endif %}
   </aside>
   <main class="liste">
-    <div class="label">Heute</div>
     <div class="liste-termine ueberlauf" data-mehr="weitere">
       {% for t in daten.termine %}
-      <div class="eintrag posten{% if t.vorbei %} vorbei{% endif %}{% if t.naechst %} naechst{% endif %}">
-        <b>{{ t.zeit }}</b><span>{{ t.titel }}</span>
+      {% if t.naechst %}<div class="jetzt-linie eintrag">Jetzt {{ daten.jetzt }}</div>{% endif %}
+      <div class="eintrag posten{% if t.vorbei %} vorbei{% endif %}{% if t.naechst %} naechst{% endif %}"
+           {% if not t.vorbei %}style="background: {{ t.farbe }};"{% endif %}>
+        <b>{{ t.zeit }}</b>
+        <span class="posten-text">{{ t.titel }}{% if t.wann %}<small>{{ t.wann }}</small>{% endif %}</span>
       </div>
       {% else %}
       <div class="t-leer">Heute keine Termine</div>
       {% endfor %}
     </div>
     {% if daten.morgen %}
-    <div class="morgen"><b>Morgen:</b> {{ daten.morgen | join(" · ") }}</div>
+    <div class="morgen"><b>Morgen</b> {{ daten.morgen | join(" · ") }}</div>
     {% endif %}
   </main>
   {% endif %}
@@ -116,24 +113,24 @@
     document.querySelectorAll('.ueberlauf').forEach(function (box) {
       if (!laeuftUeber(box)) return;
       var eintraege = Array.prototype.slice.call(box.querySelectorAll(':scope > .eintrag'));
-      // Ohne data-mehr (Ausblick) wird nur gekürzt, ohne „+N“
-      var mehr = document.createElement('div');
+      var mehr = document.createElement(box.tagName === 'UL' ? 'li' : 'div');
       mehr.className = 'mehr';
-      if (box.dataset.mehr) box.appendChild(mehr);
+      box.appendChild(mehr);
       var versteckt = 0;
       for (var i = eintraege.length - 1; i >= 0 && laeuftUeber(box); i--) {
         eintraege[i].style.display = 'none';
-        if (!eintraege[i].classList.contains('label')) versteckt++;
+        if (!eintraege[i].classList.contains('label') && !eintraege[i].classList.contains('jetzt-linie')) versteckt++;
         mehr.textContent = '+' + versteckt + ' ' + box.dataset.mehr;
       }
       // Keine Überschrift ohne Einträge am Ende stehen lassen
       for (var j = i; j >= 0; j--) {
         if (eintraege[j].style.display === 'none') continue;
-        if (eintraege[j].classList.contains('label')) eintraege[j].style.display = 'none';
+        if (eintraege[j].classList.contains('label') || eintraege[j].classList.contains('jetzt-linie')) {
+          eintraege[j].style.display = 'none';
+        }
         break;
       }
     });
-
   });
 </script>
 {% endblock %}

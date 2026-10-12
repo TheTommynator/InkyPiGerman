@@ -1,6 +1,7 @@
-/* iCloud-Kalender – keine Kalenderraster, sondern große Schrift auf einen Blick:
-   Schwarz auf Weiß, eine Akzentfarbe, keine Graustufen oder Farbflächen hinter
-   Text (die würden auf dem 7-Farben-Display zu Punktmustern gerastert).
+/* iCloud-Kalender im Stil von iPhone-Widgets: große abgerundete Flächen,
+   ruhige Pastelltöne je Kalender, Schwarz als Blickfang, Rot nur als Akzent.
+   Auf dem 7-Farben-Display sind die Pastelltöne feste Pixelmuster aus Pigment
+   und Weiß; Schrift darauf ist schwarz und kräftig.
    Alle Maße in em, bezogen auf die Grundschrift (15 px bei 800 × 480). */
 
 body {
@@ -20,6 +21,8 @@ body {
 .kal {
     --grund: #ffffff;
     --text: #000000;
+    --karte: #000000;
+    --karte-text: #ffffff;
 
     position: relative;
     width: 100%;
@@ -35,11 +38,10 @@ body {
 .kal.thema-dunkel {
     --grund: #000000;
     --text: #ffffff;
+    --karte: #2a2a2a;
 }
 
 .kal *, .kal *::before, .kal *::after { box-sizing: border-box; }
-
-.akzent { color: var(--akzent); }
 
 .label {
     font-size: 1.13em;
@@ -48,72 +50,88 @@ body {
     text-transform: uppercase;
 }
 
+/* Pillen und Karten tragen immer schwarze Schrift auf hellem Pastell */
+.pille, .kachel, .posten {
+    color: #000000;
+}
+
+.pille {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 0.2em 0.75em;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
 .frei { font-weight: 450; }
 
 .mehr {
-    font-size: 1.1em;
+    font-size: 1em;
     font-weight: 750;
+    list-style: none;
 }
 
 .warnung {
     position: absolute;
     right: 1.2em;
-    bottom: 0.6em;
-    font-size: 1.1em;
+    bottom: 0.4em;
+    font-size: 1em;
     font-weight: 750;
     color: var(--akzent);
     background: var(--grund);
-    padding-left: 0.5em;
+    padding: 0 0.5em;
+    border-radius: 999px;
 }
 
 .ueberlauf { min-height: 0; overflow: hidden; }
 
-/* ---------- Als Nächstes ---------- */
+/* ---------- Widgets ---------- */
 
 .ansicht-naechstes {
-    padding: 1.45em 1.85em 1.2em;
+    padding: 0.95em;
     display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: 0 2em;
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.95em;
 }
 
-.ansicht-naechstes .kopf {
-    grid-column: 1 / -1;
+.held {
+    grid-row: 1 / 3;
+    background: var(--karte);
+    color: var(--karte-text);
+    border-radius: 2em;
+    padding: 1.45em 1.75em;
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1em;
-    font-size: 1.47em;
-    margin-bottom: 0.6em;
-    white-space: nowrap;
-}
-
-.kopf-datum b { font-size: 1.36em; font-weight: 750; }
-
-.kopf-ganztag {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.held, .ansicht-naechstes .rechts {
-    border-top: 0.33em solid var(--text);
-    padding-top: 0.8em;
+    flex-direction: column;
     min-height: 0;
     overflow: hidden;
 }
 
+.ober {
+    font-size: 1.27em;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ober span { font-weight: 650; letter-spacing: 0; text-transform: none; }
+
 .held-zeit {
-    font-size: 6.1em;
-    font-weight: 750;
-    line-height: 0.95;
-    letter-spacing: -0.02em;
-    margin-top: 0.06em;
+    font-size: 8.8em;
+    font-weight: 800;
+    line-height: 0.9;
+    letter-spacing: -0.03em;
+    margin-top: auto;
 }
 
 .held-titel {
-    font-size: 2.67em;
+    font-size: 3.07em;
     font-weight: 700;
     line-height: 1.05;
     margin-top: 0.15em;
@@ -123,72 +141,54 @@ body {
     overflow: hidden;
 }
 
-.held-ort { font-size: 1.6em; font-weight: 500; margin-top: 0.2em; }
-
-.held-wann { font-size: 1.73em; margin-top: 0.35em; }
-
-.held-leer { font-size: 2.4em; line-height: 1.15; margin-top: 0.5em; }
-
-.ansicht-naechstes .rechts {
-    display: flex;
-    flex-direction: column;
-    gap: 0.65em;
+.akzent-pille {
+    align-self: flex-start;
+    margin-top: 0.7em;
+    background: var(--akzent);
+    color: #ffffff;
+    font-size: 1.73em;
+    font-weight: 750;
+    padding: 0.2em 0.75em;
 }
 
-.rechts .label.abstand { margin-top: 0.8em; }
+.held-leer { font-size: 2.6em; font-weight: 700; line-height: 1.15; margin-top: auto; }
+
+.kachel {
+    border-radius: 2em;
+    padding: 1.3em 1.6em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+}
+
+.kachel .label { margin-bottom: 0.45em; }
 
 .zeile {
     display: flex;
     gap: 0.5em;
-    font-size: 1.67em;
-    align-items: baseline;
-    line-height: 1.15;
-}
-
-.zeile .z {
-    width: 3em;
-    flex: 0 0 auto;
-    text-align: right;
-    font-weight: 750;
-}
-
-.zeile .t { min-width: 0; }
-
-.fuss {
-    grid-column: 1 / -1;
-    border-top: 0.13em solid var(--text);
-    margin-top: 0.8em;
-    padding-top: 0.5em;
-    font-size: 1.4em;
-    line-height: 1.25;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.15em 1.2em;
-    max-height: 3.3em;
-}
-
-.fuss .eintrag {
-    max-width: 100%;
+    font-size: 1.6em;
+    font-weight: 700;
+    line-height: 1.3;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-.fuss b { font-weight: 750; margin-right: 0.15em; }
+.zeile b { width: 2.75em; flex: 0 0 auto; text-align: right; font-weight: 800; }
+
+.zeile span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.kachel .mehr { font-size: 1.2em; margin-top: 0.2em; }
 
 .ansicht-naechstes.hochformat {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
-.ansicht-naechstes.hochformat .rechts { margin-top: 1.2em; }
+.ansicht-naechstes.hochformat .held { grid-row: auto; }
 
-.ansicht-naechstes.hochformat .fuss { max-height: 5.4em; }
-
-/* ---------- Wochenzettel ---------- */
+/* ---------- Wochenkarten ---------- */
 
 .ansicht-wochenzettel {
-    padding: 1.2em 1.75em 1.1em;
+    padding: 1.05em 1.2em;
     display: flex;
     flex-direction: column;
     gap: 0.65em;
@@ -196,123 +196,157 @@ body {
 
 .ansicht-wochenzettel .kopf {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0 1em;
-    justify-content: space-between;
     align-items: baseline;
-    font-size: 1.33em;
+    flex-wrap: wrap;
+    gap: 0.5em 0.9em;
+    white-space: nowrap;
 }
 
-.ansicht-wochenzettel .kopf b { font-size: 1.6em; font-weight: 750; }
+.monat { font-size: 2.67em; font-weight: 800; line-height: 1; }
 
+.kw { font-size: 1.47em; font-weight: 600; }
+
+/* Mehrtägige Termine (Ferien, Urlaub) als Pillen in einer eigenen Zeile */
 .band {
-    font-size: 1.27em;
-    border: 0.1em solid var(--text);
-    border-radius: 0.4em;
-    padding: 0.2em 0.6em;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35em 0.5em;
+    max-height: 3.3em;
+    overflow: hidden;
 }
+
+.band .pille { font-size: 1.13em; flex: 0 1 auto; min-width: 0; }
 
 .tage {
     flex: 1;
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-auto-flow: column;
     grid-template-rows: repeat(4, minmax(0, auto));
-    gap: 0.35em 1.85em;
+    grid-auto-flow: column;
+    gap: 0.55em;
 }
 
 .tag {
-    border-top: 0.13em solid var(--text);
-    padding-top: 0.25em;
+    border: 0.2em solid var(--text);
+    border-radius: 1.35em;
+    padding: 0.45em 0.7em;
     display: flex;
-    gap: 0.8em;
+    align-items: flex-start;
+    gap: 0.6em;
     min-height: 0;
     overflow: hidden;
-    font-size: 1.33em;
 }
 
-.tag .wt {
-    width: 2.3em;
-    flex: 0 0 auto;
-    font-weight: 750;
-    line-height: 1.1;
+.tag-heute { border-width: 0.27em; }
+
+.tag-kopf {
+    flex: 0 0 5em;
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+    height: 2.65em;
 }
 
-.tag .wt small { display: block; font-size: 0.75em; font-weight: 550; }
+.tag-kopf .nr {
+    font-size: 1.73em;
+    font-weight: 800;
+    width: 1.55em;
+    height: 1.55em;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+}
 
-.tag ul {
+.tag-heute .nr { background: var(--akzent); color: #ffffff; }
+
+.tag-kopf .wt { font-size: 1.2em; font-weight: 750; }
+
+/* Alle Einträge bündig untereinander, beginnend auf Höhe der Tageszahl */
+.chips {
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0.25em 0 0;
     flex: 1;
     min-width: 0;
-    line-height: 1.25;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.27em;
 }
 
-.tag li {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+.chips .pille { font-size: 1.2em; padding: 0.1em 0.7em; }
 
-.tag li i {
-    font-style: normal;
-    font-weight: 750;
-    display: inline-block;
-    min-width: 3.2em;
-    margin-right: 0.4em;
-}
+.chips .pille b { font-weight: 800; }
 
-.tag li.vorbei { text-decoration: line-through; text-decoration-thickness: 0.1em; font-weight: 450; }
-.tag li.vorbei i { font-weight: 450; }
+.chips .frei { font-size: 1.33em; padding-left: 0.2em; }
 
-.tag .mehr { font-size: 0.85em; }
+.chips .mehr { font-size: 1.05em; padding-left: 0.5em; }
 
-/* Heute als einzige volle Fläche: reines Schwarz mit weißer Schrift */
-.tag.tag-heute {
-    background: var(--text);
-    color: var(--grund);
-    border-top: none;
-    border-radius: 0.4em;
-    padding: 0.3em 0.5em;
-}
+.vorbei { text-decoration: line-through; text-decoration-thickness: 0.08em; }
 
 .ansicht-wochenzettel.hochformat .tage {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: repeat(8, minmax(0, auto));
 }
 
-/* ---------- Tagesblatt ---------- */
+/* ---------- Kalenderblatt ---------- */
 
 .ansicht-tagesblatt {
-    padding: 1.6em 2em;
+    padding: 1.45em 1.6em;
     display: grid;
-    grid-template-columns: 14.5em minmax(0, 1fr);
-    gap: 0 2.25em;
+    grid-template-columns: 19.3em minmax(0, 1fr);
+    gap: 0 1.75em;
 }
 
-.datum {
+.blatt {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    border-right: 0.2em solid var(--text);
-    padding-right: 1.7em;
+    gap: 0.95em;
     min-height: 0;
 }
 
-.d-wt { font-size: 2.27em; font-weight: 700; }
+.icon {
+    border: 0.27em solid var(--text);
+    border-radius: 2.9em;
+    overflow: hidden;
+    background: #ffffff;
+    color: #000000;
+}
 
-.d-nr {
-    font-size: 10em;
+.icon-band {
+    background: var(--akzent);
+    color: #ffffff;
+    font-size: 2em;
     font-weight: 750;
-    line-height: 0.85;
+    text-align: center;
+    padding: 0.3em 0 0.25em;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.icon-nr {
+    font-size: 11.3em;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1;
+    padding: 0.02em 0 0.08em;
     letter-spacing: -0.04em;
 }
 
-.d-mo { font-size: 2em; font-weight: 600; }
+.blatt-monat { font-size: 1.73em; font-weight: 700; text-align: center; }
 
-.d-info { font-size: 1.27em; line-height: 1.35; }
+.blatt-pillen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    justify-content: center;
+}
+
+.blatt-pillen .pille { font-size: 1.2em; }
 
 .liste {
     display: flex;
@@ -320,45 +354,87 @@ body {
     min-height: 0;
 }
 
-.liste .label { margin-bottom: 0.4em; }
-
-.liste-termine { flex: 1 1 auto; display: flex; flex-direction: column; }
+.liste-termine {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
 
 .posten {
-    display: flex;
-    gap: 0.6em;
-    align-items: baseline;
-    font-size: 2.07em;
-    padding: 0.22em 0;
-    border-bottom: 0.065em solid var(--text);
-    line-height: 1.15;
-}
-
-.posten b {
-    width: 3.2em;
     flex: 0 0 auto;
-    text-align: right;
-    font-weight: 750;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    border-radius: 0.75em;
+    padding: 0.35em 0.65em;
+    font-size: 1.8em;
+    font-weight: 700;
+    line-height: 1.15;
+    border: 0.1em solid transparent;
 }
 
-.posten span { min-width: 0; }
+.posten b { flex: 0 0 auto; min-width: 2.9em; font-weight: 800; }
 
-.posten.vorbei { text-decoration: line-through; text-decoration-thickness: 0.065em; font-weight: 450; }
+.posten-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.posten small { font-size: 0.62em; font-weight: 750; color: var(--akzent); margin-top: 0.05em; }
+
+.posten.vorbei {
+    background: var(--grund);
+    color: var(--text);
+    border-color: var(--text);
+    font-weight: 450;
+}
+
 .posten.vorbei b { font-weight: 450; }
-.posten.naechst b { color: var(--akzent); }
 
-.t-leer { font-size: 2.4em; margin-top: 0.3em; }
+.posten.naechst {
+    font-size: 2.27em;
+    padding: 0.35em 0.5em;
+    border-color: var(--text);
+    border-width: 0.09em;
+}
 
-.liste-termine .mehr { font-size: 1.4em; margin-top: 0.3em; }
+.jetzt-linie {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    color: var(--akzent);
+    font-size: 1.2em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.jetzt-linie::after {
+    content: "";
+    flex: 1;
+    height: 0.22em;
+    background: var(--akzent);
+    border-radius: 0.11em;
+}
+
+.t-leer { font-size: 2.4em; font-weight: 700; margin-top: 0.3em; }
+
+.liste-termine .mehr { font-size: 1.3em; }
 
 .morgen {
     flex: 0 0 auto;
     margin-top: 0.7em;
-    font-size: 1.4em;
-    line-height: 1.4;
+    border-top: 0.2em solid var(--text);
+    padding-top: 0.5em;
+    font-size: 1.33em;
+    line-height: 1.35;
 }
 
-.morgen b { font-weight: 750; }
+.morgen b { font-weight: 800; margin-right: 0.2em; }
 
 .ansicht-tagesblatt.hochformat {
     grid-template-columns: minmax(0, 1fr);
@@ -366,8 +442,18 @@ body {
     gap: 1.2em 0;
 }
 
-.ansicht-tagesblatt.hochformat .datum {
-    border-right: none;
-    border-bottom: 0.2em solid var(--text);
-    padding: 0 0 1em;
+.ansicht-tagesblatt.hochformat .blatt {
+    display: grid;
+    grid-template-columns: 11em minmax(0, 1fr);
+    align-items: center;
+    gap: 0.6em 1.2em;
 }
+
+.ansicht-tagesblatt.hochformat .icon { grid-row: 1 / 3; border-radius: 1.8em; }
+
+.ansicht-tagesblatt.hochformat .icon-band { font-size: 1.2em; }
+
+.ansicht-tagesblatt.hochformat .icon-nr { font-size: 6em; }
+
+.ansicht-tagesblatt.hochformat .blatt-monat,
+.ansicht-tagesblatt.hochformat .blatt-pillen { text-align: left; justify-content: flex-start; }

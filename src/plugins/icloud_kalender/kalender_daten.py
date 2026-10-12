@@ -17,6 +17,7 @@ ihrem letzten Tag.
 
 import math
 from dataclasses import dataclass
+import colorsys
 from datetime import datetime, time, timedelta
 
 from utils.eink_farben import PALETTEN
@@ -170,7 +171,7 @@ def _zeit_am_tag(termin, tag, tz, zeitformat):
 
 
 def _eintrag(termin, zeit=""):
-    return {"titel": termin.titel, "zeit": zeit, "ort": termin.ort}
+    return {"titel": termin.titel, "zeit": zeit, "ort": termin.ort, "farbe": termin.farbe}
 
 
 def _tagesliste(termine, tag, tz, zeitformat, ohne=(), jetzt=None):
@@ -188,12 +189,13 @@ def _tagesliste(termine, tag, tz, zeitformat, ohne=(), jetzt=None):
 def _ganztag_heute(termine, heute, tz):
     """Ganztägige Termine, die heute stattfinden – mehrtägige mit „bis …“."""
     ganz, _ = termine_am_tag(termine, heute, tz)
-    return [{"titel": t.titel, "spanne": spanne(t, heute, tz) if mehrtaegig(t, tz) else ""} for t in ganz]
+    return [{"titel": t.titel, "spanne": spanne(t, heute, tz) if mehrtaegig(t, tz) else "", "farbe": t.farbe}
+            for t in ganz]
 
 
 def baue_naechstes(termine, jetzt, tz, zeitformat="24h"):
     """„Als Nächstes“: der nächste (oder laufende) Termin groß, daneben der Rest
-    von heute und morgen, unten ein kurzer Ausblick auf die Woche."""
+    von heute und morgen."""
     heute = jetzt.date()
     morgen = heute + timedelta(days=1)
     grenze = tagesbeginn(heute + timedelta(days=TAGE), tz)
@@ -221,26 +223,6 @@ def baue_naechstes(termine, jetzt, tz, zeitformat="24h"):
     morgen_beginn = tagesbeginn(morgen, tz)
     spaeter = [_eintrag(t, format_zeit(t.start, zeitformat)) for t in kandidaten[1:] if t.start < morgen_beginn]
 
-    # Ausblick ab übermorgen: je Tag die Einträge; mehrtägige erscheinen einmal mit Spanne
-    morgen_ganz, morgen_zeitlich = termine_am_tag(termine, morgen, tz)
-    gezeigt = {id(t) for t in termine_am_tag(termine, heute, tz)[0] + morgen_ganz}
-    gezeigt |= {id(t) for t, _, _ in morgen_zeitlich} | ohne
-    ausblick = []
-    for i in range(2, 7):
-        tag = heute + timedelta(days=i)
-        ganz, zeitlich = termine_am_tag(termine, tag, tz)
-        titel = []
-        for t in ganz + [t for t, _, _ in zeitlich]:
-            if id(t) in gezeigt:
-                continue
-            gezeigt.add(id(t))
-            if t.ganztag and mehrtaegig(t, tz):
-                titel.append(f"{t.titel} bis {tag_kurz(_erster_letzter(t, tz)[1], heute)}")
-            else:
-                titel.append(t.titel)
-        if titel:
-            ausblick.append({"tag": WOCHENTAGE_KURZ[tag.weekday()], "titel": titel})
-
     return {
         "wochentag": WOCHENTAGE[heute.weekday()],
         "datum": f"{heute.day}. {MONATE[heute.month - 1]}",
@@ -251,7 +233,6 @@ def baue_naechstes(termine, jetzt, tz, zeitformat="24h"):
         "morgen": [_eintrag(t) for t in termine_am_tag(termine, morgen, tz)[0]
                    if mehrtaegig(t, tz) and t.start >= morgen_beginn]
         + _tagesliste(termine, morgen, tz, zeitformat, ohne),
-        "ausblick": ausblick,
     }
 
 
@@ -283,9 +264,10 @@ def baue_wochenzettel(termine, jetzt, tz, zeitformat="24h", tage=TAGE):
         bereich = f"{heute.day}. {MONATE_KURZ[heute.month - 1]} – {letzter_tag.day}. {MONATE_KURZ[letzter_tag.month - 1]}"
     return {
         "titel": "Diese Woche",
+        "monat": MONATE[heute.month - 1],
         "bereich": bereich,
         "kw": heute.isocalendar()[1],
-        "band": [{"titel": t.titel, "spanne": spanne(t, heute, tz)} for t in band],
+        "band": [{"titel": t.titel, "spanne": spanne(t, heute, tz), "farbe": t.farbe} for t in band],
         "tage": spalten,
     }
 
@@ -301,8 +283,13 @@ def baue_tagesblatt(termine, jetzt, tz, zeitformat="24h"):
         vorbei = t.ende <= jetzt and not laeuft
         naechst = not vorbei and not naechst_gefunden
         naechst_gefunden |= naechst
+        wann = ""
+        if naechst:
+            ende_tag = t.ende.astimezone(tz).date()
+            bis = format_zeit(t.ende, zeitformat) if ende_tag == heute else tag_kurz(ende_tag, heute)
+            wann = f"noch bis {bis}" if laeuft else countdown((t.start - jetzt).total_seconds() / 60)
         liste.append(_eintrag(t, _zeit_am_tag(t, heute, tz, zeitformat))
-                     | {"vorbei": vorbei, "laeuft": laeuft, "naechst": naechst})
+                     | {"vorbei": vorbei, "laeuft": laeuft, "naechst": naechst, "wann": wann})
 
     morgen_ganz, morgen_zeitlich = termine_am_tag(termine, morgen, tz)
     morgen_liste = [t.titel for t in morgen_ganz if t.start >= tagesbeginn(morgen, tz)]
@@ -312,6 +299,8 @@ def baue_tagesblatt(termine, jetzt, tz, zeitformat="24h"):
         "wochentag": WOCHENTAGE[heute.weekday()],
         "nummer": heute.day,
         "monat": MONATE[heute.month - 1],
+        "jahr": heute.year,
+        "jetzt": format_zeit(jetzt, zeitformat),
         "ganztag": _ganztag_heute(termine, heute, tz),
         "termine": liste,
         "morgen": morgen_liste,
@@ -351,3 +340,44 @@ def naechste_farbe(farbe, palette):
         return 3 * (r - r2) ** 2 + 4 * (g - g2) ** 2 + 2 * (b - b2) ** 2
 
     return min(palette, key=abstand)
+
+
+# Ruhige Pastelltöne für die Kalender: auf dem 7-Farben-Display je eine Mischung
+# aus Pigment und Weiß (festes 2×2-Muster), in den übrigen Themen der Farbwert.
+# Name → (Mischung aus utils/eink_farben.py, CSS-Farbe, Farbton in Grad oder None für Grau)
+PASTELLE = {
+    "mint": ("gruen_weiss_50", "#a9dfb4", 120),
+    "apricot": ("orange_weiss_50", "#f9c89b", 30),
+    "himmel": ("blau_weiss_25", "#bccbee", 225),
+    "rosa": ("rot_weiss_50", "#f4b3b8", 350),
+    "hellgelb": ("gelb_weiss_75", "#f6e58a", 55),
+    "hellgrau": ("schwarz_weiss_25", "#d6d6d6", None),
+}
+
+
+def _pastell_abstand(farbe, name):
+    r, g, b = (c / 255 for c in hex_zu_rgb(farbe))
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    grau = s < 0.2 or l < 0.12 or l > 0.92
+    ton = PASTELLE[name][2]
+    if ton is None:
+        return 0 if grau else 100
+    if grau:
+        return 200
+    d = abs(h * 360 - ton) % 360
+    # Kräftige Farben haben Vorrang vor blassen (Braun vor Orange beim Apricot)
+    return min(d, 360 - d) + (1 - s) * 20
+
+
+def kalender_pastelle(farben):
+    """Ordnet jeder Kalenderfarbe einen Pastellton zu, möglichst jedem Kalender
+    einen eigenen: die ähnlichsten Paare zuerst, erst danach werden Töne geteilt."""
+    paare = sorted((_pastell_abstand(f, n), i, n) for i, f in enumerate(farben) for n in PASTELLE)
+    zuordnung, vergeben = {}, set()
+    for _, i, name in paare:
+        if i not in zuordnung and name not in vergeben:
+            zuordnung[i] = name
+            vergeben.add(name)
+    for _, i, name in paare:
+        zuordnung.setdefault(i, name)
+    return [zuordnung[i] for i in range(len(farben))]
