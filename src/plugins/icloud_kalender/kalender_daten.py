@@ -217,7 +217,12 @@ def baue_naechstes(termine, jetzt, tz, zeitformat="24h"):
             label, wann = "Als Nächstes", countdown((t.start - jetzt).total_seconds() / 60)
         else:
             label, wann = "Als Nächstes", tag_bezeichnung(start_tag, heute)
-        held = _eintrag(t, format_zeit(t.start, zeitformat)) | {"label": label, "wann": wann, "laeuft": laeuft}
+        # Liegt der Termin nicht heute, steht sein Tag groß darüber – sonst wirkt er wie ein Termin von heute
+        tag = "" if laeuft or start_tag == heute else tag_bezeichnung(start_tag, heute).split(",")[0]
+        held = _eintrag(t, format_zeit(t.start, zeitformat)) | {
+            "label": label, "wann": wann, "laeuft": laeuft, "tag": tag,
+            "datum": f"{WOCHENTAGE[start_tag.weekday()]} {start_tag.day}. {MONATE[start_tag.month - 1]}",
+        }
 
     ohne = {id(kandidaten[0])} if kandidaten else set()
     morgen_beginn = tagesbeginn(morgen, tz)

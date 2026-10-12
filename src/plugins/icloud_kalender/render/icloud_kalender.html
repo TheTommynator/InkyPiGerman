@@ -16,25 +16,31 @@
   {% if ansicht == "naechstes" %}
   {# ---------- Widgets: der nächste Termin groß, daneben heute und morgen ---------- #}
   <section class="held">
+    {% if daten.held and daten.held.tag %}
+    {# Termin an einem anderen Tag: dessen Datum oben, der Tag groß über der Uhrzeit #}
+    <div class="ober">{{ daten.held.datum }}</div>
+    <div class="held-tag">{{ daten.held.tag }}</div>
+    {% else %}
     <div class="ober">{{ daten.wochentag }} {{ daten.datum }}{% if daten.ganztag %}<span> · {{ ganztag_text(daten.ganztag) }}</span>{% endif %}</div>
+    {% endif %}
     {% if daten.held %}
-    <div class="held-zeit">{{ daten.held.zeit }}</div>
+    <div class="held-zeit{% if daten.held.tag %} mit-tag{% endif %}">{{ daten.held.zeit }}</div>
     <div class="held-titel">{{ daten.held.titel }}</div>
-    <div class="pille akzent-pille">{{ daten.held.wann }}</div>
+    {% if not daten.held.tag %}<div class="pille akzent-pille">{{ daten.held.wann }}</div>{% endif %}
     {% else %}
     <div class="held-leer">Keine Termine in den nächsten Tagen</div>
     {% endif %}
   </section>
   <section class="kachel ueberlauf" data-mehr="weitere" style="background: {{ kachel_a }};">
-    <div class="label eintrag">Später heute</div>
+    <div class="label eintrag">{% if daten.held_heute %}Später heute{% else %}Heute{% endif %}</div>
     {% for t in daten.spaeter %}
     <div class="zeile eintrag"><b>{{ t.zeit }}</b><span>{{ t.titel }}</span></div>
     {% else %}
-    <div class="zeile eintrag frei">nichts mehr</div>
+    <div class="zeile eintrag frei">{% if daten.held_heute %}nichts mehr{% else %}keine Termine mehr{% endif %}</div>
     {% endfor %}
   </section>
   <section class="kachel ueberlauf" data-mehr="weitere" style="background: {{ kachel_b }};">
-    <div class="label eintrag">Morgen</div>
+    <div class="label eintrag">{% if daten.held and daten.held.tag == "Morgen" %}Außerdem morgen{% else %}Morgen{% endif %}</div>
     {% for t in daten.morgen %}
     <div class="zeile eintrag"><b>{{ t.zeit }}</b><span>{{ t.titel }}</span></div>
     {% else %}

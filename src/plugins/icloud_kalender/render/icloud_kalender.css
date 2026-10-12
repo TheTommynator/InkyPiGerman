@@ -130,6 +130,17 @@ body {
     margin-top: auto;
 }
 
+/* Tag eines Termins, der nicht heute ist – in der Akzentfarbe, damit er sofort auffällt */
+.held-tag {
+    margin-top: auto;
+    font-size: 3.6em;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--akzent);
+}
+
+.held-zeit.mit-tag { margin-top: 0.05em; }
+
 .held-titel {
     font-size: 3.07em;
     font-weight: 700;
@@ -180,7 +191,7 @@ body {
 
 .ansicht-naechstes.hochformat {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .ansicht-naechstes.hochformat .held { grid-row: auto; }
