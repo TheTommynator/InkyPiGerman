@@ -65,15 +65,15 @@
 <div class="form-group">
     <label class="form-label">Ansicht</label>
     <div class="button-group" id="ikAnsichtWahl">
-        <button type="button" data-value="naechstes" onclick="ikAnsichtWaehlen(this.dataset.value)">Als Nächstes</button>
-        <button type="button" data-value="wochenzettel" onclick="ikAnsichtWaehlen(this.dataset.value)">Wochenzettel</button>
-        <button type="button" data-value="tagesblatt" onclick="ikAnsichtWaehlen(this.dataset.value)">Tagesblatt</button>
+        <button type="button" data-value="naechstes" onclick="ikAnsichtWaehlen(this.dataset.value)">Widgets</button>
+        <button type="button" data-value="wochenzettel" onclick="ikAnsichtWaehlen(this.dataset.value)">Wochenkarten</button>
+        <button type="button" data-value="tagesblatt" onclick="ikAnsichtWaehlen(this.dataset.value)">Kalenderblatt</button>
     </div>
     <input type="hidden" name="ansicht" id="ansicht" value="naechstes">
 </div>
-<div class="ik-hinweis" data-ansichten="naechstes">Der nächste Termin ganz groß mit Countdown, daneben der Rest von heute und morgen, unten ein kurzer Ausblick auf die Woche.</div>
-<div class="ik-hinweis" data-ansichten="wochenzettel">Die nächsten acht Tage ab heute als kurze Listen; Ferien, Urlaub und andere mehrtägige Termine stehen einmal darüber.</div>
-<div class="ik-hinweis" data-ansichten="tagesblatt">Großes Datum und alle Termine von heute; Vergangenes wird durchgestrichen, darunter eine Zeile für morgen.</div>
+<div class="ik-hinweis" data-ansichten="naechstes">Der nächste Termin groß auf einer schwarzen Kachel mit Countdown, daneben Kacheln für später heute und morgen.</div>
+<div class="ik-hinweis" data-ansichten="wochenzettel">Die nächsten acht Tage als Karten, jeder Termin als Pille in der Farbe seines Kalenders; Ferien, Urlaub und andere mehrtägige Termine stehen einmal darüber.</div>
+<div class="ik-hinweis" data-ansichten="tagesblatt">Das Kalender-Icon mit dem heutigen Datum, daneben die Termine von heute mit Jetzt-Linie; darunter eine Zeile für morgen.</div>
 <div class="ik-hinweis">Tipp: Im Zeitplan kannst du mehrere Instanzen mit verschiedenen Ansichten abwechseln lassen.</div>
 
 <div class="form-group nowrap">
@@ -86,11 +86,11 @@
 </div>
 
 <div class="form-group nowrap">
-    <label for="akzentfarbe" class="form-label">Akzentfarbe (nächster Termin)</label>
+    <label for="akzentfarbe" class="form-label">Akzentfarbe (heute &amp; jetzt)</label>
     <input type="color" id="akzentfarbe" name="akzentfarbe" class="color-picker" value="#e0393e">
 </div>
 
-<div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ ist alles Schwarz auf Weiß, nur die Akzentfarbe wird zu reinem Rot, Grün oder Schwarz. Schrift wird ohne Graustufen gezeichnet – so bleibt alles ohne Punktraster scharf.</div>
+<div class="ik-hinweis" data-thema="eink">Bei „E-Ink (7 Farben)“ bekommt jeder Kalender einen ruhigen Pastellton (Mint, Apricot, Graublau, Rosé, Hellgelb, Hellgrau) als festes Punktmuster des Displays, möglichst nah an seiner iCloud-Farbe. Die Akzentfarbe wird zu reinem Rot, Grün oder Schwarz; Schrift bleibt ohne Graustufen scharf.</div>
 
 <div class="form-group nowrap">
     <label for="schriftgroesse" class="form-label">Schriftgröße</label>

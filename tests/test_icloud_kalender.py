@@ -13,7 +13,7 @@ from plugins.icloud_kalender.icloud_caldav import (  # noqa: E402
 )
 from plugins.icloud_kalender.kalender_daten import (  # noqa: E402
     EINK_PALETTEN, Termin, ansicht_aus, baue_naechstes, baue_tagesblatt, baue_wochenzettel,
-    countdown, eink_palette, naechste_farbe, normalisiere_url, spanne, tag_kurz,
+    countdown, eink_palette, kalender_pastelle, naechste_farbe, normalisiere_url, spanne, tag_kurz,
     termine_am_tag, zeitraum,
 )
 
@@ -134,11 +134,6 @@ def test_als_naechstes_zeigt_den_naechsten_termin_gross():
     # Morgen: das neu beginnende Turnier, dann die Uhrzeiten
     assert [(t["zeit"], t["titel"]) for t in daten["morgen"]] == [
         ("", "Denmark Open"), ("18:00", "Max Training"), ("19:30", "Mariella Training")]
-    # Ausblick ab übermorgen, je Tag zusammengefasst; Ferien und Turnier erscheinen nicht erneut
-    assert daten["ausblick"] == [
-        {"tag": "Mi", "titel": ["Hamburg", "Masked Singer"]},
-        {"tag": "Fr", "titel": ["Winterreifen"]},
-    ]
 
 
 def test_als_naechstes_laufender_termin_und_morgen():
@@ -153,12 +148,12 @@ def test_als_naechstes_laufender_termin_und_morgen():
     assert [t["titel"] for t in daten["morgen"]] == ["Denmark Open", "Mariella Training"]
 
     leer = baue_naechstes([], zeit(MO, 9), TZ)
-    assert leer["held"] is None and leer["morgen"] == [] and leer["ausblick"] == []
+    assert leer["held"] is None and leer["morgen"] == []
 
 
 def test_wochenzettel_acht_tage_ab_heute():
     daten = baue_wochenzettel(beispiel(), zeit(MO, 11), TZ)
-    assert (daten["bereich"], daten["kw"]) == ("12.–19. Oktober", 42)
+    assert (daten["monat"], daten["bereich"], daten["kw"]) == ("Oktober", "12.–19. Oktober", 42)
     # Mehrtägige Ganztagstermine einmal oben, nicht an jedem Tag
     assert [(b["titel"], b["spanne"]) for b in daten["band"]] == [
         ("Ferien", "bis Sa"), ("Urlaub", "bis Fr"), ("Denmark Open", "Di–So")]
@@ -186,9 +181,12 @@ def test_tagesblatt():
     daten = baue_tagesblatt(beispiel(), zeit(MO, 12, 30), TZ)
     assert (daten["wochentag"], daten["nummer"], daten["monat"]) == ("Montag", 12, "Oktober")
     assert [(g["titel"], g["spanne"]) for g in daten["ganztag"]] == [("Ferien", "bis Sa"), ("Urlaub", "bis Fr")]
-    assert [(t["zeit"], t["vorbei"], t["laeuft"], t["naechst"]) for t in daten["termine"]] == [
-        ("8:15", True, False, False), ("12:00", False, True, True),
-        ("15:05", False, False, False), ("19:30", False, False, False)]
+    assert [(t["zeit"], t["vorbei"], t["laeuft"], t["naechst"], t["wann"]) for t in daten["termine"]] == [
+        ("8:15", True, False, False, ""), ("12:00", False, True, True, "noch bis 13:30"),
+        ("15:05", False, False, False, ""), ("19:30", False, False, False, "")]
+    assert (daten["jahr"], daten["jetzt"]) == (2026, "12:30")
+    # Vor dem Termin: Countdown statt „noch bis“
+    assert baue_tagesblatt(beispiel(), zeit(MO, 11), TZ)["termine"][1]["wann"] == "in 1 Std."
     assert daten["morgen"] == ["Denmark Open", "18:00 Max Training", "19:30 Mariella Training"]
 
     leer = baue_tagesblatt([], zeit(MO, 9), TZ)
@@ -587,3 +585,24 @@ def test_ein_kaputtes_konto_stoert_die_anderen_nicht(monkeypatch):
     with pytest.raises(RuntimeError, match="Nicole: iCloud-Anmeldung"):
         plugin.icloud_kalender({"icloudKalender[]": ["Privat"], "icloudKonto[]": ["2"]},
                                Geraet(ZWEI_KONTEN), start, ende)
+
+
+def test_kalender_bekommen_eigene_pastelltoene():
+    # Max' Kalender: zwei orange, Braun, Gelb, Violett, Grün
+    toene = kalender_pastelle(["#ff9500", "#a2845e", "#ffcc00", "#ff9500", "#cc73e1", "#63da38"])
+    assert toene[0] == "apricot" and toene[2] == "hellgelb" and toene[4] == "himmel" and toene[5] == "mint"
+    assert len(set(toene)) == 6
+    assert kalender_pastelle(["#ff2968", "#1badf8", "#000000"]) == ["rosa", "himmel", "hellgrau"]
+    # Mehr Kalender als Töne: dann teilen sie sich Töne
+    assert len(kalender_pastelle(["#ff0000"] * 9)) == 9
+    assert kalender_pastelle([]) == []
+
+
+def test_eintraege_tragen_die_kalenderfarbe():
+    termine = beispiel()
+    termine[4].farbe = "#123456"  # Zahnarzt
+    termine[1].farbe = "#abcdef"  # Urlaub
+    woche = baue_wochenzettel(termine, zeit(MO, 11), TZ)
+    assert woche["tage"][0]["termine"][0]["farbe"] == "#123456"
+    assert woche["band"][1]["farbe"] == "#abcdef"
+    assert baue_tagesblatt(termine, zeit(MO, 11), TZ)["ganztag"][1]["farbe"] == "#abcdef"

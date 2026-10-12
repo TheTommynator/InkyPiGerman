@@ -21,10 +21,10 @@ from plugins.base_plugin.base_plugin import BasePlugin
 from plugins.icloud_kalender.icloud_caldav import ICloudCalDAV, waehle_kalender
 from zugangsdaten import ICLOUD_KONTEN, icloud_konten
 from plugins.icloud_kalender.kalender_daten import (
-    Termin, ansicht_aus, baue_naechstes, baue_tagesblatt, baue_wochenzettel,
-    naechste_farbe, normalisiere_url, tagesbeginn, zeitraum,
+    PASTELLE, Termin, ansicht_aus, baue_naechstes, baue_tagesblatt, baue_wochenzettel,
+    kalender_pastelle, naechste_farbe, normalisiere_url, tagesbeginn, zeitraum,
 )
-from utils.eink_farben import palette, pigmente_runden
+from utils.eink_farben import css_flaeche, palette, pigmente_runden
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +69,22 @@ class ICloudKalender(BasePlugin):
                 logger.error(f"iCloud-Konto fehlgeschlagen: {e}")
                 fehler.append(str(e))
 
+        thema = settings.get("thema") or "eink"
+        akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
+        pigmente = palette(device_config.get_config("display_type", default=""))
+        # Jeder Kalender bekommt einen ruhigen Pastellton als Hintergrund seiner Termine;
+        # auf E-Ink als festes Pixelmuster aus Pigment und Weiß (kein Rauschen des Treibers)
+        for k, name in zip(kalender, kalender_pastelle([k["farbe"] for k in kalender])):
+            mischung, css, _ = PASTELLE[name]
+            k["farbe"] = css_flaeche(mischung, pigmente) if thema == "eink" else css
+        if thema == "eink":
+            # Akzent nur in einer reinen Farbe, die auch als Schrift taugt
+            akzent = naechste_farbe(akzent, [pigmente["rot"], pigmente["gruen"], pigmente["schwarz"]])
+
         termine, ladefehler = self.lade_termine(kalender, tz, von, bis)
         fehler += ladefehler
         if fehler and not termine and len(ladefehler) == len(kalender):
             raise RuntimeError(f"Kalender konnte nicht abgerufen werden: {fehler[0]}")
-
-        thema = settings.get("thema") or "eink"
-        akzent = settings.get("akzentfarbe") or STANDARD_AKZENT
-        pigmente = palette(device_config.get_config("display_type", default=""))
-        if thema == "eink":
-            # Schwarz auf Weiß, Akzent nur in einer reinen Farbe, die auch als Schrift taugt
-            akzent = naechste_farbe(akzent, [pigmente["rot"], pigmente["gruen"], pigmente["schwarz"]])
 
         bauen = {"naechstes": baue_naechstes, "wochenzettel": baue_wochenzettel, "tagesblatt": baue_tagesblatt}
         daten = bauen[ansicht](termine, jetzt, tz, zeitformat)
@@ -91,6 +96,9 @@ class ICloudKalender(BasePlugin):
             "daten": daten,
             "thema": thema,
             "akzent": akzent,
+            # Feste Töne für die Kacheln „Später heute“ und „Morgen“
+            "kachel_a": self.flaeche("apricot", thema, pigmente),
+            "kachel_b": self.flaeche("mint", thema, pigmente),
             "basis_px": round((breite + hoehe) / 1280 * 15 * skala, 2),
             "hochformat": hoehe > breite,
             "fehler": len(fehler),
@@ -102,8 +110,14 @@ class ICloudKalender(BasePlugin):
             raise RuntimeError("Screenshot fehlgeschlagen, bitte Logs prüfen.")
         if thema == "eink":
             # Kanten auf reine Pigmente runden: scharfe Schrift ohne Punktraster
+            # (die Pastellmuster bestehen schon aus reinen Pigmenten und bleiben)
             image = pigmente_runden(image, pigmente)
         return image
+
+    @staticmethod
+    def flaeche(name, thema, pigmente):
+        mischung, css, _ = PASTELLE[name]
+        return css_flaeche(mischung, pigmente) if thema == "eink" else css
 
     @staticmethod
     def jetzt(tz):
