@@ -428,9 +428,43 @@ def test_apple_farbe():
 def test_kalenderauswahl_nach_namen():
     alle = [{"name": "Privat"}, {"name": "Arbeit"}, {"name": "Familie"}]
     assert waehle_kalender(alle, "") == alle
+    assert waehle_kalender(alle, []) == alle
     assert waehle_kalender(alle, " familie, Privat ") == [{"name": "Familie"}, {"name": "Privat"}]
-    with pytest.raises(CalDAVFehler, match="nicht gefunden: Urlaub .vorhanden: Privat, Arbeit, Familie"):
+    with pytest.raises(CalDAVFehler, match="nicht gefunden: „Urlaub“ .vorhanden: „Privat“, „Arbeit“, „Familie“"):
         waehle_kalender(alle, "Privat, Urlaub")
+
+
+ECHTE_NAMEN = [{"name": n} for n in (
+    "Teneriffa (Max, Nicole & Mariella)", "Nicole Kalender (Ersatz print)", "Job, Sport & Co",
+    "Schule KL/VK-Test/HA-Kontrolle", "Termine rund um Louis, Max & Mariella", "Date Max & Nicole", "Privat",
+)]
+
+
+def test_kalendernamen_mit_komma_als_liste():
+    gewaehlt = waehle_kalender(ECHTE_NAMEN, ["Job, Sport & Co", "Privat", "job, sport & co"])
+    assert [k["name"] for k in gewaehlt] == ["Job, Sport & Co", "Privat"]
+
+
+def test_alte_komma_auswahl_mit_kommanamen():
+    # So stand es nach zweimaligem Antippen in den Einstellungen
+    gewaehlt = waehle_kalender(ECHTE_NAMEN, "Job, Sport & Co, Job, Sport & Co")
+    assert [k["name"] for k in gewaehlt] == ["Job, Sport & Co"]
+    gewaehlt = waehle_kalender(ECHTE_NAMEN, "Privat, Teneriffa (Max, Nicole & Mariella),job,sport & co")
+    assert [k["name"] for k in gewaehlt] == ["Privat", "Teneriffa (Max, Nicole & Mariella)", "Job, Sport & Co"]
+    with pytest.raises(CalDAVFehler, match="„Job“"):
+        waehle_kalender(ECHTE_NAMEN, "Job")
+
+
+def test_icloud_auswahl_aus_einstellungen():
+    for modul in ("icalendar", "recurring_ical_events", "requests", "PIL", "jinja2"):
+        pytest.importorskip(modul)
+    from plugins.icloud_kalender.icloud_kalender import ICloudKalender
+
+    assert ICloudKalender.icloud_auswahl({"icloudKalender[]": ["Job, Sport & Co"], "icloudKalender": "x"}) == \
+        ["Job, Sport & Co"]
+    assert ICloudKalender.icloud_auswahl({"icloudKalender[]": "Privat"}) == ["Privat"]
+    assert ICloudKalender.icloud_auswahl({"icloudKalender": "Privat, Arbeit"}) == "Privat, Arbeit"
+    assert ICloudKalender.icloud_auswahl({}) == ""
 
 
 class Geraet:
