@@ -38,7 +38,8 @@ def device_page():
     from display import loeschen
     return render_template('settings_geraet.html', device_settings=device_config.get_config(),
                            timezones=sorted(pytz.all_timezones_set),
-                           clear_threshold=loeschen.schwelle(device_config))
+                           clear_threshold=loeschen.schwelle(device_config),
+                           clear_max_updates=loeschen.max_bilder(device_config))
 
 @settings_bp.route('/settings/bild')
 def image_page():
@@ -56,6 +57,7 @@ ORIENTATIONS = ("horizontal", "vertical")
 TIME_FORMATS = ("24h", "12h")
 CLEAR_MODES = ("immer", "automatisch", "nie")
 CLEAR_THRESHOLD_LIMITS = (5, 100)
+CLEAR_MAX_UPDATES_LIMITS = (1, 500)
 
 def validate_device_settings(data, timezones):
     """Prüft einzelne Geräteeinstellungen (nur die übergebenen) und gibt sie für device.json zurück.
@@ -92,6 +94,14 @@ def validate_device_settings(data, timezones):
         if not CLEAR_THRESHOLD_LIMITS[0] <= threshold <= CLEAR_THRESHOLD_LIMITS[1]:
             raise ValueError("Die Schwelle zum Löschen muss zwischen {} und {} % liegen.".format(*CLEAR_THRESHOLD_LIMITS))
         settings["display_clear_threshold"] = threshold
+    if "display_clear_max_updates" in data:
+        try:
+            max_updates = int(data["display_clear_max_updates"])
+        except (TypeError, ValueError):
+            raise ValueError("Die Zahl der Bilder ohne Löschen muss eine ganze Zahl sein.")
+        if not CLEAR_MAX_UPDATES_LIMITS[0] <= max_updates <= CLEAR_MAX_UPDATES_LIMITS[1]:
+            raise ValueError("Die Zahl der Bilder ohne Löschen muss zwischen {} und {} liegen.".format(*CLEAR_MAX_UPDATES_LIMITS))
+        settings["display_clear_max_updates"] = max_updates
     for key in ("inverted_image", "log_system_stats"):
         if key in data:
             settings[key] = bool(data[key])

@@ -1,7 +1,7 @@
-"""Löschtest: zeigt alltagsnahe Bildwechsel ohne Löschen und schlägt danach die
-Schwelle für „Altes Bild löschen: Automatisch“ vor.
+"""Löschtest: zeigt alltagsnahe Abläufe ohne Löschen und schlägt danach die
+Grenzen für „Altes Bild löschen: Automatisch“ vor.
 
-Die Szenen und die Auswertung stehen in utils/loeschtest.py.
+Die Abläufe und die Auswertung stehen in utils/loeschtest.py.
 """
 
 import logging
@@ -55,9 +55,10 @@ def _error(message, status=400):
 @loeschtest_bp.route('/settings/loeschtest')
 def loeschtest_page():
     device_config = current_app.config['DEVICE_CONFIG']
-    szenen = [{key: s[key] for key in ("id", "name", "beschreibung", "hinweis")} for s in loeschtest.SZENEN]
-    return render_template('loeschtest.html', szenen=szenen,
-                           modus=loeschen.modus(device_config), schwelle=loeschen.schwelle(device_config))
+    ablaeufe = [{**{key: a[key] for key in ("id", "name", "beschreibung", "hinweis")},
+                 "schritte": loeschtest.schritte(a["id"])} for a in loeschtest.ABLAEUFE]
+    return render_template('loeschtest.html', ablaeufe=ablaeufe, modus=loeschen.modus(device_config),
+                           schwelle=loeschen.schwelle(device_config), max_bilder=loeschen.max_bilder(device_config))
 
 
 @loeschtest_bp.route('/settings/loeschtest/start', methods=['POST'])
@@ -78,28 +79,27 @@ def loeschtest_start():
 
 @loeschtest_bp.route('/settings/loeschtest/zeigen', methods=['POST'])
 def loeschtest_zeigen():
-    """Zeigt das Ausgangsbild einer Szene (mit Löschen) oder das Folgebild (ohne Löschen)."""
+    """Zeigt einen Schritt eines Ablaufs: Schritt 0 sauber (mit Löschen), danach ohne Löschen."""
     data = request.get_json(silent=True) or {}
-    teil = data.get("bild")
-    if teil not in ("vorher", "nachher"):
-        return _error("Unbekanntes Bild.")
     try:
-        s = loeschtest.szene(data.get("szene"))
-    except ValueError as e:
-        return _error(str(e))
+        a = loeschtest.ablauf(data.get("ablauf"))
+        schritt = int(data.get("schritt"))
+        groesse = _groesse(current_app.config['DEVICE_CONFIG'])
+        image = loeschtest.bild(a["id"], schritt, groesse)
+    except (TypeError, ValueError) as e:
+        return _error(str(e) if isinstance(e, ValueError) and str(e) else "Unbekannter Schritt.")
 
-    device_config = current_app.config['DEVICE_CONFIG']
-    vorher, nachher = loeschtest.bilder(s["id"], _groesse(device_config))
-    anteil = loeschen.anteil_geaendert(loeschen.pigment_bild(vorher), loeschen.pigment_bild(nachher))
+    verlauf = loeschtest.verlauf_bis(a["id"], schritt, groesse, image)
+    gesamt = loeschtest.schritte(a["id"])
+    titel = (f"Löschtest: {a['name']} (sauberes Ausgangsbild)" if schritt == 0
+             else f"Löschtest: {a['name']} (Bild {schritt} von {gesamt} ohne Löschen)")
     try:
-        if teil == "vorher":
-            _show(vorher, f"Löschtest: {s['name']} (Ausgangsbild)", clear=True)
-        else:
-            _show(nachher, f"Löschtest: {s['name']} (ohne Löschen)", clear=False)
+        _show(image, titel, clear=(schritt == 0))
     except Exception as e:
         logger.exception("Löschtest: Anzeige fehlgeschlagen")
         return _error(f"Das Testbild konnte nicht angezeigt werden: {e}", 500)
-    return jsonify({"success": True, "anteil": round(anteil * 100, 1)})
+    return jsonify({"success": True, "bilder": verlauf.bilder, "flaeche": loeschtest.flaeche(verlauf),
+                    "schritte": gesamt})
 
 
 @loeschtest_bp.route('/settings/loeschtest/auswerten', methods=['POST'])
@@ -108,12 +108,13 @@ def loeschtest_auswerten():
     ergebnisse = []
     for eintrag in data.get("ergebnisse") or []:
         try:
-            ergebnisse.append({"anteil": float(eintrag["anteil"]), "bewertung": str(eintrag["bewertung"])})
+            ergebnisse.append({"ablauf": str(eintrag["ablauf"]), "bilder": int(eintrag["bilder"]),
+                               "flaeche": float(eintrag["flaeche"]), "bewertung": str(eintrag["bewertung"])})
         except (KeyError, TypeError, ValueError):
             return _error("Ungültige Ergebnisse.")
     empfehlung = loeschtest.empfehlung(ergebnisse)
     if empfehlung is None:
-        return _error("Bewerte mindestens eine Szene.")
+        return _error("Bewerte mindestens ein Bild.")
     return jsonify({"success": True, "empfehlung": empfehlung})
 
 

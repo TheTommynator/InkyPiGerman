@@ -77,7 +77,7 @@ class DisplayManager:
         self._phase_plan = _load_phase_plan(device_config.get_config("display_phase_seconds", default=None))
         self._skip_phases = set()     # Schritte, die diesmal entfallen (z. B. Löschen)
         self._clear_reason = None     # warum automatisch gelöscht wird
-        self._shown_pigments = None   # das zuletzt angezeigte Bild, verkleinert, für den Vergleich
+        self._verlauf = loeschen.Verlauf()  # was seit dem letzten Löschen angezeigt wurde
      
         display_type = device_config.get_config("display_type", default="inky")
 
@@ -279,9 +279,10 @@ class DisplayManager:
         if clear_override is not None:
             clear, reason = bool(clear_override), "Löschtest"
         else:
-            clear, reason = loeschen.entscheiden(mode, self._shown_pigments, pigments,
+            clear, reason = loeschen.entscheiden(mode, self._verlauf, pigments,
                                                  self.device_config.get_config("last_display_clear", default=None),
-                                                 schwelle=loeschen.schwelle(self.device_config))
+                                                 schwelle=loeschen.schwelle(self.device_config),
+                                                 max_bilder=loeschen.max_bilder(self.device_config))
         logger.info(f"Altes Bild löschen: {'ja' if clear else 'nein'} | mode: {mode} | {reason or ''}")
         with self._status_lock:
             self._clear_reason = reason if clear else None
@@ -290,6 +291,6 @@ class DisplayManager:
 
         # Pass to the concrete instance to render to the device.
         self.display.display_image(image, image_settings)
-        self._shown_pigments = pigments
+        self._verlauf.merken(pigments, clear)
         if clear:
             self.device_config.update_value("last_display_clear", time.time())

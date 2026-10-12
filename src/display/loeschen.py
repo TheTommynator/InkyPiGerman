@@ -18,10 +18,14 @@ STANDARD_MODUS = "immer"
 
 # Spätestens nach dieser Zeit wird wieder gelöscht, damit sich keine Reste ansammeln
 MAX_SEKUNDEN_OHNE_LOESCHEN = 24 * 60 * 60
-# Ab diesem Anteil geänderter Bildpunkte (Prozent) gilt ein Wechsel als groß;
-# anpassbar über den Löschtest (Einstellung „display_clear_threshold“)
+# Ab diesem Anteil der Fläche (Prozent), der sich seit dem letzten Löschen verändert hat,
+# wird gelöscht; anpassbar über den Löschtest (Einstellung „display_clear_threshold“)
 STANDARD_SCHWELLE = 30
 MIN_SCHWELLE, MAX_SCHWELLE = 5, 100
+# Spätestens nach so vielen Bildern ohne Löschen wird gelöscht, weil sich Reste
+# auch an denselben Stellen stapeln (z. B. Uhr jede Minute; „display_clear_max_updates“)
+STANDARD_MAX_BILDER = 20
+MIN_MAX_BILDER, MAX_MAX_BILDER = 1, 500
 
 # Vergleichsgröße und Farben, mit denen der Waveshare-Treiber die Pigmente anspricht
 VERGLEICH_BREITE = 160
@@ -33,13 +37,22 @@ def modus(device_config):
     return value if value in MODI else STANDARD_MODUS
 
 
-def schwelle(device_config):
-    """Schwelle in Prozent für „automatisch“."""
+def _ganzzahl(device_config, key, standard, grenzen):
     try:
-        value = int(device_config.get_config("display_clear_threshold", default=STANDARD_SCHWELLE))
+        value = int(device_config.get_config(key, default=standard))
     except (TypeError, ValueError):
-        return STANDARD_SCHWELLE
-    return max(MIN_SCHWELLE, min(MAX_SCHWELLE, value))
+        return standard
+    return max(grenzen[0], min(grenzen[1], value))
+
+
+def schwelle(device_config):
+    """Schwelle in Prozent der Fläche für „automatisch“."""
+    return _ganzzahl(device_config, "display_clear_threshold", STANDARD_SCHWELLE, (MIN_SCHWELLE, MAX_SCHWELLE))
+
+
+def max_bilder(device_config):
+    """Höchstens so viele Bilder hintereinander ohne Löschen."""
+    return _ganzzahl(device_config, "display_clear_max_updates", STANDARD_MAX_BILDER, (MIN_MAX_BILDER, MAX_MAX_BILDER))
 
 
 def pigment_bild(image):
@@ -60,17 +73,54 @@ def anteil_geaendert(vorher, nachher):
     return sum(1 for x, y in zip(a, b) if x != y) / max(1, len(a))
 
 
-def entscheiden(modus, vorher, nachher, letztes_loeschen, jetzt=None, schwelle=STANDARD_SCHWELLE):
+class Verlauf:
+    """Was seit dem letzten Löschen auf dem Display passiert ist.
+
+    Reste entstehen nicht nur bei einem großen Wechsel, sie sammeln sich auch über
+    viele kleine Wechsel an. Deshalb zählt der Verlauf die Bilder seit dem Löschen
+    und merkt sich jede Stelle, die sich seitdem mindestens einmal geändert hat.
+    """
+
+    def __init__(self):
+        self.letztes = None   # zuletzt angezeigtes Bild (pigment_bild)
+        self.maske = None     # 1 = Stelle hat sich seit dem Löschen geändert
+        self.bilder = 0       # Bilder seit dem Löschen (ohne das gelöschte selbst)
+
+    def flaeche_nach(self, nachher):
+        """Anteil der Fläche (0–1), der sich seit dem Löschen geändert hätte, käme `nachher` ohne Löschen."""
+        if self.letztes is None or self.letztes.size != nachher.size:
+            return 1.0
+        a, b = self.letztes.tobytes(), nachher.tobytes()
+        maske = self.maske or bytes(len(a))
+        geaendert = sum(1 for m, x, y in zip(maske, a, b) if m or x != y)
+        return geaendert / max(1, len(a))
+
+    def merken(self, nachher, geloescht):
+        """Nach dem Anzeigen: neues Bild übernehmen."""
+        if geloescht or self.letztes is None or self.letztes.size != nachher.size:
+            self.maske = bytes(len(nachher.tobytes()))
+            self.bilder = 0
+        else:
+            a, b = self.letztes.tobytes(), nachher.tobytes()
+            self.maske = bytes(1 if m or x != y else 0 for m, x, y in zip(self.maske, a, b))
+            self.bilder += 1
+        self.letztes = nachher
+
+
+def entscheiden(modus, verlauf, nachher, letztes_loeschen, jetzt=None,
+                schwelle=STANDARD_SCHWELLE, max_bilder=STANDARD_MAX_BILDER):
     """Ob gelöscht wird, und warum (für die Statusanzeige).
 
     Automatisch wird gelöscht, wenn
       - das vorige Bild unbekannt ist (nach einem Neustart),
-      - seit dem letzten Löschen mehr als 24 Stunden vergangen sind, oder
-      - sich mindestens `schwelle` Prozent der Bildpunkte ändern (z. B. Wechsel zu einer anderen Ansicht).
-    Kleine Änderungen wie eine neue Uhrzeit oder ein aktualisierter Wert brauchen kein Löschen.
+      - seit dem letzten Löschen mehr als 24 Stunden vergangen sind,
+      - schon `max_bilder` Bilder ohne Löschen kamen (Reste stapeln sich), oder
+      - sich seit dem letzten Löschen insgesamt mindestens `schwelle` Prozent der Fläche
+        geändert haben (z. B. Wechsel zu einer anderen Ansicht).
 
     Args:
-        vorher, nachher: Ergebnisse von ``pigment_bild`` (vorher darf None sein).
+        verlauf: ``Verlauf`` des Displays.
+        nachher: ``pigment_bild`` des neuen Bilds.
         letztes_loeschen: Zeitpunkt (time.time()) des letzten Löschens oder None.
     """
     if modus == "immer":
@@ -78,11 +128,13 @@ def entscheiden(modus, vorher, nachher, letztes_loeschen, jetzt=None, schwelle=S
     if modus == "nie":
         return False, None
     jetzt = time.time() if jetzt is None else jetzt
-    if vorher is None:
+    if verlauf.letztes is None:
         return True, "erstes Bild seit dem Start"
     if letztes_loeschen is None or jetzt - letztes_loeschen >= MAX_SEKUNDEN_OHNE_LOESCHEN:
         return True, "tägliche Auffrischung"
-    anteil = anteil_geaendert(vorher, nachher)
-    if anteil * 100 >= schwelle:
-        return True, f"großer Bildwechsel ({round(anteil * 100)} %)"
-    return False, f"nur {round(anteil * 100)} % geändert"
+    if verlauf.bilder >= max_bilder:
+        return True, f"{verlauf.bilder} Bilder ohne Löschen"
+    flaeche = round(verlauf.flaeche_nach(nachher) * 100)
+    if flaeche >= schwelle:
+        return True, f"{flaeche} % der Fläche verändert"
+    return False, f"{flaeche} % der Fläche verändert, Bild {verlauf.bilder + 1} ohne Löschen"
