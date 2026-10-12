@@ -323,3 +323,41 @@ def muster_einsetzen(bild, farben, toleranz=6.0):
         pixel[maske & nimm_a] = _rgb(farben[mischung.a])
         pixel[maske & ~nimm_a] = _rgb(farben[mischung.b])
     return Image.fromarray(pixel, "RGB")
+
+
+def pigmente_runden(bild, farben):
+    """Setzt jedes Pixel, das kein Pigment ist, auf ein Pigment – ohne Raster.
+
+    Der Browser glättet Schrift- und Rundungskanten mit Zwischentönen. Der
+    Displaytreiber würde sie zu einem Punktraster zerlegen; Schrift wirkt dann
+    ausgefranst und blass. Ein Kantenpixel liegt zwischen zwei Pigmenten (z. B.
+    Grau zwischen Schwarz und Weiß) und wird der näheren Seite zugeschlagen.
+    Mischflächen vorher mit ``muster_einsetzen`` auflösen.
+    """
+    import numpy as np
+    from PIL import Image
+
+    pixel = np.array(bild.convert("RGB"))
+    werte = pixel.astype(np.float32)
+    pigmente = [np.array(_rgb(f), dtype=np.float32) for f in dict.fromkeys(farben.values())]
+
+    rein = np.zeros(pixel.shape[:2], dtype=bool)
+    for c in pigmente:
+        rein |= np.all(werte == c, axis=-1)
+    kandidaten = np.nonzero(~rein)
+    w = werte[kandidaten]
+    if not len(w):
+        return bild
+
+    bester_abstand = np.full(len(w), np.inf, dtype=np.float32)
+    ziel = np.zeros_like(w)
+    for i, a in enumerate(pigmente):
+        for b in pigmente[i + 1:]:
+            d = b - a
+            t = np.clip(((w - a) @ d) / float(d @ d), 0.0, 1.0)
+            abstand = np.linalg.norm(w - (a + t[:, None] * d), axis=-1)
+            besser = abstand < bester_abstand
+            bester_abstand[besser] = abstand[besser]
+            ziel[besser] = np.where((t[besser] < 0.5)[:, None], a, b)
+    pixel[kandidaten] = ziel.astype(pixel.dtype)
+    return Image.fromarray(pixel, "RGB")

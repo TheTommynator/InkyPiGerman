@@ -1,4 +1,5 @@
-/* iCloud-Kalender – klares, ruhiges Layout, auch auf E-Ink gut lesbar */
+/* iCloud-Kalender – große, kräftige Schrift und volle Farbflächen,
+   damit alles auch auf einem kleinen E-Ink-Display gut lesbar ist. */
 
 body {
     margin: 0 !important;
@@ -17,20 +18,22 @@ body {
 .kal {
     --bg: #ffffff;
     --ink: #111418;
-    --muted: #6b7079;
-    --line: #dfe2e6;
-    --soft: #f3f4f6;
-    --radius: 0.5em;
+    --muted: #5d636c;
+    --line: #d5d9de;
+    --band: #f2f3f5;
+    --radius: 0.35em;
+    --achse: 2.6em;
 
     width: 100%;
     height: 100%;
-    padding: 1.1em 1.3em 1em;
+    padding: 0.8em 1em 0.8em;
     display: flex;
     flex-direction: column;
-    gap: 0.8em;
+    gap: 0.55em;
     background: var(--bg);
     color: var(--ink);
-    font-family: "Jost", sans-serif;
+    font-family: "JostVar", "Jost", sans-serif;
+    font-weight: 500;
     line-height: 1.2;
     overflow: hidden;
 }
@@ -38,71 +41,19 @@ body {
 .kal.thema-dunkel {
     --bg: #101214;
     --ink: #f3f4f6;
-    --muted: #9aa0a8;
-    --line: #2c3036;
-    --soft: #1c1f23;
+    --muted: #a3a9b1;
+    --line: #33383f;
+    --band: #1a1d21;
 }
 
-/* E-Ink mit 7 Farben: nur Schwarz, Weiß und reine Farben. Grau und
-   Transparenz würde das Display rastern – das ergibt unruhige Punktmuster. */
+/* E-Ink mit 7 Farben: Text nur Schwarz (oder Weiß auf Farbe), Linien schwarz.
+   Grau gibt es nur als Fläche (--band, festes Pixelmuster). Alle Schrift
+   mindestens halbfett, dünne Striche würden auf dem Display ausfransen. */
 .kal.thema-eink {
-    --bg: #ffffff;
     --ink: #000000;
     --muted: #000000;
     --line: #000000;
-    --soft: #ffffff;
-}
-
-/* Hilfslinien als lockere Punktreihen: ein schwarzes Pixel alle 4 Pixel */
-.thema-eink .linie {
-    border-top: none;
-    height: 1px;
-    background: repeating-linear-gradient(to right, #000 0 1px, transparent 1px 4px);
-}
-
-.thema-eink .spalte {
-    border-left: none;
-    background-image: repeating-linear-gradient(to bottom, #000 0 1px, transparent 1px 4px);
-    background-size: 1px 100%;
-    background-repeat: no-repeat;
-}
-
-.thema-eink .tag-raster .spalte {
-    background-image: none;
-}
-
-.thema-eink .untertitel,
-.thema-eink .stunde,
-.thema-eink .stand,
-.thema-eink .tageskopf .wt,
-.thema-eink .monat-kopf,
-.thema-eink .v-zeit,
-.thema-eink .m-zeit,
-.thema-eink .ganztag-label,
-.thema-eink .mehr {
-    font-weight: normal;
-}
-
-.thema-eink .zelle.fremd .zelle-nr,
-.thema-eink .zelle.fremd .zelle-termine {
-    opacity: 1;
-}
-
-.thema-eink .zelle.fremd .zelle-nr {
-    font-weight: normal;
-}
-
-.thema-eink .dezent .karte-innen,
-.thema-eink .chip.dezent {
-    background: #ffffff;
-    color: #000000;
-    border: 2px solid var(--farbe);
-    border-left-width: 0.3em;
-}
-
-.thema-eink .karte-zeit,
-.thema-eink .karte-ort {
-    opacity: 1;
+    font-weight: 600;
 }
 
 /* ---------- Kopfzeile ---------- */
@@ -110,28 +61,29 @@ body {
 .kopf {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    gap: 1.5em;
+    align-items: flex-start;
+    gap: 1.2em;
     flex: 0 0 auto;
 }
 
 .titelblock {
     display: flex;
     align-items: baseline;
-    gap: 0.6em;
+    gap: 0.45em;
     min-width: 0;
     white-space: nowrap;
 }
 
 .kopf h1 {
-    font-size: 2.3em;
-    font-weight: bold;
+    font-size: 2.2em;
+    font-weight: 750;
     letter-spacing: -0.02em;
     line-height: 1;
 }
 
 .untertitel {
     font-size: 1.15em;
+    font-weight: 550;
     color: var(--muted);
 }
 
@@ -139,7 +91,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.3em;
+    gap: 0.25em;
     min-width: 0;
 }
 
@@ -148,37 +100,39 @@ body {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 0.25em 1em;
-    font-size: 0.85em;
+    gap: 0.25em;
+    font-size: 0.78em;
+    font-weight: 650;
 }
 
 .legende li {
-    display: flex;
-    align-items: center;
-    gap: 0.4em;
     white-space: nowrap;
+    padding: 0.08em 0.5em 0.12em;
+    border-radius: var(--radius);
+    background: var(--farbe);
+    color: var(--kontrast);
 }
 
-.legende .punkt {
-    width: 0.75em;
-    height: 0.75em;
-    border-radius: 50%;
+.legende li.dezent {
+    background: var(--bg);
+    color: var(--ink);
+    box-shadow: inset 0.35em 0 0 var(--farbe);
+    padding-left: 0.6em;
 }
 
 .stand {
-    font-size: 0.7em;
+    font-size: 0.72em;
     color: var(--muted);
 }
 
 .warnung {
     color: var(--akzent);
-    font-weight: bold;
+    font-weight: 700;
 }
 
 .hochformat .kopf {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5em;
+    gap: 0.4em;
 }
 
 .hochformat .meta {
@@ -189,7 +143,427 @@ body {
     justify-content: flex-start;
 }
 
-/* ---------- Termine ---------- */
+/* ---------- Farbflächen: Karten, Chips, Balken ---------- */
+
+.chip,
+.balken-termin,
+.karte-innen,
+.a-karte,
+.v-titel,
+.m-termin {
+    background: var(--farbe);
+    color: var(--kontrast);
+    border-radius: var(--radius);
+}
+
+/* Stil „Dezent“: weiße Fläche, Kalenderfarbe als breiter Streifen links */
+.chip.dezent,
+.balken-termin.dezent,
+.dezent .karte-innen,
+.a-karte.dezent,
+.v-titel.dezent,
+.m-termin.dezent {
+    background: var(--tint);
+    color: var(--ink);
+    box-shadow: inset 0.4em 0 0 var(--farbe);
+    padding-left: 0.65em;
+}
+
+.thema-eink .chip.dezent,
+.thema-eink .balken-termin.dezent,
+.thema-eink .dezent .karte-innen,
+.thema-eink .a-karte.dezent,
+.thema-eink .v-titel.dezent,
+.thema-eink .m-termin.dezent {
+    background: #ffffff;
+    outline: 1px solid #000000;
+    outline-offset: -1px;
+}
+
+.chip,
+.balken-termin {
+    font-size: 0.85em;
+    font-weight: 650;
+    padding: 0.1em 0.45em 0.14em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.balken-termin {
+    margin: 0 2px;
+}
+
+/* Läuft der Termin über den Rand der Woche hinaus, endet der Balken offen */
+.balken-termin.links-offen {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    margin-left: 0;
+}
+
+.balken-termin.rechts-offen {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    margin-right: 0;
+}
+
+.mehr {
+    font-size: 0.75em;
+    font-weight: 650;
+    color: var(--muted);
+    padding: 0 0.3em;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Gemeinsames Spaltenraster für Wochentage */
+.tage-raster {
+    display: grid;
+    grid-template-columns: repeat(var(--tage), minmax(0, 1fr));
+}
+
+/* ---------- Tagesansicht: Liste ---------- */
+
+.tag-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 1.2em;
+}
+
+.tag-heute {
+    flex: 1.35 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+
+.ganztag-reihe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3em;
+    flex: 0 0 auto;
+}
+
+.ganztag-reihe .chip {
+    font-size: 1em;
+    padding: 0.2em 0.6em 0.25em;
+}
+
+.agenda {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45em;
+}
+
+.a-termin {
+    display: flex;
+    align-items: stretch;
+    gap: 0.6em;
+    flex: 0 0 auto;
+}
+
+.a-zeit {
+    width: 3.9em;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    line-height: 1.1;
+}
+
+.a-von {
+    font-size: 1.25em;
+    font-weight: 700;
+}
+
+.a-bis {
+    font-size: 0.78em;
+    color: var(--muted);
+}
+
+.a-jetzt {
+    font-size: 0.72em;
+    font-weight: 750;
+    color: var(--akzent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.a-karte {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0.35em 0.65em 0.4em;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.05em;
+}
+
+.a-titel {
+    font-size: 1.2em;
+    font-weight: 700;
+    line-height: 1.15;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.a-ort {
+    font-size: 0.8em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Vorbei: nur noch Umriss, die Farbe gehört den kommenden Terminen */
+.a-termin.vorbei .a-karte {
+    background: var(--bg);
+    color: var(--ink);
+    box-shadow: none;
+    outline: 1px solid var(--line);
+    outline-offset: -1px;
+}
+
+.a-termin.vorbei .a-titel {
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+}
+
+.a-termin.laeuft .a-karte {
+    outline: 3px solid var(--akzent);
+    outline-offset: 1px;
+}
+
+.leer {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    font-weight: 700;
+}
+
+.leer.klein {
+    font-size: 1em;
+    color: var(--muted);
+    align-items: flex-start;
+}
+
+.vorschau {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45em;
+    padding-left: 1.2em;
+    border-left: 2px solid var(--line);
+}
+
+.vorschau h2 {
+    font-size: 0.9em;
+    font-weight: 750;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.vorschau-liste {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+}
+
+.vorschau-tag {
+    font-weight: 750;
+    font-size: 0.95em;
+    margin-top: 0.4em;
+    padding-bottom: 0.1em;
+    border-bottom: 1.5px solid var(--line);
+    flex: 0 0 auto;
+}
+
+.vorschau-tag:first-child {
+    margin-top: 0;
+}
+
+.vorschau-termin {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    font-size: 0.9em;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+.v-zeit {
+    width: 3.6em;
+    flex: 0 0 auto;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.v-titel {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-weight: 650;
+    padding: 0.05em 0.45em 0.1em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.v-zeit.v-bis {
+    font-size: 0.75em;
+}
+
+.chip-bis {
+    font-weight: 550;
+}
+
+.vorschau-leer {
+    font-size: 0.9em;
+}
+
+.hochformat .tag-layout {
+    flex-direction: column;
+}
+
+.hochformat .vorschau {
+    padding-left: 0;
+    border-left: none;
+    padding-top: 0.8em;
+    border-top: 2px solid var(--line);
+}
+
+/* ---------- Wochenansicht ---------- */
+
+.woche-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+}
+
+.wochen-kopf,
+.ganztag-bereich {
+    display: flex;
+    flex: 0 0 auto;
+}
+
+.wochen-kopf .tage-raster,
+.ganztag-bereich .tage-raster {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.achsen-platz {
+    width: var(--achse);
+    flex: 0 0 auto;
+}
+
+.tageskopf {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em;
+}
+
+.tageskopf .wt {
+    font-size: 0.85em;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tageskopf .nr {
+    font-size: 1.2em;
+    font-weight: 750;
+    min-width: 1.7em;
+    height: 1.7em;
+    line-height: 1.7em;
+    text-align: center;
+    border-radius: 50%;
+}
+
+.tageskopf.heute .nr {
+    background: var(--akzent);
+    color: #ffffff;
+}
+
+.tageskopf.heute .wt {
+    color: var(--akzent);
+}
+
+.balken-raster {
+    row-gap: 2px;
+    padding-bottom: 0.3em;
+    border-bottom: 2px solid var(--line);
+}
+
+.raster {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+
+.zeitachse {
+    position: relative;
+    width: var(--achse);
+    flex: 0 0 auto;
+}
+
+.stunde {
+    position: absolute;
+    right: 0.45em;
+    font-size: 0.75em;
+    font-weight: 650;
+    white-space: nowrap;
+    line-height: 1;
+    padding-top: 0.15em;
+}
+
+.spalten {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+}
+
+/* Jede zweite Stunde als ruhige graue Fläche statt vieler Linien */
+.band {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: var(--band);
+}
+
+.spalte {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    border-left: 1px solid var(--line);
+}
+
+.baender {
+    position: absolute;
+    inset: 0;
+}
+
+.baender + .spalte {
+    border-left: none;
+}
 
 .karte {
     position: absolute;
@@ -199,25 +573,11 @@ body {
 
 .karte-innen {
     height: 100%;
-    border-radius: var(--radius);
-    padding: 0.25em 0.45em;
+    padding: 0.2em 0.4em;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 0.05em;
-}
-
-.gefuellt .karte-innen,
-.chip.gefuellt {
-    background: var(--farbe);
-    color: var(--kontrast);
-}
-
-.dezent .karte-innen,
-.chip.dezent {
-    background: var(--tint);
-    color: #111418;
-    border-left: 0.25em solid var(--farbe);
 }
 
 .karte-innen > * {
@@ -225,8 +585,8 @@ body {
 }
 
 .karte-titel {
-    font-weight: bold;
-    font-size: 0.82em;
+    font-weight: 700;
+    font-size: 0.85em;
     line-height: 1.15;
     overflow: hidden;
     display: -webkit-box;
@@ -237,8 +597,7 @@ body {
 
 .karte-zeit,
 .karte-ort {
-    font-size: 0.7em;
-    opacity: 0.85;
+    font-size: 0.75em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -273,308 +632,31 @@ body {
     display: none;
 }
 
-.chip {
-    font-size: 0.75em;
-    font-weight: bold;
-    border-radius: 0.4em;
-    padding: 0.2em 0.5em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.mehr {
-    font-size: 0.68em;
-    color: var(--muted);
-    padding: 0.1em 0.2em 0;
-    white-space: nowrap;
-}
-
-/* ---------- Zeitraster (Tag & Woche) ---------- */
-
-.raster {
-    position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-}
-
-.zeitachse {
-    position: relative;
-    width: 3.2em;
-    flex: 0 0 auto;
-}
-
-.stunde {
-    position: absolute;
-    right: 0.55em;
-    transform: translateY(-50%);
-    font-size: 0.68em;
-    color: var(--muted);
-    white-space: nowrap;
-}
-
-.spalten {
-    position: relative;
-    flex: 1 1 auto;
-    display: flex;
-}
-
-.spalte {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    border-left: 1px solid var(--line);
-}
-
-.spalte.heute {
-    background: var(--soft);
-}
-
-.linie {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 1px solid var(--line);
-}
-
 .jetzt {
     position: absolute;
     left: -0.3em;
     right: 0;
     height: 0;
-    border-top: 2px solid var(--akzent);
-    z-index: 5;
+    border-top: 3px solid var(--akzent);
+    margin-top: -1px;
+    z-index: 7;
 }
 
 .jetzt::before {
     content: "";
     position: absolute;
     left: 0;
-    top: -0.35em;
-    width: 0.6em;
-    height: 0.6em;
+    top: -0.4em;
+    width: 0.7em;
+    height: 0.7em;
     margin-top: -1px;
     border-radius: 50%;
     background: var(--akzent);
 }
 
-.ganztag-zeile {
-    display: flex;
-    flex: 0 0 auto;
-    padding-bottom: 0.35em;
-    border-bottom: 1px solid var(--line);
-}
-
-.achsen-platz,
-.ganztag-label {
-    width: 3.2em;
-    flex: 0 0 auto;
-}
-
-.ganztag-label {
-    font-size: 0.68em;
-    color: var(--muted);
-    text-align: right;
-    padding-right: 0.8em;
-    align-self: center;
-    width: 4.7em;
-}
-
-.ganztag-zelle {
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2em;
-    padding: 0 2px;
-    max-height: 3.5em;
-    overflow: hidden;
-}
-
-.ganztag-zeile.tag .ganztag-zelle {
-    flex-direction: row;
-    flex-wrap: wrap;
-}
-
-/* ---------- Tagesansicht ---------- */
-
-.tag-layout {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    gap: 1.4em;
-}
-
-.tag-raster {
-    flex: 1.6 1 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5em;
-}
-
-.tag-raster .spalte {
-    border-left: none;
-}
-
-.leer {
-    position: absolute;
-    inset: 0 0 0 3.2em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 1.1em;
-}
-
-.vorschau {
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5em;
-    padding-left: 1.4em;
-    border-left: 1px solid var(--line);
-}
-
-.vorschau h2 {
-    font-size: 1em;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-}
-
-.vorschau-liste {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35em;
-}
-
-.vorschau-tag {
-    font-weight: bold;
-    font-size: 0.9em;
-    margin-top: 0.45em;
-}
-
-.vorschau-tag:first-child {
-    margin-top: 0;
-}
-
-.vorschau-termin {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
-    font-size: 0.85em;
-    min-width: 0;
-}
-
-.balken {
-    width: 0.28em;
-    align-self: stretch;
-    min-height: 1.1em;
-    border-radius: 0.2em;
-    background: var(--farbe);
-    flex: 0 0 auto;
-}
-
-.v-zeit {
-    color: var(--muted);
-    width: 4.6em;
-    flex: 0 0 auto;
-    white-space: nowrap;
-    font-size: 0.9em;
-}
-
-.v-titel {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.vorschau-leer {
-    color: var(--muted);
-    font-size: 0.85em;
-}
-
-.hochformat .tag-layout {
-    flex-direction: column;
-}
-
-.hochformat .tag-raster,
-.hochformat .vorschau {
-    min-height: 0;
-}
-
-.hochformat .vorschau {
-    padding-left: 0;
-    border-left: none;
-    padding-top: 0.9em;
-    border-top: 1px solid var(--line);
-}
-
-/* ---------- Wochenansicht ---------- */
-
-.woche-layout {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4em;
-}
-
-.wochen-kopf {
-    display: flex;
-    flex: 0 0 auto;
-}
-
-.tageskopf {
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35em;
-}
-
-.tageskopf .wt {
-    font-size: 0.8em;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.tageskopf .nr {
-    font-size: 1.15em;
-    font-weight: bold;
-    min-width: 1.8em;
-    height: 1.8em;
-    line-height: 1.8em;
-    text-align: center;
-    border-radius: 50%;
-}
-
-.tageskopf.heute .nr {
-    background: var(--akzent);
-    color: #ffffff;
-}
-
-.tageskopf.heute .wt {
-    color: var(--akzent);
-    font-weight: bold;
-}
-
-.vergangen .nr {
-    color: var(--muted);
-}
-
 .hochformat .tageskopf {
     flex-direction: column;
-    gap: 0.1em;
+    gap: 0;
 }
 
 /* ---------- Monatsansicht ---------- */
@@ -584,110 +666,104 @@ body {
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.3em;
+    gap: 0.2em;
 }
 
 .monat-kopf {
-    display: grid;
-    grid-template-columns: repeat(var(--tage), 1fr);
     font-size: 0.8em;
-    color: var(--muted);
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding-left: 0.5em;
+}
+
+.monat-kopf > div {
+    padding-left: 0.4em;
 }
 
 .monat-raster {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(var(--tage), 1fr);
-    grid-template-rows: repeat(var(--wochen), 1fr);
-    border-top: 1px solid var(--line);
-    border-left: 1px solid var(--line);
+    border-top: 2px solid var(--line);
 }
 
-.zelle {
-    min-width: 0;
+.m-woche {
     min-height: 0;
-    border-right: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-    padding: 0.2em 0.25em 0.2em;
-    display: flex;
-    flex-direction: column;
-    gap: 0.15em;
     overflow: hidden;
+    row-gap: 2px;
+    align-content: start;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 2px;
 }
 
-.zelle.heute {
-    background: var(--soft);
+.m-zelle {
+    border-left: 1px solid var(--line);
+    min-width: 0;
 }
 
-.zelle-nr {
-    flex: 0 0 auto;
+.m-zelle:first-child {
+    border-left: none;
+}
+
+.m-zelle.fremd {
+    background: var(--band);
+}
+
+.m-nr {
     font-size: 0.85em;
-    font-weight: bold;
+    font-weight: 700;
+    padding: 0.15em 0.3em 0;
+    z-index: 1;
 }
 
-.zelle-nr span {
+.m-nr span {
     display: inline-block;
-    min-width: 1.7em;
-    height: 1.7em;
-    line-height: 1.7em;
+    min-width: 1.6em;
+    height: 1.6em;
+    line-height: 1.6em;
     text-align: center;
     border-radius: 50%;
 }
 
-.zelle.heute .zelle-nr span {
+.m-nr.heute span {
     background: var(--akzent);
     color: #ffffff;
 }
 
-.zelle.fremd .zelle-nr,
-.zelle.fremd .zelle-termine {
-    opacity: 0.4;
+.m-nr.fremd {
+    font-weight: 550;
 }
 
-.zelle-termine {
-    flex: 1 1 auto;
+.m-woche .balken-termin {
+    font-size: 0.78em;
+    z-index: 1;
+}
+
+.m-liste {
     min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 0.12em;
-}
-
-.zelle-termine .chip {
-    font-size: 0.68em;
-    padding: 0.1em 0.4em;
-    border-radius: 0.3em;
+    gap: 2px;
+    padding: 0 2px;
+    z-index: 1;
 }
 
 .m-termin {
-    display: flex;
-    align-items: center;
-    gap: 0.3em;
-    font-size: 0.68em;
+    font-size: 0.78em;
+    font-weight: 600;
+    padding: 0.05em 0.35em 0.1em;
     white-space: nowrap;
-    min-width: 0;
-    padding: 0 0.15em;
-}
-
-.m-termin .punkt {
-    width: 0.6em;
-    height: 0.6em;
-    border-radius: 50%;
-    background: var(--farbe);
+    overflow: hidden;
+    text-overflow: ellipsis;
     flex: 0 0 auto;
 }
 
 .m-zeit {
-    color: var(--muted);
-    flex: 0 0 auto;
+    font-weight: 750;
 }
 
-.m-titel {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: bold;
+.m-liste .mehr {
+    font-size: 0.72em;
+    padding: 0 0.15em;
 }
