@@ -10,6 +10,7 @@ Nur Standardbibliothek; die HTTP-Anfragen laufen über eine requests-Session,
 die von außen übergeben wird (in Tests eine Attrappe).
 """
 
+import re
 import xml.etree.ElementTree as ET
 from datetime import timezone
 from urllib.parse import urljoin
@@ -158,14 +159,53 @@ class ICloudCalDAV:
         return daten
 
 
+def _schluessel(name):
+    """Vergleichsform eines Namens: Groß/klein und Leerzeichen um Kommas egal."""
+    return re.sub(r"\s*,\s*", ",", name.strip()).casefold()
+
+
+def _namen_aus_text(text, bekannte):
+    """Zerlegt eine (ältere) Komma-Liste, ohne Namen zu zerreißen, die selbst ein
+    Komma enthalten (z. B. „Job, Sport & Co“): Es gewinnt jeweils der längste
+    Abschnitt, der einem vorhandenen Kalender entspricht."""
+    teile = text.split(",")
+    namen, i = [], 0
+    while i < len(teile):
+        for j in range(len(teile), i, -1):
+            kandidat = ",".join(teile[i:j])
+            if j - i > 1 and _schluessel(kandidat) in bekannte:
+                namen.append(kandidat.strip())
+                i = j
+                break
+        else:
+            namen.append(teile[i].strip())
+            i += 1
+    return [n for n in namen if n]
+
+
 def waehle_kalender(alle, auswahl):
-    """Filtert nach den eingestellten Namen (Komma-getrennt, Groß/klein egal); leer = alle."""
-    namen = [n.strip() for n in (auswahl or "").split(",") if n.strip()]
+    """Filtert die iCloud-Kalender nach der Auswahl; leer = alle.
+
+    `auswahl` ist eine Liste von Namen (aktuelle Einstellungen) oder ein
+    Komma-getrennter Text (ältere Einstellungen). Groß/klein ist egal.
+    """
+    nach_name = {_schluessel(k["name"]): k for k in alle}
+    if isinstance(auswahl, (list, tuple)):
+        namen = [str(n).strip() for n in auswahl if str(n).strip()]
+    else:
+        namen = _namen_aus_text(auswahl or "", nach_name)
     if not namen:
         return alle
-    nach_name = {k["name"].casefold(): k for k in alle}
-    fehlend = [n for n in namen if n.casefold() not in nach_name]
+
+    fehlend = [n for n in namen if _schluessel(n) not in nach_name]
     if fehlend:
-        vorhanden = ", ".join(k["name"] for k in alle) or "keine"
-        raise CalDAVFehler(f"iCloud-Kalender nicht gefunden: {', '.join(fehlend)} (vorhanden: {vorhanden})")
-    return [nach_name[n.casefold()] for n in namen]
+        zitiert = lambda liste: ", ".join(f"„{n}“" for n in liste)  # noqa: E731
+        vorhanden = zitiert(k["name"] for k in alle) or "keine"
+        raise CalDAVFehler(f"iCloud-Kalender nicht gefunden: {zitiert(fehlend)} (vorhanden: {vorhanden})")
+
+    gewaehlt = []
+    for n in namen:
+        kalender = nach_name[_schluessel(n)]
+        if kalender not in gewaehlt:
+            gewaehlt.append(kalender)
+    return gewaehlt

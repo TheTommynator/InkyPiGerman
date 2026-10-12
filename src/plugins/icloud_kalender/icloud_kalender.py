@@ -154,7 +154,7 @@ class ICloudKalender(BasePlugin):
             raise RuntimeError("iCloud-Zugangsdaten fehlen – bitte unter Einstellungen → Zugangsdaten eintragen")
 
         client = ICloudCalDAV(requests.Session(), apple_id.strip(), passwort.strip())
-        ausgewaehlt = waehle_kalender(client.kalender(), settings.get("icloudKalender"))
+        ausgewaehlt = waehle_kalender(client.kalender(), self.icloud_auswahl(settings))
 
         def lader(url):
             return lambda: [icalendar.Calendar.from_ical(text) for text in client.termine_ical(url, start, ende)]
@@ -165,6 +165,14 @@ class ICloudKalender(BasePlugin):
             "farbe": k["farbe"] or STANDARD_FARBE,
             "laden": lader(k["url"]),
         } for k in ausgewaehlt]
+
+    @staticmethod
+    def icloud_auswahl(settings):
+        """Ausgewählte iCloud-Kalender: Liste (aktuell) oder Komma-Text (ältere Einstellungen)."""
+        if "icloudKalender[]" in settings:
+            auswahl = settings["icloudKalender[]"]
+            return [auswahl] if isinstance(auswahl, str) else auswahl
+        return settings.get("icloudKalender") or ""
 
     def lade_termine(self, kalender, tz, von, bis):
         """Lädt alle Kalender; ein nicht erreichbarer Kalender bricht die Anzeige nicht ab."""

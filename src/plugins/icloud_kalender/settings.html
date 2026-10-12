@@ -13,6 +13,15 @@
     }
     .ik-auswahl button.an { border-color: var(--accent-primary); box-shadow: inset 0 0 0 1px var(--accent-primary); }
     .ik-auswahl span { width: 0.7rem; height: 0.7rem; border-radius: 50%; }
+    .ik-gewaehlt { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+    .ik-gewaehlt .ik-chip {
+        display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.4rem 0.25rem 0.75rem;
+        border-radius: 999px; background: var(--accent-primary, #1abc9c); color: #fff;
+    }
+    .ik-gewaehlt .ik-chip button {
+        border: none; background: transparent; color: inherit; cursor: pointer; font: inherit; padding: 0 0.3rem;
+    }
+    .ik-gewaehlt .ik-alle { opacity: 0.75; }
 </style>
 
 <div class="form-group">
@@ -22,8 +31,10 @@
 </div>
 <div id="ikIcloud">
     <div class="form-group">
-        <label for="icloudKalender" class="form-label">iCloud-Kalender</label>
-        <input type="text" id="icloudKalender" name="icloudKalender" class="form-input" placeholder="leer = alle, sonst z. B. Privat, Arbeit">
+        <label class="form-label">iCloud-Kalender</label>
+        <div class="ik-gewaehlt" id="ikGewaehlt"></div>
+        <div id="ikGewaehltFelder"></div>
+        <input type="hidden" name="icloudKalender" id="icloudKalenderAlt" value="">
     </div>
     <div class="ik-hinweis" id="ikKonto">Prüfe Zugangsdaten …</div>
     <button type="button" class="form-input collapsible" id="ikKalenderLaden">Meine iCloud-Kalender laden</button>
@@ -148,22 +159,78 @@
                 ? `Apple-ID und app-spezifisches Passwort sind hinterlegt ✓ <a href="${IK_ZUGANG_URL}">Ändern</a>`
                 : `Noch keine iCloud-Zugangsdaten hinterlegt. <a href="${IK_ZUGANG_URL}">Jetzt unter Zugangsdaten eintragen →</a>`;
             document.getElementById('ikKalenderLaden').hidden = !ok;
+            // Alte Komma-Auswahl gleich auf die echten Kalendernamen abbilden
+            if (ok && document.getElementById('icloudKalenderAlt').value) ikKalenderLaden();
         } catch (e) {
             box.textContent = 'Status der Zugangsdaten konnte nicht geladen werden.';
         }
     }
 
-    function ikGewaehlt() {
-        return document.getElementById('icloudKalender').value
-            .split(',').map(n => n.trim()).filter(Boolean);
+    // Ausgewählte iCloud-Kalender. Jeder Name wird als eigenes Feld gespeichert,
+    // damit auch Namen mit Komma (z. B. „Job, Sport & Co“) heil bleiben.
+    let ikNamen = [];
+    const ikGleich = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+    function ikGewaehltZeigen() {
+        const box = document.getElementById('ikGewaehlt');
+        const felder = document.getElementById('ikGewaehltFelder');
+        box.innerHTML = '';
+        felder.innerHTML = '';
+        if (!ikNamen.length) {
+            const alle = document.createElement('span');
+            alle.className = 'ik-alle';
+            alle.textContent = 'Alle Kalender – zum Eingrenzen unten laden und antippen';
+            box.appendChild(alle);
+        }
+        ikNamen.forEach(name => {
+            const chip = document.createElement('span');
+            chip.className = 'ik-chip';
+            const weg = document.createElement('button');
+            weg.type = 'button';
+            weg.title = 'Entfernen';
+            weg.textContent = '✕';
+            weg.onclick = () => ikAuswahlUmschalten(name);
+            chip.append(document.createTextNode(name), weg);
+            box.appendChild(chip);
+
+            const feld = document.createElement('input');
+            feld.type = 'hidden';
+            feld.name = 'icloudKalender[]';
+            feld.value = name;
+            felder.appendChild(feld);
+        });
+        document.querySelectorAll('#ikAuswahl button').forEach(b =>
+            b.classList.toggle('an', ikNamen.some(n => ikGleich(n, b.dataset.name))));
     }
 
-    function ikAuswahlUmschalten(name, knopf) {
-        let namen = ikGewaehlt();
-        const vorhanden = namen.some(n => n.toLowerCase() === name.toLowerCase());
-        namen = vorhanden ? namen.filter(n => n.toLowerCase() !== name.toLowerCase()) : [...namen, name];
-        document.getElementById('icloudKalender').value = namen.join(', ');
-        knopf.classList.toggle('an', !vorhanden);
+    function ikAuswahlUmschalten(name) {
+        const vorhanden = ikNamen.some(n => ikGleich(n, name));
+        ikNamen = vorhanden ? ikNamen.filter(n => !ikGleich(n, name)) : [...ikNamen, name];
+        // Die alte Komma-Liste wird durch die neue Auswahl ersetzt
+        document.getElementById('icloudKalenderAlt').value = '';
+        ikGewaehltZeigen();
+    }
+
+    // Gegenstück zu _namen_aus_text in icloud_caldav.py
+    function ikTextZuNamen(text, bekannte) {
+        const norm = t => t.trim().replace(/\s*,\s*/g, ',').toLowerCase();
+        const bekannt = new Map(bekannte.map(n => [norm(n), n]));
+        const teile = text.split(',');
+        const namen = [];
+        let i = 0;
+        while (i < teile.length) {
+            let treffer = false;
+            for (let j = teile.length; j > i + 1; j--) {
+                const kandidat = norm(teile.slice(i, j).join(','));
+                if (bekannt.has(kandidat)) { namen.push(bekannt.get(kandidat)); i = j; treffer = true; break; }
+            }
+            if (!treffer) {
+                const t = teile[i].trim();
+                if (t) namen.push(bekannt.get(norm(t)) || t);
+                i++;
+            }
+        }
+        return namen.filter((n, k) => namen.findIndex(m => ikGleich(m, n)) === k);
     }
 
     async function ikKalenderLaden() {
@@ -176,7 +243,13 @@
             const response = await fetch("{{ url_for('zugangsdaten.icloud_test') }}", { method: "POST" });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error);
-            const gewaehlt = ikGewaehlt().map(n => n.toLowerCase());
+            const namen = result.kalender.map(k => k.name);
+            // Ältere Auswahl (Komma-Text) auf die echten Namen abbilden
+            const alt = document.getElementById('icloudKalenderAlt').value;
+            if (alt && !ikNamen.length) {
+                ikNamen = ikTextZuNamen(alt, namen);
+                ikGewaehltZeigen();
+            }
             result.kalender.forEach(k => {
                 const b = document.createElement('button');
                 b.type = 'button';
@@ -184,10 +257,11 @@
                 const punkt = document.createElement('span');
                 punkt.style.background = k.farbe || '#2f6fde';
                 b.append(punkt, document.createTextNode(k.name));
-                b.classList.toggle('an', gewaehlt.includes(k.name.toLowerCase()));
-                b.onclick = () => ikAuswahlUmschalten(k.name, b);
+                b.dataset.name = k.name;
+                b.onclick = () => ikAuswahlUmschalten(k.name);
                 auswahl.appendChild(b);
             });
+            ikGewaehltZeigen();
         } catch (e) {
             auswahl.textContent = e.message;
         } finally {
@@ -256,7 +330,7 @@
         urls.forEach((url, i) => ikKalenderHinzufuegen(url, namen[i] || '', farben[i] || null));
         if (!urls.length && s.icloudAktiv !== 'true') ikKalenderHinzufuegen();
 
-        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse', 'icloudKalender'].forEach(feld => {
+        ['vonStunde', 'bisStunde', 'wochenstart', 'stil', 'thema', 'akzentfarbe', 'schriftgroesse'].forEach(feld => {
             if (s[feld]) document.getElementById(feld).value = s[feld];
         });
         ['wochenende', 'legende'].forEach(feld => {
@@ -268,6 +342,17 @@
         const icloud = s.icloudAktiv === 'true';
         document.getElementById('icloudAktiv').value = icloud ? 'true' : 'false';
         document.getElementById('icloudAktivBox').checked = icloud;
+        ikNamen = alsListe(s['icloudKalender[]']);
+        // Ältere Einstellungen: Komma-Text bleibt erhalten, bis die Kalender geladen sind
+        if (!ikNamen.length && s.icloudKalender) {
+            document.getElementById('icloudKalenderAlt').value = s.icloudKalender;
+            ikNamen = [];
+        }
+        ikGewaehltZeigen();
+        if (document.getElementById('icloudKalenderAlt').value) {
+            document.querySelector('#ikGewaehlt .ik-alle').textContent =
+                `Bisher: ${s.icloudKalender} – bitte Kalender laden und neu antippen`;
+        }
         ikIcloudUmschalten();
         ikKontoStatus();
         document.getElementById('ikKalenderLaden').addEventListener('click', ikKalenderLaden);
